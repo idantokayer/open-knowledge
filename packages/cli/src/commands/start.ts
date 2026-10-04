@@ -692,7 +692,14 @@ export async function runStartCommand(configArg: Config, opts: StartCommandOptio
   let booted: BootedStartServer;
   try {
     booted = await bootStartServer({
-      config,
+      // Pass the env-overlaid config (not the raw file-only `config`) so
+      // server-scoped env overrides — notably OK_READ_ONLY → server.readOnly —
+      // reach the MCP write-policy gate (principalFromConfig). Bind/port/idle
+      // are NOT taken from this config: they flow through the explicit
+      // host/port/bind/serverRuntime params below (derived from `runtime`),
+      // so the env layer is applied exactly once and OK_BIND/OK_ALLOW_EXTERNAL/
+      // PORT/OK_IDLE_SHUTDOWN are not double-applied.
+      config: envConfig,
       cwd,
       host,
       port,
