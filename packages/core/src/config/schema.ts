@@ -1143,10 +1143,10 @@ export const ConfigSchema = z.looseObject({
       readOnly: z
         .boolean()
         .register(fieldRegistry, {
-          scope: 'project',
+          scope: 'project-local',
           agentSettable: false,
           reload: 'boot',
-          defaultScope: 'project',
+          defaultScope: 'project-local',
           description:
             "Read-only mode. When true, every content-mutating MCP tool (write, edit, delete, move, install, import, checkpoint, restore_version, and lint with fix:true) is refused with a read-only error; read and search tools (exec, search, links, audit, history, skills, palette, config, preview_url, share_link, and plain lint) are unaffected. The gate covers MCP tools only — the web editor's own HTTP write routes (/api/agent-write-md etc.) are NOT affected by this flag. The server has no authentication of its own, so this is a posture control, not an authorization boundary. Default off (read-write). Read at server start; changing it requires a restart.",
         })

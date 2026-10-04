@@ -1,3 +1,4 @@
+import { OPEN_KNOWLEDGE_MCP_WRITE_TOOLS } from '@inkeep/open-knowledge-core';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { getCurrentMcpLogger, McpLogger } from './logger.ts';
@@ -304,5 +305,125 @@ describe('tool logging wrapper', () => {
       expect(ran).toBe(true);
       expect(result.isError ?? false).toBe(false);
     });
+
+    // --- Parametrized coverage (QA/Idan): the existing cases above prove the
+    // guard with ONE write tool (write) and ONE read tool (search). The guard
+    // is name-agnostic (membership in OPEN_KNOWLEDGE_MCP_WRITE_TOOLS, plus the
+    // lint({fix:true}) special case), so the loops below assert that property
+    // holds for EVERY write tool and a representative set of read tools, rather
+    // than trusting it by inspection. ---
+
+    // (a) Under a reader principal, every canonical write tool is refused and
+    // its real handler never runs.
+    test.each([...OPEN_KNOWLEDGE_MCP_WRITE_TOOLS])(
+      'reader: mutating tool %s is refused with isError and never runs',
+      async (toolName) => {
+        let handlerRan = false;
+        const handler = captureViaRegisterTool(toolName, { role: 'reader' }, async () => {
+          handlerRan = true;
+          return textPlusStructured('mutated', {});
+        });
+
+        const result = (await handler(...callArgs({ path: 'notes/x', content: 'hi' }))) as {
+          isError?: boolean;
+          content: { text: string }[];
+        };
+
+        expect(handlerRan).toBe(false);
+        expect(result.isError).toBe(true);
+        expect(result.content[0]?.text).toContain('read-only mode');
+        expect(result.content[0]?.text).toContain(`\`${toolName}\``);
+      },
+    );
+
+    // Guard against drift: the loop above must be exhaustive over the canonical
+    // write set (8 tools today). If core adds/removes a write tool, this fails
+    // until the coverage is re-confirmed.
+    test('the canonical write set is exactly the expected 8 tools', () => {
+      expect([...OPEN_KNOWLEDGE_MCP_WRITE_TOOLS].sort()).toEqual(
+        [
+          'checkpoint',
+          'delete',
+          'edit',
+          'import',
+          'install',
+          'move',
+          'restore_version',
+          'write',
+        ].sort(),
+      );
+    });
+
+    // (b) lint is the one argument-conditional case: fix:true mutates, plain
+    // lint reads. Already covered by the single case above; re-stated here as a
+    // named assertion so the a/b/c coverage map is explicit.
+    test('reader: lint({fix:true}) refused, lint({}) passes through (arg-conditional)', async () => {
+      let ranCount = 0;
+      const handler = captureViaRegisterTool('lint', { role: 'reader' }, async () => {
+        ranCount += 1;
+        return textPlusStructured('linted', {});
+      });
+
+      const fixResult = (await handler(...callArgs({ document: 'd', fix: true }))) as {
+        isError?: boolean;
+      };
+      expect(fixResult.isError).toBe(true);
+      expect(ranCount).toBe(0);
+
+      const plainResult = (await handler(...callArgs({}))) as { isError?: boolean };
+      expect(plainResult.isError ?? false).toBe(false);
+      expect(ranCount).toBe(1);
+    });
+
+    // (c) Under a reader principal, a representative set of read/search tools
+    // pass through untouched (not refused, real handler runs).
+    const READ_TOOLS = [
+      'search',
+      'exec',
+      'links',
+      'audit',
+      'history',
+      'skills',
+      'palette',
+      'config',
+      'preview_url',
+      'share_link',
+    ] as const;
+
+    test.each([...READ_TOOLS])(
+      'reader: read tool %s passes through untouched',
+      async (toolName) => {
+        let ran = false;
+        const handler = captureViaRegisterTool(toolName, { role: 'reader' }, async () => {
+          ran = true;
+          return textPlusStructured('ok', {});
+        });
+
+        const result = (await handler(...callArgs({ query: 'x', path: '.' }))) as {
+          isError?: boolean;
+        };
+        expect(ran).toBe(true);
+        expect(result.isError ?? false).toBe(false);
+      },
+    );
+
+    // (off) Under a writer principal (read-only OFF), every write tool runs
+    // normally — the gate adds nothing on the read-write posture.
+    test.each([...OPEN_KNOWLEDGE_MCP_WRITE_TOOLS])(
+      'writer: mutating tool %s runs normally (OFF-path parity)',
+      async (toolName) => {
+        let ran = false;
+        const handler = captureViaRegisterTool(toolName, { role: 'writer' }, async () => {
+          ran = true;
+          return textPlusStructured('ok', {});
+        });
+
+        const result = (await handler(...callArgs({ path: 'x', content: 'y' }))) as {
+          isError?: boolean;
+        };
+        expect(ran).toBe(true);
+        expect(result.isError ?? false).toBe(false);
+      },
+    );
   });
 });
