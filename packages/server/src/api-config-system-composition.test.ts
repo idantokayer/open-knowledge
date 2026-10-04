@@ -102,6 +102,7 @@ function buildConfigSystemRoutes(overrides: Partial<ConfigSystemRouteDeps> = {})
     installedAgentsCache: {
       probeAll: (async () => ({})) as ConfigSystemRouteDeps['installedAgentsCache']['probeAll'],
     },
+    getReadOnly: () => false,
     ...overrides,
   });
 }

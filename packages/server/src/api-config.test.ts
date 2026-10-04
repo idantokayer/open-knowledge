@@ -58,6 +58,21 @@ function buildExtension(projectDir: string | undefined) {
   });
 }
 
+// Mirrors server-factory's write-policy principal resolver: `server.readOnly`
+// ⇒ a reader principal. Threading one here lets us assert the posture reaches
+// the /api/config wire exactly as the HTTP write gate sees it.
+function buildExtensionWithReadOnly(projectDir: string | undefined, readOnly: boolean) {
+  return createApiExtension({
+    hocuspocus: {} as unknown as Parameters<typeof createApiExtension>[0]['hocuspocus'],
+    sessionManager: {} as unknown as Parameters<typeof createApiExtension>[0]['sessionManager'],
+    contentDir: projectDir ?? '/tmp/ok-no-project',
+    serverInstanceId: 'test-server',
+    getFileIndex: () => new Map(),
+    projectDir,
+    getWritePolicyPrincipal: () => ({ role: readOnly ? 'reader' : 'writer' }),
+  });
+}
+
 async function call(
   ext: ReturnType<typeof buildExtension>,
   method: string,
@@ -87,10 +102,12 @@ describe('GET /api/config (desktop / worktree collab server)', () => {
         collabUrl: string | null;
         previewUrl: string | null;
         port: number;
+        readOnly: boolean;
       };
       expect(body.collabUrl).toBe('ws://localhost:7777/collab');
       expect(body.previewUrl).toBeNull();
       expect(typeof body.port).toBe('number');
+      expect(body.readOnly).toBe(false);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -137,6 +154,32 @@ describe('GET /api/config (desktop / worktree collab server)', () => {
     expect(result.status).toBe(200);
     const body = JSON.parse(result.body) as { port: number };
     expect(body.port).toBe(0);
+  });
+});
+
+describe('GET /api/config read-only posture (server.readOnly wire)', () => {
+  test('reports readOnly:true when the server posture is read-only', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ok-config-'));
+    try {
+      const result = await call(buildExtensionWithReadOnly(dir, true), 'GET', '/api/config');
+      expect(result.status).toBe(200);
+      const body = JSON.parse(result.body) as { readOnly: boolean };
+      expect(body.readOnly).toBe(true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('reports readOnly:false when the server posture is read-write', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ok-config-'));
+    try {
+      const result = await call(buildExtensionWithReadOnly(dir, false), 'GET', '/api/config');
+      expect(result.status).toBe(200);
+      const body = JSON.parse(result.body) as { readOnly: boolean };
+      expect(body.readOnly).toBe(false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 

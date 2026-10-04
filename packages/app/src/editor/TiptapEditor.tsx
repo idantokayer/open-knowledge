@@ -48,6 +48,7 @@ import { anchorFromHash } from '@/lib/doc-hash';
 import { claimNoteWindowInitialFocus } from '@/lib/note-window-focus';
 import { mark } from '@/lib/perf';
 import { wrapExtensionsWithTiming } from '@/lib/perf/cold-mount-instrumentation';
+import { useReadOnlyMode } from '@/lib/read-only-mode';
 import { useIdentity } from '../presence/identity';
 import { registerEditor, unregisterEditor } from './active-editor';
 import { changedRangeIsOnScreen } from './agent-follow-scroll';
@@ -510,6 +511,16 @@ const TiptapEditorChrome: FC<TiptapEditorChromeProps> = ({
       setEditorContentRevision((revision) => revision + 1);
     }
   }, [editor, portalTarget]);
+
+  // Reflect the server read-only posture. `editor.setEditable` flips
+  // `editor.isEditable`, which TipTap auto-propagates to CodeBlockView, table,
+  // and trailing affordances. Precedent: ComposerMentionInput.tsx. Advisory
+  // only — the server already refuses the collab writes this would send.
+  const readOnly = useReadOnlyMode();
+  useEffect(() => {
+    const editable = !readOnly;
+    if (editor.isEditable !== editable) editor.setEditable(editable, false);
+  }, [editor, readOnly]);
   useEffect(() => {
     const docName = provider.configuration.name ?? null;
     setEditorDocName(editor, docName);

@@ -90,6 +90,14 @@ export interface ConfigSystemRouteDeps {
   getCurrentBranch: (() => string | null) | undefined;
   getReportedBranch: (() => string | null) | undefined;
   installedAgentsCache: Pick<ReturnType<typeof createInstalledAgentsProbe>, 'probeAll'>;
+  /**
+   * Whole-instance read-only posture, surfaced on `/api/config` so the GUI can
+   * reflect it. MUST be the SAME posture the server write gate resolves (the
+   * write-policy principal derived from `config.server.readOnly`) — not a
+   * recompute from env. Advisory-visible only; the server stays the sole
+   * enforcement point.
+   */
+  getReadOnly: () => boolean;
 }
 
 export interface ConfigSystemRoutes {
@@ -123,6 +131,7 @@ export function createConfigSystemRoutes(deps: ConfigSystemRouteDeps): ConfigSys
     getCurrentBranch,
     getReportedBranch,
     installedAgentsCache,
+    getReadOnly,
   } = deps;
 
   const handleServerInfo = withValidation(
@@ -496,7 +505,13 @@ export function createConfigSystemRoutes(deps: ConfigSystemRouteDeps): ConfigSys
       try {
         const collabUrl = collabUrlFromRequestHeaders(req.headers);
         const port = lockDir ? (readServerLock(lockDir)?.port ?? 0) : 0;
-        const payload = { collabUrl, previewUrl: null, port, singleFile: ephemeral };
+        const payload = {
+          collabUrl,
+          previewUrl: null,
+          port,
+          singleFile: ephemeral,
+          readOnly: getReadOnly(),
+        };
         if (req.method === 'HEAD') {
           res.setHeader('Content-Type', 'application/json');
           res.setHeader('Cache-Control', 'no-store');

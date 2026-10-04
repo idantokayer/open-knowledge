@@ -64,6 +64,7 @@ import { subscribeLocalMenuAction } from '@/lib/local-menu-action-bus';
 import { isNoteWindow } from '@/lib/note-window-mode';
 import { isOverlayLayerOpen } from '@/lib/overlay-layers';
 import { mark, ProfilerBoundary } from '@/lib/perf';
+import { ReadOnlyModeProvider } from '@/lib/read-only-mode';
 import { SingleFileModeProvider, useSingleFileMode } from '@/lib/single-file-mode';
 import { consumeHashNavigationSuppression } from '@/lib/tab-session-restore-suppression';
 import { useServerKeepalive } from '@/lib/use-server-keepalive';
@@ -549,7 +550,9 @@ export function App() {
           <ConflictsProvider>
             <PreviewTabsSettingsBridge>
               <SingleFileModeProvider>
-                <AppBody />
+                <ReadOnlyModeProvider>
+                  <AppBody />
+                </ReadOnlyModeProvider>
               </SingleFileModeProvider>
             </PreviewTabsSettingsBridge>
           </ConflictsProvider>

@@ -330,6 +330,7 @@ import {
   wikiLinkRenameDestination,
 } from './managed-rename-rewrite.ts';
 import type { Principal as WritePolicyPrincipal } from './mcp/write-policy.ts';
+import { canWrite } from './mcp/write-policy.ts';
 import {
   incrementAgentWriteCalls,
   incrementSummariesProvided,
@@ -4859,6 +4860,11 @@ export function createApiExtension(options: ApiExtensionOptions): Extension & {
     getCurrentBranch,
     getReportedBranch,
     installedAgentsCache,
+    // SAME posture the HTTP write gate resolves: derive read-only from the
+    // write-policy principal (`server.readOnly` ⇒ reader), not from env. When
+    // no resolver is supplied the stock read-write default (writer) applies.
+    getReadOnly: () =>
+      !canWrite(options.getWritePolicyPrincipal?.() ?? { role: 'writer' }).allow,
   });
   const lintRoutes = createLintRoutes({
     hocuspocus,

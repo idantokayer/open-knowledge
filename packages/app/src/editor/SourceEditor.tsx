@@ -28,6 +28,7 @@ import { useConfigContext } from '@/lib/config-provider';
 import { emitDiagnosticBreadcrumb } from '@/lib/diagnostic-breadcrumb';
 import { editorToolbarOverlapPx } from '@/lib/editor-toolbar-overlap';
 import { claimNoteWindowInitialFocus } from '@/lib/note-window-focus';
+import { useReadOnlyMode } from '@/lib/read-only-mode';
 import { createSourceClipboardExtension } from './clipboard/index.ts';
 import { type CmCacheEntry, mountCmEditor, parkCmEditor } from './editor-cache';
 import { registerFullPageCmView, unregisterFullPageCmView } from './full-page-cm-views';
@@ -160,6 +161,7 @@ export function SourceEditor({
   const { resolvedTheme } = useTheme();
   const { merged } = useConfigContext();
   const sourceModeActiveRef = useRef(isSourceModeActive);
+  const readOnly = useReadOnlyMode();
   const wordWrap = merged?.editor?.wordWrap ?? true;
   const { data: lintConfigData } = useDocLintConfig(docName);
   const linterConfig =
@@ -200,6 +202,7 @@ export function SourceEditor({
             const wordWrapCompartment = new Compartment();
             const placeholderCompartment = new Compartment();
             const lintCompartment = new Compartment();
+            const editableCompartment = new Compartment();
             const state = EditorState.create({
               doc: ytext.toString(),
               extensions: [
@@ -227,6 +230,10 @@ export function SourceEditor({
                 createSkillPathLinksSourceExtension(resolvedDocName),
                 landingFlashSource(),
                 lintCompartment.of(createMarkdownLintExtension(linterConfig, docName)),
+                editableCompartment.of([
+                  EditorState.readOnly.of(readOnly),
+                  EditorView.editable.of(!readOnly),
+                ]),
                 createLocalTargetDiagnosticsExtension(docName),
                 sourceClipboard,
                 EditorView.updateListener.of((update) => {
@@ -281,6 +288,7 @@ export function SourceEditor({
               wordWrapCompartment,
               placeholderCompartment,
               lintCompartment,
+              editableCompartment,
             };
           } catch (err) {
             undoManager.destroy();
@@ -381,6 +389,17 @@ export function SourceEditor({
       ),
     });
   }, [linterConfigKey]);
+
+  useEffect(() => {
+    const entry = cmEntryRef.current;
+    if (!entry) return;
+    entry.view.dispatch({
+      effects: entry.editableCompartment.reconfigure([
+        EditorState.readOnly.of(readOnly),
+        EditorView.editable.of(!readOnly),
+      ]),
+    });
+  }, [readOnly]);
 
   useEffect(() => {
     function onNav(e: Event) {

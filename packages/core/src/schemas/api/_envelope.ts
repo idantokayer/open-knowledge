@@ -42,6 +42,11 @@ export const ApiConfigSuccessSchema = z
     previewUrl: z.string().nullable(),
     port: z.number(),
     singleFile: z.boolean().default(false),
+    // Whole-instance read-only posture (`config.server.readOnly`). Surfaced on
+    // the wire so the GUI can reflect it (grey out controls + banner); the
+    // client NEVER decides policy — the server already refuses writes across
+    // MCP/HTTP/collab. Advisory-visible only.
+    readOnly: z.boolean().default(false),
   })
   .loose() satisfies StandardSchemaV1;
 export type ApiConfigSuccess = z.infer<typeof ApiConfigSuccessSchema>;

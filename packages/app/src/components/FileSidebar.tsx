@@ -125,6 +125,7 @@ import { VISIBLE_TARGETS } from '@/lib/handoff/targets';
 import { subscribeLocalMenuAction } from '@/lib/local-menu-action-bus';
 import { ProfilerBoundary } from '@/lib/perf';
 import { revealInFileManagerLabel } from '@/lib/platform-labels';
+import { useReadOnlyMode } from '@/lib/read-only-mode';
 import { scheduleClipboardWrite } from '@/lib/share/clipboard-adapter';
 import { buildFolderShareInput, runShareAction } from '@/lib/share/run-share-action';
 import { useStickyAgent } from '@/lib/unified-agent-store';
@@ -189,6 +190,7 @@ function SettingsLoadingMenuGroupTooltip({
 
 function FileSidebarInner({ onOpenSearch }: FileSidebarProps) {
   const { t } = useLingui();
+  const readOnly = useReadOnlyMode();
   const settingsLoadingReasonId = useId();
   const [tree, setTree] = useState<FileTreeHandle | null>(null);
 
@@ -783,12 +785,17 @@ function FileSidebarInner({ onOpenSearch }: FileSidebarProps) {
                         <ToolbarButton
                           icon={SquarePen}
                           label={t`New file`}
+                          disabled={readOnly}
                           onClick={() => tree?.startCreating('file', initialCreateDir)}
                           shortcutId="new-item"
                         />
                         {activeFolderHasTemplates ? (
                           <DropdownMenu>
-                            <ToolbarDropdownTrigger icon={FilePlus} label={t`New from template`} />
+                            <ToolbarDropdownTrigger
+                              icon={FilePlus}
+                              label={t`New from template`}
+                              disabled={readOnly}
+                            />
                             <DropdownMenuContent
                               align="end"
                               className="min-w-52"
@@ -808,6 +815,7 @@ function FileSidebarInner({ onOpenSearch }: FileSidebarProps) {
                         <ToolbarButton
                           icon={FolderPlus}
                           label={t`New folder`}
+                          disabled={readOnly}
                           onClick={() => tree?.startCreating('folder', initialCreateDir)}
                           shortcutId={isElectronHost ? 'new-folder' : undefined}
                         />
@@ -845,7 +853,7 @@ function FileSidebarInner({ onOpenSearch }: FileSidebarProps) {
         <ContextMenuContent className="min-w-52" onCloseAutoFocus={handleCreateMenuCloseAutoFocus}>
           {}
           <ContextMenuItem
-            disabled={!workspace}
+            disabled={!workspace || readOnly}
             onSelect={handleEmptySpaceCreateFile}
             data-testid="empty-space-menu-new-file"
           >
@@ -855,7 +863,7 @@ function FileSidebarInner({ onOpenSearch }: FileSidebarProps) {
           {rootHasTemplates ? (
             <ContextMenuSub>
               <ContextMenuSubTrigger
-                disabled={!workspace}
+                disabled={!workspace || readOnly}
                 data-testid="empty-space-menu-new-from-template"
               >
                 <FilePlus aria-hidden="true" />
@@ -871,7 +879,7 @@ function FileSidebarInner({ onOpenSearch }: FileSidebarProps) {
             </ContextMenuSub>
           ) : null}
           <ContextMenuItem
-            disabled={!workspace}
+            disabled={!workspace || readOnly}
             onSelect={handleEmptySpaceCreateFolder}
             data-testid="empty-space-menu-new-folder"
           >
