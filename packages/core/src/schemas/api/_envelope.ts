@@ -125,6 +125,10 @@ export const ProblemTypeSchema = z.enum([
   'urn:ok:error:audit-superseded',
   'urn:ok:error:theme-name-taken',
   'urn:ok:error:theme-name-invalid',
+  // Whole-instance read-only lock: a mutating HTTP request (GUI/editor write
+  // path) refused because `server.readOnly` is set. Distinct from
+  // `storage-readonly` (a read-only *filesystem* fault, not a policy decision).
+  'urn:ok:error:read-only',
 ]) satisfies StandardSchemaV1;
 export type ProblemType = z.infer<typeof ProblemTypeSchema>;
 

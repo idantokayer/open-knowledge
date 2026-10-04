@@ -20,6 +20,7 @@ import {
   stampIngressContext,
 } from '../ingress-policy.ts';
 import type { PinoLogger } from '../logger.ts';
+import { canWrite, type Principal as WritePolicyPrincipal } from '../mcp/write-policy.ts';
 import { getMeter, getTracer, onTelemetryShutdown } from '../telemetry.ts';
 import { errorResponse } from './error-response.ts';
 import { REQUEST_ID_HEADER, rememberRequestId, resolveRequestId } from './request-id.ts';
@@ -113,6 +114,17 @@ export interface ApiPipelineOptions {
   policy?: IngressPolicy;
   ephemeral?: boolean;
   table: ApiRouteTable;
+  /**
+   * Resolve the write-policy principal for the current request. A RESOLVER, not
+   * a frozen boolean, so the Phase-4 per-request RBAC swap (read claims off the
+   * request) needs no re-plumbing here. Omitted ⇒ stock read-write (writer).
+   *
+   * NOTE: this is the write-policy {@link WritePolicyPrincipal} (`{ role }`),
+   * NOT the core actor-identity `Principal` (`.id`) threaded elsewhere as
+   * `getPrincipal`. The two are deliberately distinct types and must not be
+   * conflated.
+   */
+  getWritePolicyPrincipal?: () => WritePolicyPrincipal;
 }
 
 export type ApiRequestPipeline = (req: IncomingMessage, res: ServerResponse) => Promise<boolean>;
@@ -132,6 +144,11 @@ function httpDurationHist(): ReturnType<ReturnType<typeof getMeter>['createHisto
 export function createApiRequestPipeline(opts: ApiPipelineOptions): ApiRequestPipeline {
   const { log, ephemeral, table } = opts;
   const policy = opts.policy ?? buildIngressPolicy({});
+  // Default to a writer when no resolver is supplied (stock read-write). The
+  // resolver is called PER REQUEST so a future RBAC posture can vary by caller;
+  // today it returns a lifetime-constant role derived from `server.readOnly`.
+  const resolveWritePolicyPrincipal: () => WritePolicyPrincipal =
+    opts.getWritePolicyPrincipal ?? (() => ({ role: 'writer' }));
   const isAllowedWorkspaceHostHeader = (host: string | undefined): boolean =>
     isHostAdmitted(host, policy);
 
@@ -233,6 +250,24 @@ export function createApiRequestPipeline(opts: ApiPipelineOptions): ApiRequestPi
     }
 
     if (table.isMutating(url)) {
+      // Whole-instance read-only lock. A reader principal may not drive any
+      // mutating HTTP route (GUI/editor write path, local-op routes, etc.).
+      // Checked BEFORE loopback/host gating so an admitted local peer is still
+      // refused when the instance is read-only — the policy is about WHO may
+      // write, not WHERE the request came from. This is the single HTTP choke
+      // point: every mutating route flows through here, so no per-route list
+      // needs maintaining (e.g. /api/agent-integrations/apply, already declared
+      // mutating, is covered automatically).
+      const decision = canWrite(resolveWritePolicyPrincipal());
+      if (!decision.allow) {
+        errorResponse(response, 403, 'urn:ok:error:read-only', 'Server is read-only.', {
+          handler: 'api-read-only-gate',
+          detail:
+            'This OpenKnowledge instance is in read-only mode; write operations are refused. Reading, searching, and browsing remain available.',
+          logLevel: 'debug',
+        });
+        return true;
+      }
       const peerAddress = request.socket?.remoteAddress;
       if (peerAddress !== undefined && !isPeerAdmitted(peerAddress, policy)) {
         errorResponse(response, 403, 'urn:ok:error:loopback-required', 'Loopback required.', {

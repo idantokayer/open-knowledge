@@ -404,6 +404,7 @@ async function bootServerInner(opts: BootServerOptions): Promise<BootedServer> {
     singleDocRelPath: opts.singleDocRelPath,
     ephemeral: opts.ephemeral,
     configHomedirOverride: opts.configHomedirOverride,
+    readOnly: opts.config.server?.readOnly === true,
   });
 
   const {

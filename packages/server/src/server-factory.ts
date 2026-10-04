@@ -204,6 +204,7 @@ import {
 } from './managed-artifact-persistence.ts';
 import { startManagedArtifactWatcher } from './managed-artifact-watcher.ts';
 import { recoverPendingManagedRename } from './managed-rename-journal.ts';
+import { canWrite, type Principal as WritePolicyPrincipal } from './mcp/write-policy.ts';
 import type { NativeTomlMcpEditor } from './mcp-config-reconciler.ts';
 import { mdManager, schema } from './md-manager.ts';
 import {
@@ -330,6 +331,15 @@ export interface ServerOptions {
   embedderLoader?: (input: LoadOpenAiEmbedderInput) => Promise<Embedder | null>;
   singleDocRelPath?: string;
   ephemeral?: boolean;
+  /**
+   * Whole-instance read-only lock. When true the server refuses every write on
+   * BOTH the HTTP editor path (via the api-pipeline write gate) AND the collab
+   * websocket (via {@link readOnlyCollabConnectionGuard}, which sets the native
+   * hocuspocus per-connection read-only flag). Derived from
+   * `config.server.readOnly` and passed down by boot.ts. Mirrors the MCP
+   * tool-level gate already in place, extending the lock to the human/GUI path.
+   */
+  readOnly?: boolean;
   generatedIndexTestHooks?: {
     beforePlan?: (context: { fullSweep: boolean; signal: AbortSignal }) => Promise<void> | void;
     beforeDecision?: (context: {
@@ -493,8 +503,19 @@ export function createServer(options: ServerOptions): ServerInstance {
     skipStateManifestCheck = false,
     singleDocRelPath,
     ephemeral = false,
+    readOnly = false,
   } = options;
   const declaredGitHubHosts = readDeclaredGitHubHosts(configHomedirOverride);
+
+  // Whole-instance read-only lock. A RESOLVER (not a frozen boolean) so a future
+  // per-request RBAC posture can vary the role per caller without re-plumbing
+  // the HTTP pipeline or the collab guard. Today the role is fixed for the
+  // server's lifetime (config.server.readOnly is reload:'boot'). This is the
+  // write-policy Principal (`{ role }`), kept strictly separate from the core
+  // actor-identity Principal (`.id`) threaded as getPrincipal.
+  const getWritePolicyPrincipal = (): WritePolicyPrincipal => ({
+    role: readOnly ? 'reader' : 'writer',
+  });
 
   const log = getLogger('server');
   let headWatcher: HeadWatcherHandle | null = null;
@@ -2094,6 +2115,37 @@ export function createServer(options: ServerOptions): ServerInstance {
     };
     hocuspocus.configuration.extensions.push(systemDocBroadcastGuard);
 
+    // Whole-instance read-only lock on the COLLAB websocket. Pushed ONLY when
+    // the instance is read-only — a read-write server adds nothing.
+    //
+    // We use hocuspocus's FIRST-CLASS per-connection read-only support instead
+    // of hand-decoding the Yjs wire: setting `connectionConfig.readOnly = true`
+    // in onConnect makes MessageReceiver.readSyncMessage silently drop every
+    // client WRITE (both `messageYjsUpdate` AND `messageYjsSyncStep2` — the
+    // latter also applies a client diff, so a naive "reject only Update" guard
+    // would leak writes) while still serving SyncStep1 (state-vector → the
+    // reader loads and READS the doc) and Awareness (the reader still sees and
+    // publishes cursors). A dropped write is ACKed with sync-status rather than
+    // closing the connection, so a read-only client degrades gracefully.
+    //
+    // This is strictly safer than a beforeHandleMessage throw-guard: it covers
+    // BOTH sync wrappers (Sync=0 and SyncReply=4, which MessageReceiver treats
+    // identically) and does not require us to track every doc-mutating sub-type
+    // by hand. Server-side bookkeeping writes to __system__/config docs go
+    // through DirectConnection.transact(), which bypasses the connection layer
+    // entirely, so they are unaffected by this flag.
+    const readOnlyCollabConnectionGuard: Extension & {
+      __kind: 'read-only-collab-connection-guard';
+    } = {
+      __kind: 'read-only-collab-connection-guard',
+      async onConnect(payload) {
+        payload.connectionConfig.readOnly = true;
+      },
+    };
+    if (!canWrite(getWritePolicyPrincipal()).allow) {
+      hocuspocus.configuration.extensions.push(readOnlyCollabConnectionGuard);
+    }
+
     const apiExtension = createApiExtension({
       declaredGitHubHosts,
       hocuspocus,
@@ -2172,6 +2224,7 @@ export function createServer(options: ServerOptions): ServerInstance {
       resolveEmbed,
       getBridgeLossReporter: () => bridgeLossReporter,
       getPrincipal: () => loadedPrincipal,
+      getWritePolicyPrincipal,
       agentIntegrations: options.agentIntegrations,
       acpRegistry,
       loadAcpCustomAgents: () => loadCustomAgents(lockDir, getLogger('acp-registry')),

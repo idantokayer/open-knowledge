@@ -99,6 +99,8 @@ export const URN_HTTP_ONLY: ReadonlySet<ProblemType> = new Set<ProblemType>([
   'urn:ok:error:audit-superseded',
   'urn:ok:error:theme-name-taken',
   'urn:ok:error:theme-name-invalid',
+  // Emitted only on the HTTP write path (GUI/editor), never over an IPC channel.
+  'urn:ok:error:read-only',
 ]);
 
 export type UrnIpcLookup<C extends IpcChannelWithUrn> =

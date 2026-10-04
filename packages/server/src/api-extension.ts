@@ -329,6 +329,7 @@ import {
   type WikiRenameContext,
   wikiLinkRenameDestination,
 } from './managed-rename-rewrite.ts';
+import type { Principal as WritePolicyPrincipal } from './mcp/write-policy.ts';
 import {
   incrementAgentWriteCalls,
   incrementSummariesProvided,
@@ -1300,6 +1301,14 @@ export interface ApiExtensionOptions {
   resolveEmbed?: (basename: string, sourcePath: string) => string | null;
   getBridgeLossReporter?: () => BridgeDeriveLossReporter | undefined;
   getPrincipal?: () => Principal | null;
+  /**
+   * Resolve the write-policy principal (`{ role }`) for the HTTP write gate.
+   * DISTINCT from {@link getPrincipal} above: that returns the core actor
+   * identity (`.id`, used for attribution); this returns the read-only role
+   * used only by the write gate. They are different types on purpose — do not
+   * merge them. Threaded straight into both pipeline construction sites.
+   */
+  getWritePolicyPrincipal?: () => WritePolicyPrincipal;
   homeDirOverride?: string;
   agentIntegrations?: AgentRegistryHostSeam;
   savedThemeLockTimeoutMs?: number;
@@ -4804,6 +4813,7 @@ export function createApiExtension(options: ApiExtensionOptions): Extension & {
     policy: ingressPolicy,
     ephemeral,
     table: apiRouteTable,
+    getWritePolicyPrincipal: options.getWritePolicyPrincipal,
   });
 
   const linkGraphRoutes = createLinkGraphRoutes({
@@ -5326,6 +5336,7 @@ export function createApiExtension(options: ApiExtensionOptions): Extension & {
       policy: ingressPolicy,
       ephemeral,
       table: group.table,
+      getWritePolicyPrincipal: options.getWritePolicyPrincipal,
     }),
   );
   const nativeApi: NativeApiHandle = {
