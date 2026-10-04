@@ -191,4 +191,118 @@ describe('tool logging wrapper', () => {
     expect(finish.result.previewUrl).toBeNull();
     expect(finish.result.documentsCount).toBe(2);
   });
+
+  describe('read-only write guard', () => {
+    function captureViaRegisterTool(
+      name: string,
+      principal: { role: 'reader' | 'writer' } | undefined,
+      originalHandler: (...args: unknown[]) => unknown,
+    ): (...args: unknown[]) => unknown {
+      const logger = new McpLogger('mcp');
+      let captured: ((...args: unknown[]) => unknown) | undefined;
+      const fakeServer = {
+        tool: () => 'legacy',
+        registerTool: (_n: string, _c: unknown, handler: (...args: unknown[]) => unknown) => {
+          captured = handler;
+          return 'registered';
+        },
+      };
+      const wrapped = createLoggedServer(fakeServer as never, {
+        logger,
+        ...(principal ? { principal } : {}),
+      });
+      (
+        wrapped as unknown as {
+          registerTool: (n: string, c: unknown, h: (...args: unknown[]) => unknown) => unknown;
+        }
+      ).registerTool(name, { description: 'd', inputSchema: {} }, originalHandler);
+      if (!captured) throw new Error('handler not captured');
+      return captured;
+    }
+
+    const callArgs = (args: Record<string, unknown>) => [
+      args,
+      { requestId: 'req-ro', signal: new AbortController().signal },
+    ];
+
+    test('reader: a mutating tool (write) is refused and the real handler never runs', async () => {
+      let handlerRan = false;
+      const handler = captureViaRegisterTool('write', { role: 'reader' }, async () => {
+        handlerRan = true;
+        return textPlusStructured('wrote', {});
+      });
+
+      const result = (await handler(...callArgs({ path: 'notes/x', content: 'hi' }))) as {
+        isError?: boolean;
+        content: { text: string }[];
+      };
+
+      expect(handlerRan).toBe(false);
+      expect(result.isError).toBe(true);
+      expect(result.content[0]?.text).toContain('read-only mode');
+      expect(result.content[0]?.text).toContain('`write`');
+    });
+
+    test('reader: lint({fix:true}) is refused but plain lint passes through', async () => {
+      let ranCount = 0;
+      const handler = captureViaRegisterTool('lint', { role: 'reader' }, async () => {
+        ranCount += 1;
+        return textPlusStructured('linted', {});
+      });
+
+      const fixResult = (await handler(...callArgs({ document: 'x', fix: true }))) as {
+        isError?: boolean;
+      };
+      expect(fixResult.isError).toBe(true);
+      expect(ranCount).toBe(0);
+
+      const plainResult = (await handler(...callArgs({ document: 'x' }))) as { isError?: boolean };
+      expect(plainResult.isError ?? false).toBe(false);
+      expect(ranCount).toBe(1);
+    });
+
+    test('reader: a read tool (search) passes through untouched', async () => {
+      let ran = false;
+      const handler = captureViaRegisterTool('search', { role: 'reader' }, async () => {
+        ran = true;
+        return textPlusStructured('results', { results: [] });
+      });
+
+      const result = (await handler(...callArgs({ query: 'x' }))) as { isError?: boolean };
+      expect(ran).toBe(true);
+      expect(result.isError ?? false).toBe(false);
+    });
+
+    test('writer: a mutating tool runs normally (OFF-path parity)', async () => {
+      let ran = false;
+      const handler = captureViaRegisterTool('write', { role: 'writer' }, async () => {
+        ran = true;
+        return textPlusStructured('wrote', {});
+      });
+
+      const result = (await handler(...callArgs({ path: 'x', content: 'y' }))) as {
+        isError?: boolean;
+      };
+      expect(ran).toBe(true);
+      expect(result.isError ?? false).toBe(false);
+    });
+
+    test('no principal (stock): the guard adds nothing — a mutating handler runs and passes through', async () => {
+      let ran = false;
+      const original = async () => textPlusStructured('wrote', {});
+      // No principal: wrapToolHandlerForWriteGuard returns the handler
+      // untouched. (Telemetry still wraps unconditionally, so this asserts
+      // behavioral parity, not reference identity.)
+      const handler = captureViaRegisterTool('write', undefined, async (...a: unknown[]) => {
+        ran = true;
+        return original(...(a as []));
+      });
+
+      const result = (await handler(...callArgs({ path: 'x', content: 'y' }))) as {
+        isError?: boolean;
+      };
+      expect(ran).toBe(true);
+      expect(result.isError ?? false).toBe(false);
+    });
+  });
 });

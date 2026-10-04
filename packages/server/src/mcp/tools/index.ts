@@ -3,6 +3,7 @@ import type { LocalApiDispatch } from '../../http/local-api-dispatch.ts';
 import type { AgentIdentity } from '../agent-identity.ts';
 import { getCurrentMcpLogger, type McpLogger } from '../logger.ts';
 import { createLoggedServer } from '../tool-logging.ts';
+import { principalFromConfig } from '../write-policy.ts';
 import { register as registerAudit } from './audit.ts';
 import { register as registerCheckpoint } from './checkpoint.ts';
 import { register as registerConfig } from './config.ts';
@@ -41,6 +42,7 @@ export function registerAllTools(server: ServerInstance, opts: RegisterAllToolsO
   const registrationServer = createLoggedServer(server, {
     logger: opts.logger,
     identityRef: opts.identityRef,
+    principal: principalFromConfig(opts.config),
   });
   const named =
     (tool: string): ResolveCwd =>

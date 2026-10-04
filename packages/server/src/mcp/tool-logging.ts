@@ -2,10 +2,24 @@ import type { AgentIdentity } from './agent-identity.ts';
 import { type McpLogger, runWithMcpLogger } from './logger.ts';
 import { wrapToolHandlerForTelemetry } from './tool-telemetry.ts';
 import type { ServerInstance } from './tools/shared.ts';
+import { textResult } from './tools/shared.ts';
+import {
+  canWrite,
+  isMutating,
+  type Principal,
+  readOnlyRefusalMessage,
+} from './write-policy.ts';
 
 interface LoggedToolServerOptions {
   logger?: McpLogger;
   identityRef?: { current: AgentIdentity };
+  /**
+   * Read-only-mode principal, resolved once at registration (server.readOnly
+   * is reload:'boot'). Omit for stock read-write behavior. When present and
+   * the principal is a reader, mutating tool calls are refused at the choke
+   * point below before the real handler runs.
+   */
+  principal?: Principal;
 }
 
 interface ToolExtraLike {
@@ -225,12 +239,43 @@ export function wrapToolHandlerForLogging(
   };
 }
 
+/**
+ * Read-only-mode write guard — the single choke point.
+ *
+ * Runs before the real handler. When a reader principal invokes a mutating
+ * tool (the core write set, or `lint({ fix:true })`), it returns a tool-result
+ * `isError` refusal (never a thrown JSON-RPC error — matching every other
+ * tool-level failure in this codebase). The writer path, and the no-principal
+ * path, are pure pass-throughs: byte-identical to stock behavior.
+ */
+export function wrapToolHandlerForWriteGuard(
+  name: string,
+  handler: AnyToolHandler,
+  opts: LoggedToolServerOptions,
+): AnyToolHandler {
+  const principal = opts.principal;
+  // No principal, or a principal that may write: nothing to guard. Return the
+  // handler untouched so the OFF path adds zero wrapping.
+  if (!principal || canWrite(principal).allow) return handler;
+
+  return (...invocationArgs: unknown[]) => {
+    const { toolArgs } = splitInvocationArgs(invocationArgs);
+    if (isMutating(name, toolArgs)) {
+      return textResult(readOnlyRefusalMessage(name), true);
+    }
+    return handler(...invocationArgs);
+  };
+}
+
 export function createLoggedServer(
   server: ServerInstance,
   opts: LoggedToolServerOptions,
 ): ServerInstance {
   const instrument = (name: string, handler: AnyToolHandler): AnyToolHandler =>
-    wrapToolHandlerForTelemetry(name, wrapToolHandlerForLogging(name, handler, opts));
+    wrapToolHandlerForTelemetry(
+      name,
+      wrapToolHandlerForLogging(name, wrapToolHandlerForWriteGuard(name, handler, opts), opts),
+    );
 
   const originalTool = (server as unknown as { tool: AnyToolHandler }).tool.bind(server);
   const rawRegisterTool = (server as unknown as { registerTool?: (...args: unknown[]) => unknown })
