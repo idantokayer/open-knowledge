@@ -35,6 +35,7 @@ export const RECOGNIZED_ENV_VARS: ReadonlyMap<string, readonly string[]> = new M
   ['OK_ALLOW_EXTERNAL', ['server', 'allowExternal']],
   ['OK_OPEN_BROWSER', ['server', 'openBrowser']],
   ['OK_IDLE_SHUTDOWN', ['server', 'idleShutdown']],
+  ['OK_READ_ONLY', ['server', 'readOnly']],
 ]);
 
 function camelToScreamingSnake(segment: string): string {

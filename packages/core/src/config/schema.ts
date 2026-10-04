@@ -1140,10 +1140,22 @@ export const ConfigSchema = z.looseObject({
             "Shut the server down after this long with no activity: a duration like '30m' (positive integer with unit s, m, or h), or 'off'. Default derived: '30m' for a loopback-only, unexposed server; 'off' otherwise — a non-loopback bind, or a loopback bind declared externally reachable (server.allowExternal + server.externalUrl), stays up, because a remote agent keeps it busy over /mcp, which the idle timer does not count. Residual case the derivation cannot see: a loopback server reached by remote agents with no server.externalUrl (e.g. behind a same-box reverse proxy) still idles at 30m — set 'off' by hand. Reloadable — a valid change applies without a restart. Per-machine (project-local) — not shared.",
         })
         .optional(),
+      readOnly: z
+        .boolean()
+        .register(fieldRegistry, {
+          scope: 'project',
+          agentSettable: false,
+          reload: 'boot',
+          defaultScope: 'project',
+          description:
+            "Read-only mode. When true, every content-mutating MCP tool (write, edit, delete, move, install, import, checkpoint, restore_version, and lint with fix:true) is refused with a read-only error; read and search tools (exec, search, links, audit, history, skills, palette, config, preview_url, share_link, and plain lint) are unaffected. The server has no authentication of its own, so this is a posture control, not an authorization boundary. Default off (read-write). Read at server start; changing it requires a restart.",
+        })
+        .default(false),
     })
     .default({
       bind: [...DEFAULT_SERVER_BIND],
       allowExternal: false,
+      readOnly: false,
     }),
 });
 

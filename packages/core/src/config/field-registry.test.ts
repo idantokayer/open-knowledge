@@ -259,6 +259,7 @@ describe('ConfigSchema coverage (NR3 — every leaf has fieldRegistry metadata)'
       'server.bind',
       'server.idleShutdown',
       'server.openBrowser',
+      'server.readOnly',
       'terminal.enabled',
       'terminal.shell',
     ]);
@@ -303,6 +304,7 @@ describe('ConfigSchema coverage (NR3 — every leaf has fieldRegistry metadata)'
       'server.externalUrl',
       'server.openBrowser',
       'server.port',
+      'server.readOnly',
     ]);
   });
 });

@@ -430,6 +430,7 @@ describe('server.* (canonical listener/exposure surface)', () => {
     expect(config.server.externalUrl).toBeUndefined();
     expect(config.server.openBrowser).toBeUndefined();
     expect(config.server.idleShutdown).toBeUndefined();
+    expect(config.server.readOnly).toBe(false);
   });
 
   test('port accepts the valid range and rejects out-of-range or fractional values', () => {

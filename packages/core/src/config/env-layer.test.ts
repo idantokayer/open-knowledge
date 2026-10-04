@@ -40,6 +40,7 @@ describe('recognized surface pin', () => {
         ['OK_ALLOW_EXTERNAL', ['server', 'allowExternal']],
         ['OK_OPEN_BROWSER', ['server', 'openBrowser']],
         ['OK_IDLE_SHUTDOWN', ['server', 'idleShutdown']],
+        ['OK_READ_ONLY', ['server', 'readOnly']],
       ]),
     );
   });
