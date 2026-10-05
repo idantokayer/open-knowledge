@@ -30,7 +30,7 @@ export const PrincipalSuccessSchema = z
     id: z.string().min(1),
     display_name: z.string().min(1),
     display_email: z.string(),
-    source: z.enum(['git-config', 'synthesized']),
+    source: z.enum(['git-config', 'synthesized', 'remote-auth']),
     created_at: z.string().min(1),
   })
   .loose() satisfies StandardSchemaV1;

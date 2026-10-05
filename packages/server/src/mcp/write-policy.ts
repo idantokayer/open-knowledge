@@ -18,10 +18,12 @@ export type Role = 'reader' | 'writer';
 
 export interface Principal {
   role: Role;
-  // Phase 4 adds verified request claims here, e.g.:
-  //   subject?: string;
-  //   groups?: readonly string[];
-  //   claims?: Record<string, unknown>;
+  /** Verified OIDC `sub` of the authenticated principal (edge-authed path). */
+  subject?: string;
+  /** Verified group memberships, from the configured groups claim. */
+  groups?: readonly string[];
+  /** Full set of verified token claims, carried for attribution/future use. */
+  claims?: Record<string, unknown>;
 }
 
 export interface WriteDecision {
