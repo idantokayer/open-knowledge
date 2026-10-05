@@ -4863,8 +4863,7 @@ export function createApiExtension(options: ApiExtensionOptions): Extension & {
     // SAME posture the HTTP write gate resolves: derive read-only from the
     // write-policy principal (`server.readOnly` ⇒ reader), not from env. When
     // no resolver is supplied the stock read-write default (writer) applies.
-    getReadOnly: () =>
-      !canWrite(options.getWritePolicyPrincipal?.() ?? { role: 'writer' }).allow,
+    getReadOnly: () => !canWrite(options.getWritePolicyPrincipal?.() ?? { role: 'writer' }).allow,
   });
   const lintRoutes = createLintRoutes({
     hocuspocus,
