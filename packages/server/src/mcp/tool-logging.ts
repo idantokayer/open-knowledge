@@ -3,12 +3,7 @@ import { type McpLogger, runWithMcpLogger } from './logger.ts';
 import { wrapToolHandlerForTelemetry } from './tool-telemetry.ts';
 import type { ServerInstance } from './tools/shared.ts';
 import { textResult } from './tools/shared.ts';
-import {
-  canWrite,
-  isMutating,
-  type Principal,
-  readOnlyRefusalMessage,
-} from './write-policy.ts';
+import { canWrite, isMutating, type Principal, readOnlyRefusalMessage } from './write-policy.ts';
 
 interface LoggedToolServerOptions {
   logger?: McpLogger;

@@ -30,8 +30,7 @@ const SOUND = [
 const problemKinds = (markdown) =>
   parsePrecedentEntries(markdown).problems.map((problem) => problem.kind);
 
-const numbered = (markdown) =>
-  parsePrecedentEntries(markdown).entries.map((entry) => entry.number);
+const numbered = (markdown) => parsePrecedentEntries(markdown).entries.map((entry) => entry.number);
 
 describe('the registry parser reads numbered entries, not heading ranges', () => {
   test('an entry carries its number, its form and whether it was retracted', () => {
@@ -169,10 +168,9 @@ describe('the parser also reads the title of each entry, which is its bold lead'
       '## Conventions (precedents 1-2)',
       '## A section that is itself the entry (precedent 3)',
     ]);
-    expect(outline().sections.map((section) => section.entries.map((entry) => entry.number))).toStrictEqual([
-      [1, 2],
-      [3],
-    ]);
+    expect(
+      outline().sections.map((section) => section.entries.map((entry) => entry.number)),
+    ).toStrictEqual([[1, 2], [3]]);
   });
 
   test('an entry carries its title beside the fields the manifest reads', () => {
@@ -200,7 +198,10 @@ describe('the parser also reads the title of each entry, which is its bold lead'
   });
 
   test('an entry with no bold lead is a problem, because the stub would have nothing to show', () => {
-    const untitled = SOUND.replace('1. **A live rule.** Body text.', '1. A live rule with no lead.');
+    const untitled = SOUND.replace(
+      '1. **A live rule.** Body text.',
+      '1. A live rule with no lead.',
+    );
 
     expect(parsePrecedentOutline(untitled).problems.map((problem) => problem.kind)).toStrictEqual([
       'untitled',
@@ -208,7 +209,10 @@ describe('the parser also reads the title of each entry, which is its bold lead'
   });
 
   test('reading titles does not change what the numbers path reports', () => {
-    const untitled = SOUND.replace('1. **A live rule.** Body text.', '1. A live rule with no lead.');
+    const untitled = SOUND.replace(
+      '1. **A live rule.** Body text.',
+      '1. A live rule with no lead.',
+    );
 
     expect(parsePrecedentEntries(untitled).problems).toStrictEqual([]);
     expect(numbered(untitled)).toStrictEqual([1, 2, 3]);

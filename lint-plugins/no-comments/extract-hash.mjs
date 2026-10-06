@@ -264,8 +264,7 @@ function lexShell(source, from, emit) {
     }
     if (c === '#' && frame.atWordStart) {
       const lineEnd = lineEndAt(source, i);
-      const end =
-        frame.kind === 'backtick' ? backtickCloserBefore(source, i, lineEnd) : lineEnd;
+      const end = frame.kind === 'backtick' ? backtickCloserBefore(source, i, lineEnd) : lineEnd;
       comments.push(emit('line', i, end));
       i = end;
       continue;
@@ -494,7 +493,14 @@ function lexYaml(source, from, emit) {
       i += 1;
       continue;
     }
-    if (c === ':' && (flowDepth > 0 || source[i + 1] === ' ' || source[i + 1] === '\t' || source[i + 1] === '\n' || i + 1 >= source.length)) {
+    if (
+      c === ':' &&
+      (flowDepth > 0 ||
+        source[i + 1] === ' ' ||
+        source[i + 1] === '\t' ||
+        source[i + 1] === '\n' ||
+        i + 1 >= source.length)
+    ) {
       atNodeStart = true;
       i += 1;
       continue;

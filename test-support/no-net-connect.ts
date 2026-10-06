@@ -83,7 +83,10 @@ function checkTarget(target: URL, scope: BlockScope): void {
   blockHost(target.hostname, scope);
 }
 
-function checkDispatchOrigin(origin: Dispatcher.DispatchOptions['origin'], scope: BlockScope): void {
+function checkDispatchOrigin(
+  origin: Dispatcher.DispatchOptions['origin'],
+  scope: BlockScope,
+): void {
   if (origin instanceof URL) {
     checkTarget(origin, scope);
     return;

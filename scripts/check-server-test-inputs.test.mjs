@@ -177,7 +177,9 @@ describe('the uncached tier is a root task of its own', () => {
       refused,
       'pnpm-workspace.yaml has entries this derivation cannot read or that name no member, so their turbo configs would leave the scan',
     ).toEqual([]);
-    expect(members.map((dir) => relative(OK_ROOT, dir))).toEqual(expect.arrayContaining(['packages/server', 'docs']));
+    expect(members.map((dir) => relative(OK_ROOT, dir))).toEqual(
+      expect.arrayContaining(['packages/server', 'docs']),
+    );
     const configs = [['turbo.json', turbo]];
     for (const dir of members) {
       for (const name of ['turbo.json', 'turbo.jsonc']) {
@@ -189,7 +191,10 @@ describe('the uncached tier is a root task of its own', () => {
     }
     const finiteWith = configs.flatMap(([path, config]) =>
       Object.entries(config.tasks ?? {})
-        .filter(([name, task]) => task.with !== undefined && (task.persistent ?? turbo.tasks[name]?.persistent) !== true)
+        .filter(
+          ([name, task]) =>
+            task.with !== undefined && (task.persistent ?? turbo.tasks[name]?.persistent) !== true,
+        )
         .map(([name]) => `${path}: ${name}`),
     );
     expect(
