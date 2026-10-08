@@ -65,23 +65,28 @@ function boot(space, res) {
   booted = true;
   res.writeHead(200, { 'content-type': 'application/json' });
   res.end(JSON.stringify({ ok: true, branch: space.gitBranch }));
-  const child = spawn(ENTRYPOINT, [], {
-    stdio: 'inherit',
-    env: {
-      ...process.env,
-      GIT_REPO_URL: space.gitRepoUrl,
-      GIT_BRANCH: space.gitBranch,
-      OK_EXTERNAL_URL: space.externalUrl,
-    },
-  });
-  child.on('error', (err) => {
+  try {
+    const child = spawn(ENTRYPOINT, [], {
+      stdio: 'inherit',
+      env: {
+        ...process.env,
+        GIT_REPO_URL: space.gitRepoUrl,
+        GIT_BRANCH: space.gitBranch,
+        OK_EXTERNAL_URL: space.externalUrl,
+      },
+    });
+    child.on('error', (err) => {
+      process.stderr.write(`run-hook: failed to exec entrypoint: ${err.message}\n`);
+      process.exitCode = 1;
+    });
+    child.on('exit', (code, signal) => {
+      process.stderr.write(`run-hook: ok process exited code=${code} signal=${signal}\n`);
+      process.exitCode = code == null ? 1 : code;
+    });
+  } catch (err) {
     process.stderr.write(`run-hook: failed to exec entrypoint: ${err.message}\n`);
     process.exitCode = 1;
-  });
-  child.on('exit', (code, signal) => {
-    process.stderr.write(`run-hook: ok process exited code=${code} signal=${signal}\n`);
-    process.exitCode = code == null ? 1 : code;
-  });
+  }
 }
 
 const server = createServer((req, res) => {
