@@ -3,15 +3,10 @@ import { spawn } from 'node:child_process';
 
 const HOOK_PORT = Number.parseInt(process.env.OK_RUN_HOOK_PORT ?? '9000', 10);
 const HOOK_HOST = process.env.OK_RUN_HOOK_HOST ?? '0.0.0.0';
-const HOOK_PATH = process.env.OK_RUN_HOOK_PATH ?? '/run';
+const RUN_PATH_PRIMARY = '/run';
+const HOOK_PATH = process.env.OK_RUN_HOOK_PATH ?? '/aws/lambda-microvms/runtime/v1/run';
 const HOOK_METHOD = (process.env.OK_RUN_HOOK_METHOD ?? 'POST').toUpperCase();
-const READY_METHOD = (process.env.OK_RUN_HOOK_READY_METHOD ?? 'GET').toUpperCase();
-const READY_PATHS = new Set(
-  (process.env.OK_RUN_HOOK_READY_PATHS ?? '/ready,/readyz,/healthz,/')
-    .split(',')
-    .map((p) => p.trim())
-    .filter((p) => p.length > 0),
-);
+const HEALTH_METHOD = (process.env.OK_RUN_HOOK_HEALTH_METHOD ?? 'GET').toUpperCase();
 const MAX_BYTES = Number.parseInt(process.env.OK_RUN_HOOK_MAX_BYTES ?? '4096', 10);
 const ENTRYPOINT = process.env.OK_ENTRYPOINT ?? '/usr/local/bin/entrypoint.sh';
 
@@ -90,15 +85,17 @@ function boot(space, res) {
 }
 
 const server = createServer((req, res) => {
+  process.stderr.write(`run-hook: inbound ${req.method} ${req.url} from ${req.socket?.remoteAddress ?? '?'}\n`);
   const path = req.url?.split('?')[0] ?? '';
-  if (req.method === READY_METHOD && READY_PATHS.has(path)) {
-    res.writeHead(200, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({ ok: true, ready: true }));
-    return;
-  }
-  if (req.method !== HOOK_METHOD || path !== HOOK_PATH) {
+  const isRunHook = req.method === HOOK_METHOD && (path === RUN_PATH_PRIMARY || path === HOOK_PATH);
+  if (!isRunHook) {
+    if (req.method === HEALTH_METHOD) {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
     console.error(`run-hook: unmatched ${req.method} ${req.url}`);
-    return reject(res, 404, 'not_found', `expected ${HOOK_METHOD} ${HOOK_PATH}`);
+    return reject(res, 404, 'not_found', `expected ${HOOK_METHOD} ${RUN_PATH_PRIMARY}`);
   }
   if (booted) {
     return reject(res, 409, 'already_booted', 'this MicroVM has already selected a space');
@@ -140,7 +137,7 @@ const server = createServer((req, res) => {
 });
 
 server.listen(HOOK_PORT, HOOK_HOST, () => {
-  console.error(`run-hook: listening ${HOOK_HOST}:${HOOK_PORT} ${HOOK_METHOD} ${HOOK_PATH} max=${MAX_BYTES}B`);
+  console.error(`run-hook: listening ${HOOK_HOST}:${HOOK_PORT} ${HOOK_METHOD} ${RUN_PATH_PRIMARY} (fallback ${HOOK_PATH}) max=${MAX_BYTES}B`);
 });
 
 for (const sig of ['SIGTERM', 'SIGINT']) {
