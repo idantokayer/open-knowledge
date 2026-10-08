@@ -35,27 +35,27 @@ function isNonEmptyString(v) {
   return typeof v === 'string' && v.length > 0;
 }
 
-function validatePayload(raw) {
-  let parsed;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return { error: ['malformed_json', 'request body is not valid JSON'] };
+const DEFAULT_GIT_REPO_URL = process.env.OK_DEFAULT_GIT_REPO_URL ?? 'https://github.com/inkeep/open-knowledge';
+const DEFAULT_GIT_BRANCH = process.env.OK_DEFAULT_GIT_BRANCH ?? 'main';
+const DEFAULT_EXTERNAL_URL = process.env.OK_DEFAULT_EXTERNAL_URL ?? 'https://placeholder.local';
+
+function resolveSpace(raw) {
+  let parsed = null;
+  if (isNonEmptyString(raw)) {
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      process.stderr.write('run-hook: run-body non-JSON, using defaults\n');
+      parsed = null;
+    }
+  } else {
+    process.stderr.write('run-hook: run-body empty, using defaults\n');
   }
-  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    return { error: ['bad_schema', 'payload must be a JSON object'] };
-  }
-  const { gitRepoUrl, gitBranch, externalUrl } = parsed;
-  if (!isNonEmptyString(gitRepoUrl)) {
-    return { error: ['bad_schema', 'gitRepoUrl must be a non-empty string'] };
-  }
-  if (!isNonEmptyString(gitBranch)) {
-    return { error: ['bad_schema', 'gitBranch must be a non-empty string'] };
-  }
-  if (!isNonEmptyString(externalUrl)) {
-    return { error: ['bad_schema', 'externalUrl must be a non-empty string'] };
-  }
-  return { value: { gitRepoUrl, gitBranch, externalUrl } };
+  const overrides = parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  const gitRepoUrl = isNonEmptyString(overrides.gitRepoUrl) ? overrides.gitRepoUrl : DEFAULT_GIT_REPO_URL;
+  const gitBranch = isNonEmptyString(overrides.gitBranch) ? overrides.gitBranch : DEFAULT_GIT_BRANCH;
+  const externalUrl = isNonEmptyString(overrides.externalUrl) ? overrides.externalUrl : DEFAULT_EXTERNAL_URL;
+  return { gitRepoUrl, gitBranch, externalUrl };
 }
 
 function boot(space, res) {
@@ -129,11 +129,11 @@ const server = createServer((req, res) => {
     if (booted) {
       return reject(res, 409, 'already_booted', 'this MicroVM has already selected a space');
     }
-    const result = validatePayload(Buffer.concat(chunks).toString('utf8'));
-    if (result.error) {
-      return reject(res, 400, result.error[0], result.error[1]);
-    }
-    boot(result.value, res);
+    const raw = Buffer.concat(chunks).toString('utf8');
+    const rawTruncated = raw.slice(0, MAX_BYTES);
+    process.stderr.write(`run-hook: run-body ${Buffer.byteLength(raw, 'utf8')} bytes content-type=${req.headers['content-type'] ?? 'none'}: ${rawTruncated}\n`);
+    const space = resolveSpace(raw);
+    boot(space, res);
   });
 
   req.on('error', (err) => {
@@ -144,7 +144,7 @@ const server = createServer((req, res) => {
 });
 
 server.listen(HOOK_PORT, HOOK_HOST, () => {
-  console.error(`run-hook: listening ${HOOK_HOST}:${HOOK_PORT} ${HOOK_METHOD} ${RUN_PATH_PRIMARY} (fallback ${HOOK_PATH}) max=${MAX_BYTES}B ready=${READY_PATH_PRIMARY}`);
+  console.error(`run-hook: listening ${HOOK_HOST}:${HOOK_PORT} ${HOOK_METHOD} ${RUN_PATH_PRIMARY} (fallback ${HOOK_PATH}) max=${MAX_BYTES}B ready=${READY_PATH_PRIMARY} defaults=on`);
 });
 
 for (const sig of ['SIGTERM', 'SIGINT']) {
