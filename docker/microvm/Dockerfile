@@ -90,8 +90,6 @@ ENV PORT=3000 \
     OK_ALLOW_EXTERNAL=1 \
     OK_READ_ONLY=1 \
     TOLUNA_CONTENT_DIR=/content \
-    OK_RUN_HOOK_READY_METHOD=POST \
-    OK_RUN_HOOK_READY_PATHS=/aws/lambda-microvms/runtime/v1/ready,/ready \
     OK_RUN_HOOK_PATH=/aws/lambda-microvms/runtime/v1/run
 
 EXPOSE 3000
