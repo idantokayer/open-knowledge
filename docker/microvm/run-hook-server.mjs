@@ -63,6 +63,8 @@ function validatePayload(raw) {
 
 function boot(space, res) {
   booted = true;
+  res.writeHead(200, { 'content-type': 'application/json' });
+  res.end(JSON.stringify({ ok: true, branch: space.gitBranch }));
   const child = spawn(ENTRYPOINT, [], {
     stdio: 'inherit',
     env: {
@@ -73,15 +75,13 @@ function boot(space, res) {
     },
   });
   child.on('error', (err) => {
-    console.error(`run-hook: failed to exec entrypoint: ${err.message}`);
-    process.exit(1);
+    process.stderr.write(`run-hook: failed to exec entrypoint: ${err.message}\n`);
+    process.exitCode = 1;
   });
   child.on('exit', (code, signal) => {
-    console.error(`run-hook: ok process exited code=${code} signal=${signal}`);
-    process.exit(code == null ? 1 : code);
+    process.stderr.write(`run-hook: ok process exited code=${code} signal=${signal}\n`);
+    process.exitCode = code == null ? 1 : code;
   });
-  res.writeHead(200, { 'content-type': 'application/json' });
-  res.end(JSON.stringify({ ok: true, branch: space.gitBranch }));
 }
 
 const server = createServer((req, res) => {
