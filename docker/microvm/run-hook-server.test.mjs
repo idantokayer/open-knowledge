@@ -1,7 +1,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { request } from 'node:http';
+import { request, createServer as createHttpServer } from 'node:http';
 import { mkdtempSync, writeFileSync, chmodSync, rmSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -24,17 +24,18 @@ const VALID_PAYLOAD = { gitRepoUrl: 'https://example.com/x.git', gitBranch: 'mai
 let child;
 let workdir;
 
-function requestOn(port, path, method, body) {
+function requestOn(port, path, method, body, extraHeaders) {
   return new Promise((resolve, nope) => {
     const hasBody = body !== undefined && method !== 'GET';
     const payload = hasBody ? (typeof body === 'string' ? body : JSON.stringify(body)) : null;
     const headers = hasBody
       ? { 'content-type': 'application/json', 'content-length': Buffer.byteLength(payload) }
       : {};
+    if (extraHeaders) Object.assign(headers, extraHeaders);
     const req = request({ host: HOST, port, path, method, headers }, (res) => {
       const chunks = [];
       res.on('data', (c) => chunks.push(c));
-      res.on('end', () => resolve({ status: res.statusCode, body: Buffer.concat(chunks).toString('utf8') }));
+      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString('utf8') }));
     });
     req.on('error', nope);
     if (payload !== null) req.write(payload);
@@ -205,10 +206,22 @@ async function readChildEnv(inst, deadlineMs = 2000) {
   throw new Error('entrypoint env dump never appeared');
 }
 
-test('health responder answers 200 {ok:true} on a GET to a non-run path', async () => {
+test('health responder answers 200 {ok:true} on a GET to the scoped health path', async () => {
   const r = await get(HEALTH_PATH);
   assert.equal(r.status, 200);
   assert.match(r.body, /"ok":true/);
+});
+
+test('a GET to a non-health, non-hook path falls through to the proxy and returns 503 before the app is ready', async () => {
+  let inst;
+  try {
+    inst = await startServer('#!/bin/sh\nsleep 10\n');
+    const r = await getFrom(inst.port, '/some/ui/route');
+    assert.equal(r.status, 503);
+    assert.equal(r.headers['retry-after'], '1');
+  } finally {
+    teardown(inst);
+  }
 });
 
 test('bare POST /run returns 200 and triggers boot', async () => {
@@ -239,7 +252,7 @@ test('an unmatched request is logged to stderr as a run-hook inbound line', asyn
   try {
     inst = await startServer('#!/bin/sh\nsleep 10\n');
     const r = await postTo(inst.port, '/nope', VALID_PAYLOAD);
-    assert.equal(r.status, 404);
+    assert.equal(r.status, 503);
     const deadline = Date.now() + 2000;
     while (!/run-hook: inbound POST \/nope/.test(inst.stderr()) && Date.now() < deadline) {
       await new Promise((res) => setTimeout(res, 25));
@@ -535,25 +548,25 @@ test('regression matrix: POST the AWS ready path returns 200', async () => {
   }
 });
 
-test('regression matrix: a GET to any non-run path returns 200 from the health responder', async () => {
+test('regression matrix: a GET to any non-health path falls through to the proxy (503 before ready)', async () => {
   let inst;
   try {
     inst = await startServer('#!/bin/sh\nsleep 10\n');
     const r = await getFrom(inst.port, '/anything/at/all');
-    assert.equal(r.status, 200);
-    assert.match(r.body, /"ok":true/);
+    assert.equal(r.status, 503);
+    assert.equal(r.headers['retry-after'], '1');
   } finally {
     teardown(inst);
   }
 });
 
-test('regression matrix: DELETE /run returns 404 not_found', async () => {
+test('regression matrix: DELETE /run is not a hook and falls through to the proxy (503 before ready)', async () => {
   let inst;
   try {
     inst = await startServer('#!/bin/sh\nsleep 10\n');
     const r = await requestOn(inst.port, RUN_PATH, 'DELETE', {});
-    assert.equal(r.status, 404);
-    assert.match(r.body, /not_found/);
+    assert.equal(r.status, 503);
+    assert.equal(r.headers['retry-after'], '1');
   } finally {
     teardown(inst);
   }
@@ -603,31 +616,37 @@ test('server stays alive and keeps answering after the entrypoint child fails fa
   }
 });
 
-test('a GET to the run path is not treated as a run hook (health responder answers 200)', async () => {
-  const r = await get(RUN_PATH);
-  assert.equal(r.status, 200);
-  assert.match(r.body, /"ok":true/);
-});
-
-test('a non-GET, non-run request returns 404 not_found', async () => {
+test('a GET to the run path is not treated as a run hook and falls through to the proxy', async () => {
   let inst;
   try {
     inst = await startServer('#!/bin/sh\nsleep 10\n');
-    const r = await requestOn(inst.port, '/nope', 'DELETE', {});
-    assert.equal(r.status, 404);
-    assert.match(r.body, /not_found/);
+    const r = await getFrom(inst.port, RUN_PATH);
+    assert.equal(r.status, 503);
+    assert.equal(r.headers['retry-after'], '1');
   } finally {
     teardown(inst);
   }
 });
 
-test('POST-method requirement: GET to the AWS hook path does not boot (health responder answers 200)', async () => {
+test('a non-GET, non-run request falls through to the proxy (503 before ready)', async () => {
+  let inst;
+  try {
+    inst = await startServer('#!/bin/sh\nsleep 10\n');
+    const r = await requestOn(inst.port, '/nope', 'DELETE', {});
+    assert.equal(r.status, 503);
+    assert.equal(r.headers['retry-after'], '1');
+  } finally {
+    teardown(inst);
+  }
+});
+
+test('POST-method requirement: GET to the AWS hook path does not boot (falls through to the proxy)', async () => {
   let inst;
   try {
     inst = await startServer('#!/bin/sh\nsleep 10\n');
     const r = await getFrom(inst.port, HOOK_PATH);
-    assert.equal(r.status, 200);
-    assert.match(r.body, /"ok":true/);
+    assert.equal(r.status, 503);
+    assert.equal(r.headers['retry-after'], '1');
     const run = await postTo(inst.port, HOOK_PATH, VALID_PAYLOAD);
     assert.equal(run.status, 200);
   } finally {
@@ -702,22 +721,22 @@ test('a readiness ack after a successful boot still returns 200', async () => {
   }
 });
 
-test('GET /ready falls through to the health responder and PUT /ready returns 404 not_found', async () => {
+test('GET /ready and PUT /ready are not readiness acks and fall through to the proxy', async () => {
   let inst;
   try {
     inst = await startServer('#!/bin/sh\nsleep 10\n');
     const getReady = await getFrom(inst.port, READY_SHORT);
-    assert.equal(getReady.status, 200);
-    assert.match(getReady.body, /"ok":true/);
+    assert.equal(getReady.status, 503);
+    assert.equal(getReady.headers['retry-after'], '1');
     const putReady = await requestOn(inst.port, READY_SHORT, 'PUT', {});
-    assert.equal(putReady.status, 404);
-    assert.match(putReady.body, /not_found/);
+    assert.equal(putReady.status, 503);
+    assert.equal(putReady.headers['retry-after'], '1');
   } finally {
     teardown(inst);
   }
 });
 
-test('OK_RUN_HOOK_READY_PATH override: custom path acks 200, default AWS ready path no longer matches, short /ready still acks', async () => {
+test('OK_RUN_HOOK_READY_PATH override: custom path acks 200, default AWS ready path no longer acks (proxied), short /ready still acks', async () => {
   let inst;
   try {
     const custom = '/custom/ready/path';
@@ -726,8 +745,8 @@ test('OK_RUN_HOOK_READY_PATH override: custom path acks 200, default AWS ready p
     assert.equal(customReady.status, 200);
     assert.match(customReady.body, /"ok":true/);
     const defaultReady = await postTo(inst.port, READY_PATH, {});
-    assert.equal(defaultReady.status, 404);
-    assert.match(defaultReady.body, /not_found/);
+    assert.equal(defaultReady.status, 503);
+    assert.equal(defaultReady.headers['retry-after'], '1');
     const shortReady = await postTo(inst.port, READY_SHORT, {});
     assert.equal(shortReady.status, 200);
     assert.match(shortReady.body, /"ok":true/);
@@ -762,6 +781,510 @@ test('a readiness ack with a junk/empty body still returns 200 because the body 
     assert.match(empty.body, /"ok":true/);
     await settle(300);
     assert.equal(existsSync(inst.sentinel), false, 'a junk-body readiness ack must not spawn the entrypoint');
+  } finally {
+    teardown(inst);
+  }
+});
+
+test('runHookPayload wrapper: the real AWS envelope resolves all three inner values, not defaults', async () => {
+  let inst;
+  try {
+    inst = await startServerWithEnvDump();
+    const inner = {
+      gitRepoUrl: 'https://github.com/acme/kb',
+      gitBranch: 'dev',
+      externalUrl: 'https://kb.example.com',
+    };
+    const body = { microvmId: 'm', runHookPayload: JSON.stringify(inner) };
+    const r = await postTo(inst.port, RUN_PATH, body);
+    assert.equal(r.status, 200);
+    assert.match(r.body, /"branch":"dev"/);
+    const env = await readChildEnv(inst);
+    assert.equal(env.GIT_REPO_URL, 'https://github.com/acme/kb');
+    assert.equal(env.GIT_BRANCH, 'dev');
+    assert.equal(env.OK_EXTERNAL_URL, 'https://kb.example.com');
+    assert.notEqual(env.OK_EXTERNAL_URL, DEFAULT_EXTERNAL_URL);
+  } finally {
+    teardown(inst);
+  }
+});
+
+test('runHookPayload wrapper: a field omitted from the inner payload falls back to its default', async () => {
+  let inst;
+  try {
+    inst = await startServerWithEnvDump();
+    const body = { microvmId: 'm', runHookPayload: JSON.stringify({ gitBranch: 'dev' }) };
+    const r = await postTo(inst.port, RUN_PATH, body);
+    assert.equal(r.status, 200);
+    assert.match(r.body, /"branch":"dev"/);
+    const env = await readChildEnv(inst);
+    assert.equal(env.GIT_BRANCH, 'dev');
+    assert.equal(env.GIT_REPO_URL, DEFAULT_GIT_REPO_URL);
+    assert.equal(env.OK_EXTERNAL_URL, DEFAULT_EXTERNAL_URL);
+  } finally {
+    teardown(inst);
+  }
+});
+
+test('runHookPayload wrapper: a non-JSON string payload falls back to the outer body and does not throw', async () => {
+  let inst;
+  try {
+    inst = await startServerWithEnvDump();
+    const body = { microvmId: 'm', gitBranch: 'outerbranch', runHookPayload: 'not json at all <<< }{' };
+    const r = await postTo(inst.port, RUN_PATH, body);
+    assert.equal(r.status, 200);
+    assert.match(r.body, /"branch":"outerbranch"/);
+    const env = await readChildEnv(inst);
+    assert.equal(env.GIT_BRANCH, 'outerbranch');
+    assert.equal(env.GIT_REPO_URL, DEFAULT_GIT_REPO_URL);
+    assert.equal(env.OK_EXTERNAL_URL, DEFAULT_EXTERNAL_URL);
+  } finally {
+    teardown(inst);
+  }
+});
+
+test('runHookPayload wrapper: a non-string (object) payload is ignored and top-level overrides apply (back-compat)', async () => {
+  let inst;
+  try {
+    inst = await startServerWithEnvDump();
+    const body = {
+      gitRepoUrl: 'https://github.com/legacy/kb',
+      gitBranch: 'legacy',
+      externalUrl: 'https://legacy.example.com',
+      runHookPayload: { gitBranch: 'ignored' },
+    };
+    const r = await postTo(inst.port, RUN_PATH, body);
+    assert.equal(r.status, 200);
+    assert.match(r.body, /"branch":"legacy"/);
+    const env = await readChildEnv(inst);
+    assert.equal(env.GIT_REPO_URL, 'https://github.com/legacy/kb');
+    assert.equal(env.GIT_BRANCH, 'legacy');
+    assert.equal(env.OK_EXTERNAL_URL, 'https://legacy.example.com');
+  } finally {
+    teardown(inst);
+  }
+});
+
+test('runHookPayload wrapper: an absent payload with top-level overrides keeps the legacy unwrapped shape working', async () => {
+  let inst;
+  try {
+    inst = await startServerWithEnvDump();
+    const body = { gitBranch: 'toplevel' };
+    const r = await postTo(inst.port, RUN_PATH, body);
+    assert.equal(r.status, 200);
+    assert.match(r.body, /"branch":"toplevel"/);
+    const env = await readChildEnv(inst);
+    assert.equal(env.GIT_BRANCH, 'toplevel');
+    assert.equal(env.GIT_REPO_URL, DEFAULT_GIT_REPO_URL);
+    assert.equal(env.OK_EXTERNAL_URL, DEFAULT_EXTERNAL_URL);
+  } finally {
+    teardown(inst);
+  }
+});
+
+test('runHookPayload wrapper: an inner payload that is valid JSON but an array falls back to the outer body, no throw', async () => {
+  let inst;
+  try {
+    inst = await startServerWithEnvDump();
+    const body = { microvmId: 'm', gitBranch: 'outerarr', runHookPayload: '[1,2,3]' };
+    const r = await postTo(inst.port, RUN_PATH, body);
+    assert.equal(r.status, 200);
+    assert.match(r.body, /"branch":"outerarr"/);
+    const env = await readChildEnv(inst);
+    assert.equal(env.GIT_BRANCH, 'outerarr');
+    assert.equal(env.GIT_REPO_URL, DEFAULT_GIT_REPO_URL);
+    assert.equal(env.OK_EXTERNAL_URL, DEFAULT_EXTERNAL_URL);
+  } finally {
+    teardown(inst);
+  }
+});
+
+function startUpstream(handler, onUpgrade) {
+  return new Promise((resolve) => {
+    const up = createHttpServer(handler);
+    if (onUpgrade) up.on('upgrade', onUpgrade);
+    up.listen(0, HOST, () => resolve({ server: up, port: up.address().port }));
+  });
+}
+
+async function startServerProxying(upstreamPort, extraEnv = {}) {
+  const inst = await startServer('#!/bin/sh\nsleep 30\n', {
+    PORT: String(upstreamPort),
+    OK_APP_READYZ_PATH: '/readyz',
+    ...extraEnv,
+  });
+  const boot = await postTo(inst.port, RUN_PATH, VALID_PAYLOAD);
+  assert.equal(boot.status, 200);
+  return inst;
+}
+
+async function waitProxyReady(port, deadlineMs) {
+  const stop = Date.now() + deadlineMs;
+  while (Date.now() < stop) {
+    const r = await getFrom(port, '/some/ui/route');
+    if (r.status !== 503) return true;
+    await settle(50);
+  }
+  return false;
+}
+
+test('readiness poll: once upstream /readyz answers 2xx, a GET proxies through with the upstream status and body', async () => {
+  let inst;
+  let upstream;
+  try {
+    upstream = await startUpstream((req, res) => {
+      if (req.url === '/readyz') {
+        res.writeHead(200);
+        res.end('ready');
+        return;
+      }
+      res.writeHead(201, { 'content-type': 'text/plain', 'x-upstream': 'yes' });
+      res.end(`hello ${req.url}`);
+    });
+    inst = await startServerProxying(upstream.port);
+    const ready = await waitProxyReady(inst.port, 5000);
+    assert.equal(ready, true, 'proxy should become ready once upstream /readyz is 2xx');
+    const r = await getFrom(inst.port, '/documents/x');
+    assert.equal(r.status, 201);
+    assert.equal(r.headers['x-upstream'], 'yes');
+    assert.match(r.body, /hello \/documents\/x/);
+  } finally {
+    teardown(inst);
+    if (upstream) upstream.server.close();
+  }
+});
+
+test('proxy forwards method and body verbatim and is not capped by MAX_BYTES', async () => {
+  let inst;
+  let upstream;
+  try {
+    let seenMethod = '';
+    let seenBody = '';
+    upstream = await startUpstream((req, res) => {
+      if (req.url === '/readyz') {
+        res.writeHead(200);
+        res.end('ready');
+        return;
+      }
+      seenMethod = req.method;
+      const chunks = [];
+      req.on('data', (c) => chunks.push(c));
+      req.on('end', () => {
+        seenBody = Buffer.concat(chunks).toString('utf8');
+        res.writeHead(200);
+        res.end('ok');
+      });
+    });
+    inst = await startServerProxying(upstream.port);
+    assert.equal(await waitProxyReady(inst.port, 5000), true);
+    const big = 'y'.repeat(50000);
+    const r = await requestOn(inst.port, '/api/documents', 'PUT', big);
+    assert.equal(r.status, 200);
+    assert.equal(seenMethod, 'PUT');
+    assert.equal(seenBody.length, 50000);
+  } finally {
+    teardown(inst);
+    if (upstream) upstream.server.close();
+  }
+});
+
+test('proxy forwards Host verbatim and sets X-Forwarded-* so origin validation can admit the external host', async () => {
+  let inst;
+  let upstream;
+  try {
+    let seen = {};
+    upstream = await startUpstream((req, res) => {
+      if (req.url === '/readyz') {
+        res.writeHead(200);
+        res.end('ready');
+        return;
+      }
+      seen = {
+        host: req.headers.host,
+        origin: req.headers.origin,
+        xfHost: req.headers['x-forwarded-host'],
+        xfProto: req.headers['x-forwarded-proto'],
+        xfFor: req.headers['x-forwarded-for'],
+      };
+      res.writeHead(200);
+      res.end('ok');
+    });
+    inst = await startServerProxying(upstream.port);
+    assert.equal(await waitProxyReady(inst.port, 5000), true);
+    const r = await requestOn(inst.port, '/api/documents', 'GET', undefined, {
+      host: 'ok.snake-release-non-prod.toluna.me',
+      origin: 'https://ok.snake-release-non-prod.toluna.me',
+    });
+    assert.equal(r.status, 200);
+    assert.equal(seen.host, 'ok.snake-release-non-prod.toluna.me');
+    assert.equal(seen.origin, 'https://ok.snake-release-non-prod.toluna.me');
+    assert.equal(seen.xfHost, 'ok.snake-release-non-prod.toluna.me');
+    assert.equal(seen.xfProto, 'http');
+    assert.match(seen.xfFor, /127\.0\.0\.1|::1|::ffff:127\.0\.0\.1/);
+  } finally {
+    teardown(inst);
+    if (upstream) upstream.server.close();
+  }
+});
+
+test('upstream connect error after ready yields 502', async () => {
+  let inst;
+  let upstream;
+  try {
+    upstream = await startUpstream((req, res) => {
+      if (req.url === '/readyz') {
+        res.writeHead(200);
+        res.end('ready');
+        return;
+      }
+      res.writeHead(200);
+      res.end('ok');
+    });
+    inst = await startServerProxying(upstream.port);
+    assert.equal(await waitProxyReady(inst.port, 5000), true);
+    upstream.server.close();
+    upstream = null;
+    await settle(100);
+    const r = await getFrom(inst.port, '/documents/x');
+    assert.equal(r.status, 502);
+  } finally {
+    teardown(inst);
+    if (upstream) upstream.server.close();
+  }
+});
+
+test('health path stays scoped: GET /healthz is answered locally, never proxied', async () => {
+  let inst;
+  let upstream;
+  try {
+    let healthzProxied = false;
+    upstream = await startUpstream((req, res) => {
+      if (req.url === '/readyz') {
+        res.writeHead(200);
+        res.end('ready');
+        return;
+      }
+      if (req.url === '/healthz') healthzProxied = true;
+      res.writeHead(200);
+      res.end('upstream');
+    });
+    inst = await startServerProxying(upstream.port);
+    assert.equal(await waitProxyReady(inst.port, 5000), true);
+    const r = await getFrom(inst.port, '/healthz');
+    assert.equal(r.status, 200);
+    assert.match(r.body, /"ok":true/);
+    assert.equal(healthzProxied, false, '/healthz must be answered by the hook server, not proxied');
+  } finally {
+    teardown(inst);
+    if (upstream) upstream.server.close();
+  }
+});
+
+test('WebSocket upgrade is proxied to the upstream once ready', async () => {
+  let inst;
+  let upstream;
+  try {
+    upstream = await startUpstream(
+      (req, res) => {
+        if (req.url === '/readyz') {
+          res.writeHead(200);
+          res.end('ready');
+          return;
+        }
+        res.writeHead(200);
+        res.end('ok');
+      },
+      (req, socket) => {
+        const key = req.headers['sec-websocket-key'] ?? '';
+        socket.write(
+          'HTTP/1.1 101 Switching Protocols\r\n' +
+            'Upgrade: websocket\r\n' +
+            'Connection: Upgrade\r\n' +
+            `X-Echo-Path: ${req.url}\r\n` +
+            `X-Echo-Key: ${key}\r\n\r\n`,
+        );
+        socket.on('data', (d) => socket.write(d));
+      },
+    );
+    inst = await startServerProxying(upstream.port);
+    assert.equal(await waitProxyReady(inst.port, 5000), true);
+    const result = await new Promise((resolve, nope) => {
+      const req = request({
+        host: HOST,
+        port: inst.port,
+        path: '/collab/socket',
+        headers: {
+          Connection: 'Upgrade',
+          Upgrade: 'websocket',
+          'Sec-WebSocket-Key': 'dGhlIHNhbXBsZSBub25jZQ==',
+          'Sec-WebSocket-Version': '13',
+        },
+      });
+      req.on('upgrade', (res, socket) => {
+        socket.once('data', (d) => {
+          socket.destroy();
+          resolve({ status: res.statusCode, echoPath: res.headers['x-echo-path'], echo: d.toString('utf8') });
+        });
+        socket.write('ping');
+      });
+      req.on('error', nope);
+      req.end();
+    });
+    assert.equal(result.status, 101);
+    assert.equal(result.echoPath, '/collab/socket');
+    assert.equal(result.echo, 'ping');
+  } finally {
+    teardown(inst);
+    if (upstream) upstream.server.close();
+  }
+});
+
+test('WebSocket upgrade before the app is ready destroys the socket', async () => {
+  let inst;
+  try {
+    inst = await startServer('#!/bin/sh\nsleep 30\n');
+    const outcome = await new Promise((resolve) => {
+      const req = request({
+        host: HOST,
+        port: inst.port,
+        path: '/collab/socket',
+        headers: {
+          Connection: 'Upgrade',
+          Upgrade: 'websocket',
+          'Sec-WebSocket-Key': 'dGhlIHNhbXBsZSBub25jZQ==',
+          'Sec-WebSocket-Version': '13',
+        },
+      });
+      let upgraded = false;
+      req.on('upgrade', () => {
+        upgraded = true;
+        resolve('upgraded');
+      });
+      req.on('error', () => resolve('socket-destroyed'));
+      req.on('close', () => {
+        if (!upgraded) resolve('socket-destroyed');
+      });
+      req.end();
+    });
+    assert.equal(outcome, 'socket-destroyed');
+  } finally {
+    teardown(inst);
+  }
+});
+
+test('hop-by-hop strip: outbound request drops Connection-listed and standard hop-by-hop headers before upstream', async () => {
+  let inst;
+  let upstream;
+  try {
+    let seen = {};
+    upstream = await startUpstream((req, res) => {
+      if (req.url === '/readyz') {
+        res.writeHead(200);
+        res.end('ready');
+        return;
+      }
+      seen = {
+        connection: req.headers.connection,
+        keepAlive: req.headers['keep-alive'],
+        te: req.headers.te,
+        upgrade: req.headers.upgrade,
+        proxyAuth: req.headers['proxy-authorization'],
+        xHop: req.headers['x-hop-token'],
+        xKept: req.headers['x-kept'],
+      };
+      res.writeHead(200);
+      res.end('ok');
+    });
+    inst = await startServerProxying(upstream.port);
+    assert.equal(await waitProxyReady(inst.port, 5000), true);
+    const r = await requestOn(inst.port, '/api/documents', 'GET', undefined, {
+      connection: 'keep-alive, x-hop-token',
+      'keep-alive': 'timeout=5',
+      te: 'trailers',
+      'proxy-authorization': 'Basic abc',
+      'x-hop-token': 'should-be-dropped',
+      'x-kept': 'yes',
+    });
+    assert.equal(r.status, 200);
+    assert.equal(seen.keepAlive, undefined);
+    assert.equal(seen.te, undefined);
+    assert.equal(seen.proxyAuth, undefined);
+    assert.equal(seen.xHop, undefined);
+    assert.equal(seen.xKept, 'yes');
+    assert.doesNotMatch(seen.connection ?? '', /x-hop-token/);
+  } finally {
+    teardown(inst);
+    if (upstream) upstream.server.close();
+  }
+});
+
+test('hop-by-hop strip: upstream response hop-by-hop headers are not forwarded to the client', async () => {
+  let inst;
+  let upstream;
+  try {
+    upstream = await startUpstream((req, res) => {
+      if (req.url === '/readyz') {
+        res.writeHead(200);
+        res.end('ready');
+        return;
+      }
+      res.writeHead(200, {
+        'content-type': 'text/plain',
+        connection: 'keep-alive, x-resp-hop',
+        'keep-alive': 'timeout=5',
+        'x-resp-hop': 'should-be-dropped',
+        'x-resp-kept': 'yes',
+      });
+      res.end('ok');
+    });
+    inst = await startServerProxying(upstream.port);
+    assert.equal(await waitProxyReady(inst.port, 5000), true);
+    const r = await getFrom(inst.port, '/documents/x');
+    assert.equal(r.status, 200);
+    assert.equal(r.headers['x-resp-hop'], undefined);
+    assert.equal(r.headers['x-resp-kept'], 'yes');
+    assert.doesNotMatch(r.headers.connection ?? '', /x-resp-hop/);
+  } finally {
+    teardown(inst);
+    if (upstream) upstream.server.close();
+  }
+});
+
+test('poll-exhausted contract: while still polling the proxy returns 503 + Retry-After:1 with a JSON starting body', async () => {
+  let inst;
+  try {
+    inst = await startServer('#!/bin/sh\nsleep 10\n');
+    const r = await getFrom(inst.port, '/some/ui/route');
+    assert.equal(r.status, 503);
+    assert.equal(r.headers['retry-after'], '1');
+    assert.equal(r.headers['content-type'], 'application/json');
+    assert.match(r.body, /"code":"starting"/);
+  } finally {
+    teardown(inst);
+  }
+});
+
+test('poll-exhausted contract: after the readiness poll gives up the proxy returns 503 with NO Retry-After and a JSON unavailable body', async () => {
+  let inst;
+  try {
+    inst = await startServer('#!/bin/sh\nsleep 30\n', {
+      PORT: '1',
+      OK_APP_READYZ_PATH: '/readyz',
+      OK_APP_READYZ_MAX_TRIES: '1',
+    });
+    const boot = await postTo(inst.port, RUN_PATH, VALID_PAYLOAD);
+    assert.equal(boot.status, 200);
+    let r;
+    const deadline = Date.now() + 5000;
+    while (Date.now() < deadline) {
+      r = await getFrom(inst.port, '/some/ui/route');
+      if (r.headers['retry-after'] === undefined) break;
+      await settle(100);
+    }
+    assert.equal(r.status, 503);
+    assert.equal(r.headers['retry-after'], undefined, 'exhausted poll must stop advertising Retry-After');
+    assert.equal(r.headers['content-type'], 'application/json');
+    assert.match(r.body, /"code":"unavailable"/);
   } finally {
     teardown(inst);
   }
