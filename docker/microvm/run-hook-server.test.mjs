@@ -1350,7 +1350,7 @@ test('lazy-boot recovery: a premature GET / (503) does not wedge the VM, a later
     assert.equal(run.status, 200);
     await getWithHost(inst.port, '/', 'abc.example');
     const env = await readChildEnv(inst);
-    assert.equal(env.OK_EXTERNAL_URL, 'https://abc.example');
+    assert.equal(env.OK_EXTERNAL_URL, VALID_PAYLOAD.externalUrl);
     rmSync(inst.sentinel, { force: true });
     await getWithHost(inst.port, '/again', 'abc.example');
     await settle(300);
@@ -1427,7 +1427,7 @@ test('lazy-boot concurrency: /run then two simultaneous GET / spawn the app exac
   }
 });
 
-test('lazy-boot externalUrl provenance: the data-plane Host wins over an externalUrl recorded by /run', async () => {
+test('lazy-boot externalUrl provenance: a real payload externalUrl wins over the data-plane Host', async () => {
   let inst;
   try {
     inst = await startServerWithEnvDump();
@@ -1439,8 +1439,98 @@ test('lazy-boot externalUrl provenance: the data-plane Host wins over an externa
     assert.equal(run.status, 200);
     await getWithHost(inst.port, '/', 'dataplane.example');
     const env = await readChildEnv(inst);
-    assert.equal(env.OK_EXTERNAL_URL, 'https://dataplane.example');
-    assert.notEqual(env.OK_EXTERNAL_URL, 'https://payload.example');
+    assert.equal(env.OK_EXTERNAL_URL, 'https://payload.example');
+    assert.notEqual(env.OK_EXTERNAL_URL, 'https://dataplane.example');
+  } finally {
+    teardown(inst);
+  }
+});
+
+test('externalUrl precedence a: a real payload externalUrl wins over a different data-plane Host', async () => {
+  let inst;
+  try {
+    inst = await startServerWithEnvDump();
+    const run = await postTo(inst.port, RUN_PATH, {
+      gitRepoUrl: 'https://github.com/acme/kb',
+      gitBranch: 'main',
+      externalUrl: 'https://kb.example.com',
+    });
+    assert.equal(run.status, 200);
+    await getWithHost(inst.port, '/', 'different.host.example');
+    const env = await readChildEnv(inst);
+    assert.equal(env.OK_EXTERNAL_URL, 'https://kb.example.com');
+    assert.notEqual(env.OK_EXTERNAL_URL, 'https://different.host.example');
+  } finally {
+    teardown(inst);
+  }
+});
+
+test('externalUrl precedence b: no payload externalUrl derives OK_EXTERNAL_URL from the data-plane Host (unchanged)', async () => {
+  let inst;
+  try {
+    inst = await startServerWithEnvDump();
+    const run = await postTo(inst.port, RUN_PATH, { gitRepoUrl: 'https://github.com/acme/kb', gitBranch: 'main' });
+    assert.equal(run.status, 200);
+    await getWithHost(inst.port, '/', 'derived.host.example');
+    const env = await readChildEnv(inst);
+    assert.equal(env.OK_EXTERNAL_URL, 'https://derived.host.example');
+    assert.notEqual(env.OK_EXTERNAL_URL, DEFAULT_EXTERNAL_URL);
+  } finally {
+    teardown(inst);
+  }
+});
+
+test('externalUrl precedence b2: the placeholder payload externalUrl is treated as default and derives from the Host', async () => {
+  let inst;
+  try {
+    inst = await startServerWithEnvDump();
+    const run = await postTo(inst.port, RUN_PATH, {
+      gitRepoUrl: 'https://github.com/acme/kb',
+      gitBranch: 'main',
+      externalUrl: DEFAULT_EXTERNAL_URL,
+    });
+    assert.equal(run.status, 200);
+    await getWithHost(inst.port, '/', 'derived.host.example');
+    const env = await readChildEnv(inst);
+    assert.equal(env.OK_EXTERNAL_URL, 'https://derived.host.example');
+    assert.notEqual(env.OK_EXTERNAL_URL, DEFAULT_EXTERNAL_URL);
+  } finally {
+    teardown(inst);
+  }
+});
+
+test('externalUrl precedence c: a malformed payload externalUrl falls through to the Host-derived origin, not DEFAULT', async () => {
+  let inst;
+  try {
+    inst = await startServerWithEnvDump();
+    const run = await postTo(inst.port, RUN_PATH, {
+      gitRepoUrl: 'https://github.com/acme/kb',
+      gitBranch: 'main',
+      externalUrl: '::::',
+    });
+    assert.equal(run.status, 200);
+    await getWithHost(inst.port, '/', 'fallback.host.example');
+    const env = await readChildEnv(inst);
+    assert.equal(env.OK_EXTERNAL_URL, 'https://fallback.host.example');
+    assert.notEqual(env.OK_EXTERNAL_URL, DEFAULT_EXTERNAL_URL);
+  } finally {
+    teardown(inst);
+  }
+});
+
+test('externalUrl precedence d: a malformed payload externalUrl AND a garbage Host fall back to DEFAULT_EXTERNAL_URL', async () => {
+  let inst;
+  try {
+    inst = await startServerWithEnvDump();
+    const run = await postTo(inst.port, RUN_PATH, {
+      gitRepoUrl: 'https://github.com/acme/kb',
+      gitBranch: 'main',
+      externalUrl: '::::',
+    });
+    assert.equal(run.status, 200);
+    await getWithHost(inst.port, '/', MALFORMED_HOST);
+    const env = await readChildEnv(inst);
+    assert.equal(env.OK_EXTERNAL_URL, DEFAULT_EXTERNAL_URL);
   } finally {
     teardown(inst);
   }

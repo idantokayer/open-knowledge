@@ -229,15 +229,26 @@ function proxyRequest(req, res) {
     }
     const host = req.headers.host;
     let ext;
-    if (isNonEmptyString(host)) {
+    const payloadExt =
+      isNonEmptyString(pendingSpace.externalUrl) && pendingSpace.externalUrl !== DEFAULT_EXTERNAL_URL
+        ? pendingSpace.externalUrl
+        : null;
+    let resolved = null;
+    if (payloadExt !== null) {
       try {
-        ext = new URL(`https://${host}`).origin;
+        resolved = new URL(payloadExt).origin;
       } catch {
-        ext = isNonEmptyString(pendingSpace.externalUrl) ? pendingSpace.externalUrl : DEFAULT_EXTERNAL_URL;
+        resolved = null;
       }
-    } else {
-      ext = isNonEmptyString(pendingSpace.externalUrl) ? pendingSpace.externalUrl : DEFAULT_EXTERNAL_URL;
     }
+    if (resolved === null && isNonEmptyString(host)) {
+      try {
+        resolved = new URL(`https://${host}`).origin;
+      } catch {
+        resolved = null;
+      }
+    }
+    ext = resolved ?? DEFAULT_EXTERNAL_URL;
     booted = true;
     process.stderr.write(`run-hook: lazy-boot method=${req.method} path=${req.url} host=${host ?? ''} ext=${ext}\n`);
     spawnApp(pendingSpace, ext);
