@@ -2,7 +2,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { request, createServer as createHttpServer } from 'node:http';
-import { mkdtempSync, writeFileSync, chmodSync, rmSync, existsSync, readFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, chmodSync, rmSync, existsSync, readFileSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -206,6 +206,16 @@ async function readChildEnv(inst, deadlineMs = 2000) {
   throw new Error('entrypoint env dump never appeared');
 }
 
+const MALFORMED_HOST = 'a_b@c:d:e';
+
+function getWithHost(port, path, host) {
+  return requestOn(port, path, 'GET', undefined, { host });
+}
+
+async function triggerBootFallbackHost(inst) {
+  return getWithHost(inst.port, '/', MALFORMED_HOST);
+}
+
 test('health responder answers 200 {ok:true} on a GET to the scoped health path', async () => {
   const r = await get(HEALTH_PATH);
   assert.equal(r.status, 200);
@@ -271,6 +281,7 @@ test('never-400 contract: empty body on first POST /run returns 200 and boots wi
     assert.equal(r.status, 200);
     assert.match(r.body, /"ok":true/);
     assert.match(r.body, /"branch":"main"/);
+    await triggerBootFallbackHost(inst);
     const env = await readChildEnv(inst);
     assert.equal(env.GIT_REPO_URL, DEFAULT_GIT_REPO_URL);
     assert.equal(env.GIT_BRANCH, DEFAULT_GIT_BRANCH);
@@ -288,6 +299,7 @@ test('never-400 contract: non-JSON string body on first POST /run returns 200 an
     assert.equal(r.status, 200);
     assert.match(r.body, /"ok":true/);
     assert.match(r.body, /"branch":"main"/);
+    await triggerBootFallbackHost(inst);
     const env = await readChildEnv(inst);
     assert.equal(env.GIT_REPO_URL, DEFAULT_GIT_REPO_URL);
     assert.equal(env.GIT_BRANCH, DEFAULT_GIT_BRANCH);
@@ -305,6 +317,7 @@ test('never-400 contract: JSON array body "[]" on first POST /run returns 200 an
     assert.equal(r.status, 200);
     assert.match(r.body, /"ok":true/);
     assert.match(r.body, /"branch":"main"/);
+    await triggerBootFallbackHost(inst);
     const env = await readChildEnv(inst);
     assert.equal(env.GIT_REPO_URL, DEFAULT_GIT_REPO_URL);
     assert.equal(env.GIT_BRANCH, DEFAULT_GIT_BRANCH);
@@ -322,6 +335,7 @@ test('never-400 contract: JSON null body "null" on first POST /run returns 200 a
     assert.equal(r.status, 200);
     assert.match(r.body, /"ok":true/);
     assert.match(r.body, /"branch":"main"/);
+    await triggerBootFallbackHost(inst);
     const env = await readChildEnv(inst);
     assert.equal(env.GIT_REPO_URL, DEFAULT_GIT_REPO_URL);
     assert.equal(env.GIT_BRANCH, DEFAULT_GIT_BRANCH);
@@ -339,6 +353,7 @@ test('never-400 contract: empty JSON object "{}" on first POST /run returns 200 
     assert.equal(r.status, 200);
     assert.match(r.body, /"ok":true/);
     assert.match(r.body, /"branch":"main"/);
+    await triggerBootFallbackHost(inst);
     const env = await readChildEnv(inst);
     assert.equal(env.GIT_REPO_URL, DEFAULT_GIT_REPO_URL);
     assert.equal(env.GIT_BRANCH, DEFAULT_GIT_BRANCH);
@@ -356,6 +371,7 @@ test('never-400 contract: bare number body "123" on first POST /run returns 200 
     assert.equal(r.status, 200);
     assert.match(r.body, /"ok":true/);
     assert.match(r.body, /"branch":"main"/);
+    await triggerBootFallbackHost(inst);
     const env = await readChildEnv(inst);
     assert.equal(env.GIT_REPO_URL, DEFAULT_GIT_REPO_URL);
     assert.equal(env.GIT_BRANCH, DEFAULT_GIT_BRANCH);
@@ -373,6 +389,7 @@ test('never-400 contract: bare JSON string body "str" on first POST /run returns
     assert.equal(r.status, 200);
     assert.match(r.body, /"ok":true/);
     assert.match(r.body, /"branch":"main"/);
+    await triggerBootFallbackHost(inst);
     const env = await readChildEnv(inst);
     assert.equal(env.GIT_REPO_URL, DEFAULT_GIT_REPO_URL);
     assert.equal(env.GIT_BRANCH, DEFAULT_GIT_BRANCH);
@@ -389,6 +406,7 @@ test('override precedence: {gitBranch:"x"} overrides branch only, repo and exter
     const r = await postTo(inst.port, RUN_PATH, { gitBranch: 'x' });
     assert.equal(r.status, 200);
     assert.match(r.body, /"branch":"x"/);
+    await triggerBootFallbackHost(inst);
     const env = await readChildEnv(inst);
     assert.equal(env.GIT_BRANCH, 'x');
     assert.equal(env.GIT_REPO_URL, DEFAULT_GIT_REPO_URL);
@@ -405,6 +423,7 @@ test('override precedence: empty-string {gitRepoUrl:""} is not a non-empty strin
     const r = await postTo(inst.port, RUN_PATH, { gitRepoUrl: '' });
     assert.equal(r.status, 200);
     assert.match(r.body, /"branch":"main"/);
+    await triggerBootFallbackHost(inst);
     const env = await readChildEnv(inst);
     assert.equal(env.GIT_REPO_URL, DEFAULT_GIT_REPO_URL);
     assert.equal(env.GIT_BRANCH, DEFAULT_GIT_BRANCH);
@@ -421,6 +440,7 @@ test('override precedence: wrong-type {gitBranch:123} is not a non-empty string 
     const r = await postTo(inst.port, RUN_PATH, { gitBranch: 123 });
     assert.equal(r.status, 200);
     assert.match(r.body, /"branch":"main"/);
+    await triggerBootFallbackHost(inst);
     const env = await readChildEnv(inst);
     assert.equal(env.GIT_BRANCH, DEFAULT_GIT_BRANCH);
   } finally {
@@ -435,6 +455,7 @@ test('default sourcing from env: OK_DEFAULT_GIT_BRANCH=release with {} body boot
     const r = await postTo(inst.port, RUN_PATH, {});
     assert.equal(r.status, 200);
     assert.match(r.body, /"branch":"release"/);
+    await triggerBootFallbackHost(inst);
     const env = await readChildEnv(inst);
     assert.equal(env.GIT_BRANCH, 'release');
     assert.equal(env.GIT_REPO_URL, DEFAULT_GIT_REPO_URL);
@@ -450,6 +471,7 @@ test('idempotency: second POST /run returns 409 already_booted and the entrypoin
     inst = await startServerWithEnvDump();
     const first = await postTo(inst.port, RUN_PATH, VALID_PAYLOAD);
     assert.equal(first.status, 200);
+    await triggerBootFallbackHost(inst);
     await readChildEnv(inst);
     rmSync(inst.sentinel, { force: true });
     const second = await postTo(inst.port, RUN_PATH, VALID_PAYLOAD);
@@ -476,6 +498,7 @@ test('concurrency guard: two overlapping POST /run yield exactly one 200 and one
     assert.match(okOne.body, /"ok":true/);
     const conflictOne = a.status === 409 ? a : b;
     assert.match(conflictOne.body, /already_booted/);
+    await triggerBootFallbackHost(inst);
     await readChildEnv(inst);
     rmSync(inst.sentinel, { force: true });
     await settle(300);
@@ -799,6 +822,7 @@ test('runHookPayload wrapper: the real AWS envelope resolves all three inner val
     const r = await postTo(inst.port, RUN_PATH, body);
     assert.equal(r.status, 200);
     assert.match(r.body, /"branch":"dev"/);
+    await triggerBootFallbackHost(inst);
     const env = await readChildEnv(inst);
     assert.equal(env.GIT_REPO_URL, 'https://github.com/acme/kb');
     assert.equal(env.GIT_BRANCH, 'dev');
@@ -817,6 +841,7 @@ test('runHookPayload wrapper: a field omitted from the inner payload falls back 
     const r = await postTo(inst.port, RUN_PATH, body);
     assert.equal(r.status, 200);
     assert.match(r.body, /"branch":"dev"/);
+    await triggerBootFallbackHost(inst);
     const env = await readChildEnv(inst);
     assert.equal(env.GIT_BRANCH, 'dev');
     assert.equal(env.GIT_REPO_URL, DEFAULT_GIT_REPO_URL);
@@ -834,6 +859,7 @@ test('runHookPayload wrapper: a non-JSON string payload falls back to the outer 
     const r = await postTo(inst.port, RUN_PATH, body);
     assert.equal(r.status, 200);
     assert.match(r.body, /"branch":"outerbranch"/);
+    await triggerBootFallbackHost(inst);
     const env = await readChildEnv(inst);
     assert.equal(env.GIT_BRANCH, 'outerbranch');
     assert.equal(env.GIT_REPO_URL, DEFAULT_GIT_REPO_URL);
@@ -856,6 +882,7 @@ test('runHookPayload wrapper: a non-string (object) payload is ignored and top-l
     const r = await postTo(inst.port, RUN_PATH, body);
     assert.equal(r.status, 200);
     assert.match(r.body, /"branch":"legacy"/);
+    await triggerBootFallbackHost(inst);
     const env = await readChildEnv(inst);
     assert.equal(env.GIT_REPO_URL, 'https://github.com/legacy/kb');
     assert.equal(env.GIT_BRANCH, 'legacy');
@@ -873,6 +900,7 @@ test('runHookPayload wrapper: an absent payload with top-level overrides keeps t
     const r = await postTo(inst.port, RUN_PATH, body);
     assert.equal(r.status, 200);
     assert.match(r.body, /"branch":"toplevel"/);
+    await triggerBootFallbackHost(inst);
     const env = await readChildEnv(inst);
     assert.equal(env.GIT_BRANCH, 'toplevel');
     assert.equal(env.GIT_REPO_URL, DEFAULT_GIT_REPO_URL);
@@ -890,6 +918,7 @@ test('runHookPayload wrapper: an inner payload that is valid JSON but an array f
     const r = await postTo(inst.port, RUN_PATH, body);
     assert.equal(r.status, 200);
     assert.match(r.body, /"branch":"outerarr"/);
+    await triggerBootFallbackHost(inst);
     const env = await readChildEnv(inst);
     assert.equal(env.GIT_BRANCH, 'outerarr');
     assert.equal(env.GIT_REPO_URL, DEFAULT_GIT_REPO_URL);
@@ -1287,5 +1316,467 @@ test('poll-exhausted contract: after the readiness poll gives up the proxy retur
     assert.match(r.body, /"code":"unavailable"/);
   } finally {
     teardown(inst);
+  }
+});
+
+test('lazy-boot gate: a bare GET / before any /run returns 503 starting, does not spawn, and does not latch booted', async () => {
+  let inst;
+  try {
+    inst = await startServerWithEnvDump();
+    const premature = await getFrom(inst.port, '/');
+    assert.equal(premature.status, 503);
+    assert.match(premature.body, /"code":"starting"/);
+    assert.equal(premature.headers['retry-after'], '1');
+    await settle(300);
+    assert.equal(existsSync(inst.sentinel), false, 'a pre-/run probe must not spawn the entrypoint');
+    const run = await postTo(inst.port, RUN_PATH, VALID_PAYLOAD);
+    assert.equal(run.status, 200);
+    await triggerBootFallbackHost(inst);
+    const env = await readChildEnv(inst);
+    assert.equal(env.GIT_BRANCH, 'main');
+  } finally {
+    teardown(inst);
+  }
+});
+
+test('lazy-boot recovery: a premature GET / (503) does not wedge the VM, a later /run then GET / boots with the data-plane Host', async () => {
+  let inst;
+  try {
+    inst = await startServerWithEnvDump();
+    const premature = await getFrom(inst.port, '/');
+    assert.equal(premature.status, 503);
+    assert.match(premature.body, /"code":"starting"/);
+    const run = await postTo(inst.port, RUN_PATH, VALID_PAYLOAD);
+    assert.equal(run.status, 200);
+    await getWithHost(inst.port, '/', 'abc.example');
+    const env = await readChildEnv(inst);
+    assert.equal(env.OK_EXTERNAL_URL, 'https://abc.example');
+    rmSync(inst.sentinel, { force: true });
+    await getWithHost(inst.port, '/again', 'abc.example');
+    await settle(300);
+    assert.equal(existsSync(inst.sentinel), false, 'the app must spawn exactly once, not on every data-plane request');
+  } finally {
+    teardown(inst);
+  }
+});
+
+test('lazy-boot gate: with no /run ever, repeated GET / always returns 503 starting and the app is never spawned', async () => {
+  let inst;
+  try {
+    inst = await startServerWithEnvDump();
+    for (let i = 0; i < 3; i += 1) {
+      const r = await getFrom(inst.port, `/route/${i}`);
+      assert.equal(r.status, 503);
+      assert.match(r.body, /"code":"starting"/);
+    }
+    await settle(300);
+    assert.equal(existsSync(inst.sentinel), false, 'no /run means no spawn, ever');
+  } finally {
+    teardown(inst);
+  }
+});
+
+test('lazy-boot Host guard: a malformed data-plane Host falls back to the recorded externalUrl and spawns exactly once', async () => {
+  let inst;
+  try {
+    inst = await startServerWithEnvDump();
+    const run = await postTo(inst.port, RUN_PATH, VALID_PAYLOAD);
+    assert.equal(run.status, 200);
+    await getWithHost(inst.port, '/', MALFORMED_HOST);
+    const env = await readChildEnv(inst);
+    assert.equal(env.OK_EXTERNAL_URL, VALID_PAYLOAD.externalUrl);
+    assert.equal(env.GIT_REPO_URL, VALID_PAYLOAD.gitRepoUrl);
+    assert.equal(env.GIT_BRANCH, VALID_PAYLOAD.gitBranch);
+    rmSync(inst.sentinel, { force: true });
+    await getWithHost(inst.port, '/second', MALFORMED_HOST);
+    await settle(300);
+    assert.equal(existsSync(inst.sentinel), false, 'the malformed-Host fallback must still spawn exactly once');
+  } finally {
+    teardown(inst);
+  }
+});
+
+test('lazy-boot Host guard: an empty recorded externalUrl plus a malformed Host falls back to DEFAULT_EXTERNAL_URL', async () => {
+  let inst;
+  try {
+    inst = await startServerWithEnvDump();
+    const run = await postTo(inst.port, RUN_PATH, { gitBranch: 'x' });
+    assert.equal(run.status, 200);
+    await getWithHost(inst.port, '/', MALFORMED_HOST);
+    const env = await readChildEnv(inst);
+    assert.equal(env.OK_EXTERNAL_URL, DEFAULT_EXTERNAL_URL);
+    assert.equal(env.GIT_BRANCH, 'x');
+  } finally {
+    teardown(inst);
+  }
+});
+
+test('lazy-boot concurrency: /run then two simultaneous GET / spawn the app exactly once', async () => {
+  let inst;
+  try {
+    inst = await startServerWithEnvDump();
+    const run = await postTo(inst.port, RUN_PATH, VALID_PAYLOAD);
+    assert.equal(run.status, 200);
+    await Promise.all([getWithHost(inst.port, '/', 'abc.example'), getWithHost(inst.port, '/', 'abc.example')]);
+    await readChildEnv(inst);
+    rmSync(inst.sentinel, { force: true });
+    await settle(300);
+    assert.equal(existsSync(inst.sentinel), false, 'two simultaneous first requests must yield exactly one spawn');
+  } finally {
+    teardown(inst);
+  }
+});
+
+test('lazy-boot externalUrl provenance: the data-plane Host wins over an externalUrl recorded by /run', async () => {
+  let inst;
+  try {
+    inst = await startServerWithEnvDump();
+    const run = await postTo(inst.port, RUN_PATH, {
+      gitRepoUrl: 'https://github.com/acme/kb',
+      gitBranch: 'main',
+      externalUrl: 'https://payload.example',
+    });
+    assert.equal(run.status, 200);
+    await getWithHost(inst.port, '/', 'dataplane.example');
+    const env = await readChildEnv(inst);
+    assert.equal(env.OK_EXTERNAL_URL, 'https://dataplane.example');
+    assert.notEqual(env.OK_EXTERNAL_URL, 'https://payload.example');
+  } finally {
+    teardown(inst);
+  }
+});
+
+test('forwardHeaders does not rewrite the outgoing Host: the proxied upstream request carries the original client Host (Option C locked out)', async () => {
+  let inst;
+  let upstream;
+  try {
+    let seenHost = '';
+    upstream = await startUpstream((req, res) => {
+      if (req.url === '/readyz') {
+        res.writeHead(200);
+        res.end('ready');
+        return;
+      }
+      seenHost = req.headers.host;
+      res.writeHead(200);
+      res.end('ok');
+    });
+    inst = await startServerProxying(upstream.port);
+    assert.equal(await waitProxyReady(inst.port, 5000), true);
+    const clientHost = 'ok.snake-release-non-prod.toluna.me';
+    const r = await requestOn(inst.port, '/api/documents', 'GET', undefined, { host: clientHost });
+    assert.equal(r.status, 200);
+    assert.equal(seenHost, clientHost, 'the upstream must receive the original client Host, not a hook-rewritten one');
+  } finally {
+    teardown(inst);
+    if (upstream) upstream.server.close();
+  }
+});
+
+const OK_RUN_DIR = '/tmp/ok-run';
+const OK_RUN_KEY = '/tmp/ok-run/id_deploy';
+const OK_RUN_HOSTS = '/tmp/ok-run/known_hosts';
+const PEM_MARKER = 'MARKERv82f1c9d4e7a6b3550cafebabedeadbeef0123456789abcdefQAIDAN';
+const PEM_FIXTURE = `-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAA${PEM_MARKER}\nAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZWQyNTUxOQAAACC\n-----END OPENSSH PRIVATE KEY-----\n`;
+const KNOWN_HOSTS_FIXTURE = 'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabG23fixtureKnownHostsLine\n';
+const SSH_REPO_URL = 'git@github.com:org/repo.git';
+const HTTPS_REPO_URL = 'https://github.com/org/repo.git';
+
+function cleanRunDir() {
+  rmSync(OK_RUN_DIR, { recursive: true, force: true });
+}
+
+function modeOf(path) {
+  return statSync(path).mode & 0o777;
+}
+
+async function startServerWithKeyDump(extraEnv = {}) {
+  const dir = mkdtempSync(join(tmpdir(), 'ok-hook-'));
+  const sentinel = join(dir, 'booted.marker');
+  const envdump = join(dir, 'child.env');
+  const stub = join(dir, 'entrypoint-stub.sh');
+  writeFileSync(
+    stub,
+    `#!/bin/sh\ntouch "${sentinel}"\nprintf 'GIT_REPO_URL=%s\\nGIT_BRANCH=%s\\nOK_EXTERNAL_URL=%s\\nGIT_SSH_KEY_FILE=%s\\nGIT_KNOWN_HOSTS_FILE=%s\\nEND=1\\n' "$GIT_REPO_URL" "$GIT_BRANCH" "$OK_EXTERNAL_URL" "$GIT_SSH_KEY_FILE" "$GIT_KNOWN_HOSTS_FILE" > "${envdump}"\nsleep 10\n`,
+  );
+  chmodSync(stub, 0o755);
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const port = 20000 + Math.floor(Math.random() * 40000);
+    let stderr = '';
+    const proc = spawn(process.execPath, [SERVER], {
+      stdio: ['ignore', 'ignore', 'pipe'],
+      env: {
+        ...process.env,
+        OK_RUN_HOOK_PATH: HOOK_PATH,
+        OK_RUN_HOOK_PORT: String(port),
+        OK_RUN_HOOK_HOST: HOST,
+        OK_ENTRYPOINT: stub,
+        ...extraEnv,
+      },
+    });
+    proc.stderr.setEncoding('utf8');
+    proc.stderr.on('data', (c) => {
+      stderr += c;
+    });
+    const ready = await waitReadyOn(port, 5000);
+    if (ready) {
+      return { proc, port, dir, sentinel, envdump, stderr: () => stderr };
+    }
+    if (!proc.killed) proc.kill('SIGKILL');
+  }
+  rmSync(dir, { recursive: true, force: true });
+  throw new Error('could not start isolated server on a free port');
+}
+
+async function readKeyEnv(inst, deadlineMs = 2000) {
+  const deadline = Date.now() + deadlineMs;
+  while (Date.now() < deadline) {
+    if (existsSync(inst.envdump)) {
+      const text = readFileSync(inst.envdump, 'utf8');
+      if (/END=1/.test(text)) {
+        const out = {};
+        for (const line of text.split('\n')) {
+          const idx = line.indexOf('=');
+          if (idx > 0) out[line.slice(0, idx)] = line.slice(idx + 1);
+        }
+        return out;
+      }
+    }
+    await settle(25);
+  }
+  throw new Error('entrypoint env dump never appeared');
+}
+
+test('ssh-key matrix 1 happy path: key+known_hosts booted via data-plane writes 0600 files under a 0700 dir and forwards both env vars', async () => {
+  let inst;
+  cleanRunDir();
+  try {
+    inst = await startServerWithKeyDump();
+    const r = await postTo(inst.port, RUN_PATH, {
+      gitRepoUrl: SSH_REPO_URL,
+      gitBranch: 'main',
+      gitSshKey: PEM_FIXTURE,
+      gitKnownHosts: KNOWN_HOSTS_FIXTURE,
+    });
+    assert.equal(r.status, 200);
+    assert.match(r.body, /"branch":"main"/);
+    await getWithHost(inst.port, '/', 'abc.example');
+    const env = await readKeyEnv(inst);
+    assert.equal(env.GIT_SSH_KEY_FILE, OK_RUN_KEY);
+    assert.equal(env.GIT_KNOWN_HOSTS_FILE, OK_RUN_HOSTS);
+    assert.equal(env.GIT_REPO_URL, SSH_REPO_URL);
+    assert.equal(existsSync(OK_RUN_DIR), true);
+    assert.equal(existsSync(OK_RUN_KEY), true);
+    assert.equal(existsSync(OK_RUN_HOSTS), true);
+    assert.equal(modeOf(OK_RUN_DIR), 0o700);
+    assert.equal(modeOf(OK_RUN_KEY), 0o600);
+    assert.equal(modeOf(OK_RUN_HOSTS), 0o600);
+    assert.equal(readFileSync(OK_RUN_KEY, 'utf8'), PEM_FIXTURE);
+    assert.equal(readFileSync(OK_RUN_HOSTS, 'utf8'), KNOWN_HOSTS_FIXTURE);
+  } finally {
+    teardown(inst);
+    cleanRunDir();
+  }
+});
+
+test('ssh-key matrix 2 absent-key regression: HTTPS repo with no key boots, forwards NEITHER env var, and never creates the run dir', async () => {
+  let inst;
+  cleanRunDir();
+  try {
+    inst = await startServerWithKeyDump();
+    const r = await postTo(inst.port, RUN_PATH, { gitRepoUrl: HTTPS_REPO_URL, gitBranch: 'main' });
+    assert.equal(r.status, 200);
+    await getWithHost(inst.port, '/', 'abc.example');
+    const env = await readKeyEnv(inst);
+    assert.equal(env.GIT_SSH_KEY_FILE, '');
+    assert.equal(env.GIT_KNOWN_HOSTS_FILE, '');
+    assert.equal(existsSync(OK_RUN_DIR), false, 'the absent-key path must not create /tmp/ok-run');
+  } finally {
+    teardown(inst);
+    cleanRunDir();
+  }
+});
+
+test('ssh-key matrix 3 key without known_hosts: 400 bad_schema, no spawn, ack NOT latched so an immediate valid /run still returns 200', async () => {
+  let inst;
+  cleanRunDir();
+  try {
+    inst = await startServerWithKeyDump();
+    const bad = await postTo(inst.port, RUN_PATH, {
+      gitRepoUrl: SSH_REPO_URL,
+      gitSshKey: PEM_FIXTURE,
+    });
+    assert.equal(bad.status, 400);
+    assert.match(bad.body, /bad_schema/);
+    assert.match(bad.body, /supplied together/);
+    await settle(300);
+    assert.equal(existsSync(inst.sentinel), false, 'a rejected /run must not spawn the entrypoint');
+    assert.equal(existsSync(OK_RUN_DIR), false);
+    const good = await postTo(inst.port, RUN_PATH, {
+      gitRepoUrl: SSH_REPO_URL,
+      gitBranch: 'main',
+      gitSshKey: PEM_FIXTURE,
+      gitKnownHosts: KNOWN_HOSTS_FIXTURE,
+    });
+    assert.equal(good.status, 200, 'runAcked must not latch on a rejected /run so retry succeeds');
+    assert.match(good.body, /"branch":"main"/);
+  } finally {
+    teardown(inst);
+    cleanRunDir();
+  }
+});
+
+test('ssh-key matrix 4 non-PEM key: 400 bad_schema not-a-PEM, no spawn, then a valid retry returns 200', async () => {
+  let inst;
+  cleanRunDir();
+  try {
+    inst = await startServerWithKeyDump();
+    const bad = await postTo(inst.port, RUN_PATH, {
+      gitRepoUrl: SSH_REPO_URL,
+      gitSshKey: 'this-is-not-a-pem-key',
+      gitKnownHosts: KNOWN_HOSTS_FIXTURE,
+    });
+    assert.equal(bad.status, 400);
+    assert.match(bad.body, /bad_schema/);
+    assert.match(bad.body, /not a PEM private key/);
+    await settle(300);
+    assert.equal(existsSync(inst.sentinel), false, 'a non-PEM key must not spawn the entrypoint');
+    assert.equal(existsSync(OK_RUN_DIR), false);
+    const good = await postTo(inst.port, RUN_PATH, {
+      gitRepoUrl: SSH_REPO_URL,
+      gitBranch: 'main',
+      gitSshKey: PEM_FIXTURE,
+      gitKnownHosts: KNOWN_HOSTS_FIXTURE,
+    });
+    assert.equal(good.status, 200);
+    assert.match(good.body, /"branch":"main"/);
+  } finally {
+    teardown(inst);
+    cleanRunDir();
+  }
+});
+
+test('ssh-key matrix 5 SSH-form url with no key: 400 bad_schema SSH-requires-key, no spawn', async () => {
+  let inst;
+  cleanRunDir();
+  try {
+    inst = await startServerWithKeyDump();
+    const bad = await postTo(inst.port, RUN_PATH, { gitRepoUrl: SSH_REPO_URL, gitBranch: 'main' });
+    assert.equal(bad.status, 400);
+    assert.match(bad.body, /bad_schema/);
+    assert.match(bad.body, /SSH repo URL requires/);
+    await settle(300);
+    assert.equal(existsSync(inst.sentinel), false, 'an SSH url without a key must not spawn');
+    assert.equal(existsSync(OK_RUN_DIR), false);
+  } finally {
+    teardown(inst);
+    cleanRunDir();
+  }
+});
+
+test('ssh-key matrix 6 NO-LEAK: the PEM fixture and its MARKER never appear in server stderr, and the shape log shows gitSshKey:present len=N not the value', async () => {
+  let inst;
+  cleanRunDir();
+  try {
+    inst = await startServerWithKeyDump();
+    const r = await postTo(inst.port, RUN_PATH, {
+      gitRepoUrl: SSH_REPO_URL,
+      gitBranch: 'main',
+      gitSshKey: PEM_FIXTURE,
+      gitKnownHosts: KNOWN_HOSTS_FIXTURE,
+    });
+    assert.equal(r.status, 200);
+    await getWithHost(inst.port, '/', 'abc.example');
+    await readKeyEnv(inst);
+    await settle(200);
+    const log = inst.stderr();
+    assert.equal(log.includes(PEM_FIXTURE), false, 'the full PEM fixture must never be written to stderr');
+    assert.equal(log.includes(PEM_MARKER), false, 'the secret MARKER must never be written to stderr');
+    const expectedKeyLen = PEM_FIXTURE.length;
+    const shapeRe = new RegExp(`gitSshKey:present len=${expectedKeyLen}`);
+    assert.match(log, shapeRe, 'the shape log must report present len=N, not the key value');
+    assert.match(log, /gitKnownHosts:present len=\d+/);
+  } finally {
+    teardown(inst);
+    cleanRunDir();
+  }
+});
+
+test('ssh-key matrix 7 ACK-LATCH: a valid /run returns 200 and an IMMEDIATE second /run returns 409 already_booted with no data-plane boot in between', async () => {
+  let inst;
+  cleanRunDir();
+  try {
+    inst = await startServerWithKeyDump();
+    const first = await postTo(inst.port, RUN_PATH, {
+      gitRepoUrl: SSH_REPO_URL,
+      gitBranch: 'main',
+      gitSshKey: PEM_FIXTURE,
+      gitKnownHosts: KNOWN_HOSTS_FIXTURE,
+    });
+    assert.equal(first.status, 200);
+    const second = await postTo(inst.port, RUN_PATH, {
+      gitRepoUrl: SSH_REPO_URL,
+      gitBranch: 'main',
+      gitSshKey: PEM_FIXTURE,
+      gitKnownHosts: KNOWN_HOSTS_FIXTURE,
+    });
+    assert.equal(second.status, 409);
+    assert.match(second.body, /already_booted/);
+    assert.equal(existsSync(inst.sentinel), false, 'the ack latches at ack time, before any data-plane boot');
+    await getWithHost(inst.port, '/', 'abc.example');
+    await readKeyEnv(inst);
+    const third = await postTo(inst.port, RUN_PATH, {
+      gitRepoUrl: SSH_REPO_URL,
+      gitBranch: 'main',
+      gitSshKey: PEM_FIXTURE,
+      gitKnownHosts: KNOWN_HOSTS_FIXTURE,
+    });
+    assert.equal(third.status, 409);
+    assert.match(third.body, /already_booted/);
+  } finally {
+    teardown(inst);
+    cleanRunDir();
+  }
+});
+
+test('ssh-key matrix 8 FAIL-CLOSED: a data-plane GET / with no prior /run returns 503 starting and never spawns', async () => {
+  let inst;
+  cleanRunDir();
+  try {
+    inst = await startServerWithKeyDump();
+    const premature = await getFrom(inst.port, '/');
+    assert.equal(premature.status, 503);
+    assert.match(premature.body, /"code":"starting"/);
+    await settle(300);
+    assert.equal(existsSync(inst.sentinel), false, 'no /run means no spawn, ever');
+    assert.equal(existsSync(OK_RUN_DIR), false);
+  } finally {
+    teardown(inst);
+    cleanRunDir();
+  }
+});
+
+test('ssh-key matrix 9 OVERSIZE: a key payload padded past MAX_BYTES is rejected 413 payload_too_large with no spawn and no run dir', async () => {
+  let inst;
+  cleanRunDir();
+  try {
+    inst = await startServerWithKeyDump();
+    const padded = JSON.stringify({
+      gitRepoUrl: SSH_REPO_URL,
+      gitBranch: 'main',
+      gitSshKey: PEM_FIXTURE,
+      gitKnownHosts: KNOWN_HOSTS_FIXTURE,
+      pad: 'z'.repeat(4096),
+    });
+    assert.equal(Buffer.byteLength(padded, 'utf8') > 4096, true);
+    const r = await postTo(inst.port, RUN_PATH, padded);
+    assert.equal(r.status, 413);
+    assert.match(r.body, /payload_too_large/);
+    await settle(300);
+    assert.equal(existsSync(inst.sentinel), false, 'an over-cap body must not spawn');
+    assert.equal(existsSync(OK_RUN_DIR), false);
+  } finally {
+    teardown(inst);
+    cleanRunDir();
   }
 });

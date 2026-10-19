@@ -1,5 +1,6 @@
 import { createServer, request as httpRequest } from 'node:http';
 import { spawn } from 'node:child_process';
+import { mkdirSync, writeFileSync, chmodSync } from 'node:fs';
 
 const HOOK_PORT = Number.parseInt(process.env.OK_RUN_HOOK_PORT ?? '9000', 10);
 const HOOK_HOST = process.env.OK_RUN_HOOK_HOST ?? '0.0.0.0';
@@ -39,6 +40,8 @@ if (!Number.isInteger(READYZ_MAX_TRIES) || READYZ_MAX_TRIES < 1) {
 let booted = false;
 let appReady = false;
 let pollExhausted = false;
+let pendingSpace = null;
+let runAcked = false;
 
 function reject(res, status, code, message) {
   if (!res.headersSent) {
@@ -84,7 +87,24 @@ function resolveSpace(raw) {
   const gitRepoUrl = isNonEmptyString(overrides.gitRepoUrl) ? overrides.gitRepoUrl : DEFAULT_GIT_REPO_URL;
   const gitBranch = isNonEmptyString(overrides.gitBranch) ? overrides.gitBranch : DEFAULT_GIT_BRANCH;
   const externalUrl = isNonEmptyString(overrides.externalUrl) ? overrides.externalUrl : DEFAULT_EXTERNAL_URL;
-  return { gitRepoUrl, gitBranch, externalUrl };
+  const gitSshKey = isNonEmptyString(overrides.gitSshKey) ? overrides.gitSshKey : undefined;
+  const gitKnownHosts = isNonEmptyString(overrides.gitKnownHosts) ? overrides.gitKnownHosts : undefined;
+  return { gitRepoUrl, gitBranch, externalUrl, gitSshKey, gitKnownHosts };
+}
+
+function validateSpace(space) {
+  const hasKey = isNonEmptyString(space.gitSshKey);
+  const hasHosts = isNonEmptyString(space.gitKnownHosts);
+  if (hasKey !== hasHosts) {
+    return 'gitSshKey and gitKnownHosts must be supplied together';
+  }
+  if (hasKey && !(space.gitSshKey.startsWith('-----BEGIN ') && space.gitSshKey.includes('PRIVATE KEY-----'))) {
+    return 'gitSshKey is not a PEM private key';
+  }
+  if (/^(git@|ssh:\/\/)/.test(space.gitRepoUrl) && !hasKey) {
+    return 'SSH repo URL requires gitSshKey and gitKnownHosts';
+  }
+  return null;
 }
 
 function pollAppReady(tries) {
@@ -117,18 +137,31 @@ function scheduleReadyPoll(tries) {
   setTimeout(() => pollAppReady(tries), READYZ_INTERVAL_MS).unref();
 }
 
-function boot(space, res) {
-  booted = true;
-  res.writeHead(200, { 'content-type': 'application/json' });
-  res.end(JSON.stringify({ ok: true, branch: space.gitBranch }));
+function recordSpace(space) {
+  pendingSpace = space;
+}
+
+function spawnApp(space, externalUrl) {
+  const extraEnv = {};
   try {
+    if (isNonEmptyString(space.gitSshKey)) {
+      mkdirSync('/tmp/ok-run', { recursive: true, mode: 0o700 });
+      writeFileSync('/tmp/ok-run/id_deploy', space.gitSshKey, { mode: 0o600 });
+      writeFileSync('/tmp/ok-run/known_hosts', space.gitKnownHosts, { mode: 0o600 });
+      chmodSync('/tmp/ok-run', 0o700);
+      chmodSync('/tmp/ok-run/id_deploy', 0o600);
+      chmodSync('/tmp/ok-run/known_hosts', 0o600);
+      extraEnv.GIT_SSH_KEY_FILE = '/tmp/ok-run/id_deploy';
+      extraEnv.GIT_KNOWN_HOSTS_FILE = '/tmp/ok-run/known_hosts';
+    }
     const child = spawn(ENTRYPOINT, [], {
       stdio: 'inherit',
       env: {
         ...process.env,
         GIT_REPO_URL: space.gitRepoUrl,
         GIT_BRANCH: space.gitBranch,
-        OK_EXTERNAL_URL: space.externalUrl,
+        OK_EXTERNAL_URL: externalUrl,
+        ...extraEnv,
       },
     });
     child.on('error', (err) => {
@@ -140,7 +173,7 @@ function boot(space, res) {
       process.exitCode = code == null ? 1 : code;
     });
   } catch (err) {
-    process.stderr.write(`run-hook: failed to exec entrypoint: ${err.message}\n`);
+    process.stderr.write(`run-hook: failed to prepare or exec entrypoint: ${err.message}\n`);
     process.exitCode = 1;
   }
   scheduleReadyPoll(READYZ_MAX_TRIES);
@@ -188,6 +221,27 @@ function forwardHeaders(req, stripHop = true) {
 }
 
 function proxyRequest(req, res) {
+  if (!booted) {
+    if (pendingSpace === null) {
+      res.writeHead(503, { 'content-type': 'application/json', 'retry-after': '1' });
+      res.end(JSON.stringify({ ok: false, code: 'starting' }));
+      return;
+    }
+    const host = req.headers.host;
+    let ext;
+    if (isNonEmptyString(host)) {
+      try {
+        ext = new URL(`https://${host}`).origin;
+      } catch {
+        ext = isNonEmptyString(pendingSpace.externalUrl) ? pendingSpace.externalUrl : DEFAULT_EXTERNAL_URL;
+      }
+    } else {
+      ext = isNonEmptyString(pendingSpace.externalUrl) ? pendingSpace.externalUrl : DEFAULT_EXTERNAL_URL;
+    }
+    booted = true;
+    process.stderr.write(`run-hook: lazy-boot method=${req.method} path=${req.url} host=${host ?? ''} ext=${ext}\n`);
+    spawnApp(pendingSpace, ext);
+  }
   if (!appReady) {
     if (pollExhausted) {
       res.writeHead(503, { 'content-type': 'application/json' });
@@ -222,7 +276,7 @@ const server = createServer((req, res) => {
   const path = req.url?.split('?')[0] ?? '';
 
   if (req.method === HOOK_METHOD && (path === RUN_PATH_PRIMARY || path === HOOK_PATH)) {
-    if (booted) {
+    if (runAcked) {
       return reject(res, 409, 'already_booted', 'this MicroVM has already selected a space');
     }
     const chunks = [];
@@ -241,14 +295,24 @@ const server = createServer((req, res) => {
     });
     req.on('end', () => {
       if (aborted) return;
-      if (booted) {
+      if (runAcked) {
         return reject(res, 409, 'already_booted', 'this MicroVM has already selected a space');
       }
       const raw = Buffer.concat(chunks).toString('utf8');
-      const rawTruncated = raw.slice(0, MAX_BYTES);
-      process.stderr.write(`run-hook: run-body ${Buffer.byteLength(raw, 'utf8')} bytes content-type=${req.headers['content-type'] ?? 'none'}: ${rawTruncated}\n`);
       const space = resolveSpace(raw);
-      boot(space, res);
+      const keyShape = isNonEmptyString(space.gitSshKey) ? `present len=${space.gitSshKey.length}` : 'absent';
+      const hostsShape = isNonEmptyString(space.gitKnownHosts) ? `present len=${space.gitKnownHosts.length}` : 'absent';
+      const extShape = isNonEmptyString(space.externalUrl) && space.externalUrl !== DEFAULT_EXTERNAL_URL ? 'present' : 'default';
+      process.stderr.write(`run-hook: run-body ${Buffer.byteLength(raw, 'utf8')} bytes content-type=${req.headers['content-type'] ?? 'none'} shape={gitRepoUrl:${space.gitRepoUrl}, gitBranch:${space.gitBranch}, externalUrl:${extShape}, gitSshKey:${keyShape}, gitKnownHosts:${hostsShape}}\n`);
+      const schemaError = validateSpace(space);
+      if (schemaError !== null) {
+        reject(res, 400, 'bad_schema', schemaError);
+        return;
+      }
+      recordSpace(space);
+      runAcked = true;
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, branch: space.gitBranch }));
     });
     req.on('error', (err) => {
       if (aborted) return;
@@ -318,6 +382,15 @@ server.on('upgrade', (req, socket, head) => {
   });
   if (head && head.length > 0) upstream.write(head);
   upstream.end();
+});
+
+server.on('error', (e) => {
+  if (e && e.code === 'EADDRINUSE') {
+    console.error('run-hook: port busy, exiting duplicate');
+    process.exit(0);
+  } else {
+    throw e;
+  }
 });
 
 server.listen(HOOK_PORT, HOOK_HOST, () => {
