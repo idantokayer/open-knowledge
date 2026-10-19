@@ -141,7 +141,9 @@ function recordSpace(space) {
   pendingSpace = space;
 }
 
-function spawnApp(space, externalUrl) {
+function spawnApp(space, externalUrl, requestHost) {
+  const hostOnly = isNonEmptyString(requestHost) ? requestHost.replace(/:\d+$/, '') : null;
+  const bind = hostOnly ? `127.0.0.1 ${hostOnly}` : '127.0.0.1';
   const extraEnv = {};
   try {
     if (isNonEmptyString(space.gitSshKey)) {
@@ -161,6 +163,7 @@ function spawnApp(space, externalUrl) {
         GIT_REPO_URL: space.gitRepoUrl,
         GIT_BRANCH: space.gitBranch,
         OK_EXTERNAL_URL: externalUrl,
+        OK_BIND: bind,
         ...extraEnv,
       },
     });
@@ -251,7 +254,7 @@ function proxyRequest(req, res) {
     ext = resolved ?? DEFAULT_EXTERNAL_URL;
     booted = true;
     process.stderr.write(`run-hook: lazy-boot method=${req.method} path=${req.url} host=${host ?? ''} ext=${ext}\n`);
-    spawnApp(pendingSpace, ext);
+    spawnApp(pendingSpace, ext, host);
   }
   if (!appReady) {
     if (pollExhausted) {

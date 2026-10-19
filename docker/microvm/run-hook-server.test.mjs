@@ -2,6 +2,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { request, createServer as createHttpServer } from 'node:http';
+import { connect } from 'node:net';
 import { mkdtempSync, writeFileSync, chmodSync, rmSync, existsSync, readFileSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -1868,5 +1869,124 @@ test('ssh-key matrix 9 OVERSIZE: a key payload padded past MAX_BYTES is rejected
   } finally {
     teardown(inst);
     cleanRunDir();
+  }
+});
+
+async function startServerWithBindDump(extraEnv = {}) {
+  const dir = mkdtempSync(join(tmpdir(), 'ok-hook-'));
+  const sentinel = join(dir, 'booted.marker');
+  const envdump = join(dir, 'child.env');
+  const stub = join(dir, 'entrypoint-stub.sh');
+  writeFileSync(
+    stub,
+    `#!/bin/sh\ntouch "${sentinel}"\nprintf 'GIT_REPO_URL=%s\\nGIT_BRANCH=%s\\nOK_EXTERNAL_URL=%s\\nOK_BIND=%s\\nEND=1\\n' "$GIT_REPO_URL" "$GIT_BRANCH" "$OK_EXTERNAL_URL" "$OK_BIND" > "${envdump}"\nsleep 10\n`,
+  );
+  chmodSync(stub, 0o755);
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const port = 20000 + Math.floor(Math.random() * 40000);
+    let stderr = '';
+    const proc = spawn(process.execPath, [SERVER], {
+      stdio: ['ignore', 'ignore', 'pipe'],
+      env: {
+        ...process.env,
+        OK_RUN_HOOK_PATH: HOOK_PATH,
+        OK_RUN_HOOK_PORT: String(port),
+        OK_RUN_HOOK_HOST: HOST,
+        OK_ENTRYPOINT: stub,
+        ...extraEnv,
+      },
+    });
+    proc.stderr.setEncoding('utf8');
+    proc.stderr.on('data', (c) => {
+      stderr += c;
+    });
+    const ready = await waitReadyOn(port, 5000);
+    if (ready) {
+      return { proc, port, dir, sentinel, envdump, stderr: () => stderr };
+    }
+    if (!proc.killed) proc.kill('SIGKILL');
+  }
+  rmSync(dir, { recursive: true, force: true });
+  throw new Error('could not start isolated server on a free port');
+}
+
+async function readBindEnv(inst, deadlineMs = 2000) {
+  const deadline = Date.now() + deadlineMs;
+  while (Date.now() < deadline) {
+    if (existsSync(inst.envdump)) {
+      const text = readFileSync(inst.envdump, 'utf8');
+      if (/END=1/.test(text)) {
+        const out = {};
+        for (const line of text.split('\n')) {
+          const idx = line.indexOf('=');
+          if (idx > 0) out[line.slice(0, idx)] = line.slice(idx + 1);
+        }
+        return out;
+      }
+    }
+    await settle(25);
+  }
+  throw new Error('entrypoint env dump never appeared');
+}
+
+function rawGetNoHost(port, path) {
+  return new Promise((resolve, nope) => {
+    const sock = connect(port, HOST, () => {
+      sock.write(`GET ${path} HTTP/1.0\r\n\r\n`);
+    });
+    let buf = '';
+    sock.setEncoding('utf8');
+    sock.on('data', (d) => {
+      buf += d;
+    });
+    sock.on('error', nope);
+    sock.on('close', () => resolve(buf));
+    setTimeout(() => sock.destroy(), 1500).unref();
+  });
+}
+
+test('OK_BIND a: a data-plane Host with no port yields OK_BIND "127.0.0.1 <host>" while OK_EXTERNAL_URL stays the resolved externalUrl (independent)', async () => {
+  let inst;
+  try {
+    inst = await startServerWithBindDump();
+    const run = await postTo(inst.port, RUN_PATH, VALID_PAYLOAD);
+    assert.equal(run.status, 200);
+    await getWithHost(inst.port, '/', 'abc123.lambda-microvm.us-east-1.on.aws');
+    const env = await readBindEnv(inst);
+    assert.equal(env.OK_BIND, '127.0.0.1 abc123.lambda-microvm.us-east-1.on.aws');
+    assert.equal(env.OK_EXTERNAL_URL, VALID_PAYLOAD.externalUrl);
+    assert.notEqual(env.OK_BIND, env.OK_EXTERNAL_URL);
+  } finally {
+    teardown(inst);
+  }
+});
+
+test('OK_BIND b: a data-plane Host that carries a port has the port stripped in OK_BIND', async () => {
+  let inst;
+  try {
+    inst = await startServerWithBindDump();
+    const run = await postTo(inst.port, RUN_PATH, VALID_PAYLOAD);
+    assert.equal(run.status, 200);
+    await getWithHost(inst.port, '/', 'host.example:9000');
+    const env = await readBindEnv(inst);
+    assert.equal(env.OK_BIND, '127.0.0.1 host.example');
+    assert.equal(env.OK_EXTERNAL_URL, VALID_PAYLOAD.externalUrl);
+  } finally {
+    teardown(inst);
+  }
+});
+
+test('OK_BIND c: a booting data-plane request with NO Host header yields the loopback-only default "127.0.0.1" with no fabricated host', async () => {
+  let inst;
+  try {
+    inst = await startServerWithBindDump();
+    const run = await postTo(inst.port, RUN_PATH, VALID_PAYLOAD);
+    assert.equal(run.status, 200);
+    await rawGetNoHost(inst.port, '/');
+    const env = await readBindEnv(inst);
+    assert.equal(env.OK_BIND, '127.0.0.1');
+    assert.equal(env.OK_EXTERNAL_URL, VALID_PAYLOAD.externalUrl);
+  } finally {
+    teardown(inst);
   }
 });
