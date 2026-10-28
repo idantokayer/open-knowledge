@@ -32,7 +32,7 @@ export const PrincipalSuccessSchema = z
     id: z.string().min(1),
     display_name: z.string().min(1),
     display_email: z.string(),
-    source: z.enum(['git-config', 'synthesized']),
+    source: z.enum(['git-config', 'synthesized', 'remote-auth']),
     created_at: z.string().min(1),
   })
   .loose() satisfies StandardSchemaV1;
@@ -44,6 +44,11 @@ export const ApiConfigSuccessSchema = z
     previewUrl: z.string().nullable(),
     port: z.number(),
     singleFile: z.boolean().default(false),
+    // Whole-instance read-only posture (`config.server.readOnly`). Surfaced on
+    // the wire so the GUI can reflect it (grey out controls + banner); the
+    // client NEVER decides policy — the server already refuses writes across
+    // MCP/HTTP/collab. Advisory-visible only.
+    readOnly: z.boolean().default(false),
   })
   .loose() satisfies StandardSchemaV1;
 export type ApiConfigSuccess = z.infer<typeof ApiConfigSuccessSchema>;
@@ -128,6 +133,10 @@ export const ProblemTypeSchema = z.enum([
   'urn:ok:error:audit-superseded',
   'urn:ok:error:theme-name-taken',
   'urn:ok:error:theme-name-invalid',
+  // Whole-instance read-only lock: a mutating HTTP request (GUI/editor write
+  // path) refused because `server.readOnly` is set. Distinct from
+  // `storage-readonly` (a read-only *filesystem* fault, not a policy decision).
+  'urn:ok:error:read-only',
 ]) satisfies StandardSchemaV1;
 export type ProblemType = z.infer<typeof ProblemTypeSchema>;
 

@@ -501,6 +501,16 @@ const TiptapEditorChrome: FC<TiptapEditorChromeProps> = ({
       setEditorContentRevision((revision) => revision + 1);
     }
   }, [editor, portalTarget]);
+
+  // Reflect the server read-only posture. `editor.setEditable` flips
+  // `editor.isEditable`, which TipTap auto-propagates to CodeBlockView, table,
+  // and trailing affordances. Precedent: ComposerMentionInput.tsx. Advisory
+  // only — the server already refuses the collab writes this would send.
+  const readOnly = useReadOnlyMode();
+  useEffect(() => {
+    const editable = !readOnly;
+    if (editor.isEditable !== editable) editor.setEditable(editable, false);
+  }, [editor, readOnly]);
   useEffect(() => {
     const docName = provider.configuration.name ?? null;
     setEditorDocName(editor, docName);

@@ -353,6 +353,8 @@ import {
   type WikiRenameContext,
   wikiLinkRenameDestination,
 } from './managed-rename-rewrite.ts';
+import type { Principal as WritePolicyPrincipal } from './mcp/write-policy.ts';
+import { canWrite } from './mcp/write-policy.ts';
 import {
   incrementAgentWriteCalls,
   incrementSummariesProvided,
@@ -1340,6 +1342,14 @@ interface ApiExtensionBaseOptions {
   resolveEmbed?: (basename: string, sourcePath: string) => string | null;
   getBridgeLossReporter?: () => BridgeDeriveLossReporter | undefined;
   getPrincipal?: () => Principal | null;
+  /**
+   * Resolve the write-policy principal (`{ role }`) for the HTTP write gate.
+   * DISTINCT from {@link getPrincipal} above: that returns the core actor
+   * identity (`.id`, used for attribution); this returns the read-only role
+   * used only by the write gate. They are different types on purpose — do not
+   * merge them. Threaded straight into both pipeline construction sites.
+   */
+  getWritePolicyPrincipal?: () => WritePolicyPrincipal;
   homeDirOverride?: string;
   resetSettingsForTest?: () => void;
   settleDiskEventsForTest?: () => Promise<void>;
@@ -5085,6 +5095,7 @@ export function createApiExtension(options: ApiExtensionOptions): Extension & {
   const configSystemRoutes = createConfigSystemRoutes({
     contentDir,
     projectDir,
+    basePath: options.basePath,
     ephemeral,
     log,
     ready,
@@ -5107,6 +5118,10 @@ export function createApiExtension(options: ApiExtensionOptions): Extension & {
     getCurrentBranch,
     getReportedBranch,
     installedAgentsCache,
+    // SAME posture the HTTP write gate resolves: derive read-only from the
+    // write-policy principal (`server.readOnly` ⇒ reader), not from env. When
+    // no resolver is supplied the stock read-write default (writer) applies.
+    getReadOnly: () => !canWrite(options.getWritePolicyPrincipal?.() ?? { role: 'writer' }).allow,
   });
   const lintRoutes = createLintRoutes({
     hocuspocus,
@@ -5344,7 +5359,10 @@ export function createApiExtension(options: ApiExtensionOptions): Extension & {
     checkLocalOpSecurity,
     localOpCliArgs,
     localOpGuard,
-    getSyncEngine,
+    getSyncEngine: () =>
+      canWrite(options.getWritePolicyPrincipal?.() ?? { role: 'writer' }).allow
+        ? (getSyncEngine?.() ?? null)
+        : null,
     authStreamHeartbeatMs,
     embeddingsSecretsFile,
     readSemanticProviderConfig,

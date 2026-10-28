@@ -6,6 +6,7 @@ import type { AcpThreadManager } from './acp/thread-manager.ts';
 import type { AgentFocusBroadcaster } from './agent-focus.ts';
 import type { AgentPresenceBroadcaster } from './agent-presence.ts';
 import type { AgentSessionManager } from './agent-sessions.ts';
+import { normalizeServerBasePath } from './base-path.ts';
 import { createCollaborationHost } from './collaboration-host.ts';
 import { createContentDispatch } from './http/content-dispatch.ts';
 import { errorResponse } from './http/error-response.ts';
@@ -45,6 +46,7 @@ export interface MountMcpAndApiOptions {
   health?: HealthProvider;
   nativeApi: NativeApiHandle | undefined;
   ingressPolicy?: IngressPolicy;
+  basePath?: string;
 }
 
 export interface MountMcpAndApiHandle {
@@ -67,6 +69,7 @@ export function mountMcpAndApi(opts: MountMcpAndApiOptions): MountMcpAndApiHandl
     ephemeral,
   } = opts;
   const ingressPolicy = opts.ingressPolicy ?? buildIngressPolicy({});
+  const basePath = normalizeServerBasePath(opts.basePath);
 
   const collaborationHost = createCollaborationHost({
     hocuspocus,
@@ -106,18 +109,6 @@ export function mountMcpAndApi(opts: MountMcpAndApiOptions): MountMcpAndApiHandl
       });
   };
 
-  const onUpgrade = (req: IncomingMessage, socket: Duplex, head: Buffer): void => {
-    if (collaborationHost.handleUpgrade(req, socket, head)) return;
-    if (tripsForwardedHeaderTripwire(req, ingressPolicy)) {
-      log.warn(
-        { url: req.url, host: req.headers.host },
-        '[remote] refused proxied WS upgrade; consent with OK_ALLOW_EXTERNAL=1 + OK_EXTERNAL_URL (or server.allowExternal + server.externalUrl in config)',
-      );
-      warnForwardedHeaderRefusalOnce(log, 'ws-upgrade');
-    }
-    socket.destroy();
-  };
-
   const { requestListener } = createHttpApp({
     health: opts.health,
     nativeApi: opts.nativeApi,
@@ -136,7 +127,67 @@ export function mountMcpAndApi(opts: MountMcpAndApiOptions): MountMcpAndApiHandl
     }),
     log,
   });
-  httpServer.on('request', requestListener);
+  const onHttpRequest = (req: IncomingMessage, res: ServerResponse): void => {
+    if (basePath !== '') {
+      let requestUrl: URL;
+      try {
+        requestUrl = new URL(req.url ?? '/', 'http://localhost');
+      } catch {
+        errorResponse(res, 400, 'urn:ok:error:invalid-request', 'Invalid request path.', {
+          handler: 'base-path',
+        });
+        return;
+      }
+      const pathname = requestUrl.pathname;
+      if (pathname === basePath) {
+        res.writeHead(308, { Location: `${basePath}/${requestUrl.search}` });
+        res.end();
+        return;
+      }
+      if (pathname === '/') {
+        res.writeHead(308, { Location: `${basePath}/${requestUrl.search}` });
+        res.end();
+        return;
+      }
+      if (pathname !== '/healthz' && pathname !== '/readyz') {
+        if (!pathname.startsWith(`${basePath}/`)) {
+          errorResponse(res, 404, 'urn:ok:error:not-found', 'Not found.', {
+            handler: 'base-path',
+          });
+          return;
+        }
+        req.url = `${pathname.slice(basePath.length)}${requestUrl.search}`;
+      }
+    }
+    requestListener(req, res);
+  };
+  const onUpgrade = (req: IncomingMessage, socket: Duplex, head: Buffer): void => {
+    if (basePath !== '') {
+      let requestUrl: URL;
+      try {
+        requestUrl = new URL(req.url ?? '/', 'http://localhost');
+      } catch {
+        socket.destroy();
+        return;
+      }
+      const pathname = requestUrl.pathname;
+      if (!pathname.startsWith(`${basePath}/`)) {
+        socket.destroy();
+        return;
+      }
+      req.url = `${pathname.slice(basePath.length)}${requestUrl.search}`;
+    }
+    if (collaborationHost.handleUpgrade(req, socket, head)) return;
+    if (tripsForwardedHeaderTripwire(req, ingressPolicy)) {
+      log.warn(
+        { url: req.url, host: req.headers.host },
+        '[remote] refused proxied WS upgrade; consent with OK_ALLOW_EXTERNAL=1 + OK_EXTERNAL_URL (or server.allowExternal + server.externalUrl in config)',
+      );
+      warnForwardedHeaderRefusalOnce(log, 'ws-upgrade');
+    }
+    socket.destroy();
+  };
+  httpServer.on('request', onHttpRequest);
   httpServer.on('upgrade', onUpgrade);
 
   let shutdownPromise: Promise<void> | undefined;

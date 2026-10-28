@@ -133,6 +133,8 @@ describe('the tag artifact is held to the same glob grammar as the scope config'
 
   test('the glob shapes the generator actually emits still compile', () => {
     expect(() => parse(withGlob('packages/app/tests/fidelity/**/*.test.ts'))).not.toThrow();
-    expect(() => parse(withGlob(privateTestGlob('packages/core/src/markdown', '*.precision')))).not.toThrow();
+    expect(() =>
+      parse(withGlob(privateTestGlob('packages/core/src/markdown', '*.precision'))),
+    ).not.toThrow();
   });
 });

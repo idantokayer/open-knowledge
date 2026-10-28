@@ -111,7 +111,9 @@ function readRegistry(markdown) {
       write(item.number, { line: item.line, form: 'list', text: item.text });
     }
     const headingIsTheEntry =
-      section.claims.length === 1 && section.items.length === 0 && section.body.join('').trim() !== '';
+      section.claims.length === 1 &&
+      section.items.length === 0 &&
+      section.body.join('').trim() !== '';
     if (headingIsTheEntry) {
       write(section.claims[0], {
         line: section.line,

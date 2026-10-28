@@ -424,12 +424,22 @@ describe('autoSync forward/backward compatibility (looseObject round-trip)', () 
 describe('server.* (canonical listener/exposure surface)', () => {
   test('defaults: loopback-only bind, consent off, everything else unset', () => {
     const config = ConfigSchema.parse({});
+    expect(config.server.basePath).toBe('');
     expect(config.server.bind).toEqual(['127.0.0.1']);
     expect(config.server.allowExternal).toBe(false);
     expect(config.server.port).toBeUndefined();
     expect(config.server.externalUrl).toBeUndefined();
     expect(config.server.openBrowser).toBeUndefined();
     expect(config.server.idleShutdown).toBeUndefined();
+    expect(config.server.readOnly).toBe(false);
+  });
+
+  test('basePath accepts canonical prefixes and rejects malformed paths', () => {
+    expect(ConfigSchema.parse({ server: { basePath: '/plm' } }).server.basePath).toBe('/plm');
+    expect(ConfigSchema.parse({ server: { basePath: '/' } }).server.basePath).toBe('/');
+    for (const basePath of ['plm', '/plm/', '/plm//x', '/plm/../other', '/plm?x=1']) {
+      expect(ConfigSchema.safeParse({ server: { basePath } }).success).toBe(false);
+    }
   });
 
   test('port accepts the valid range and rejects out-of-range or fractional values', () => {

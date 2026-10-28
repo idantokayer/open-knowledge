@@ -48,10 +48,7 @@ function manifestsDeclaring(name) {
 
 function snapshotResolves(carrier, dependency) {
   const snapshots = LOCKFILE.slice(LOCKFILE.indexOf('\nsnapshots:\n'));
-  const entry = new RegExp(
-    `\\n  ${carrier}@[^\\n]*:\\n(?<body>(?:    [^\\n]*\\n|\\n)+)`,
-    'g',
-  );
+  const entry = new RegExp(`\\n  ${carrier}@[^\\n]*:\\n(?<body>(?:    [^\\n]*\\n|\\n)+)`, 'g');
   for (const match of snapshots.matchAll(entry)) {
     if (new RegExp(`^      ${dependency}: \\S`, 'm').test(match.groups.body)) return true;
   }
@@ -61,7 +58,10 @@ function snapshotResolves(carrier, dependency) {
 const RESOLVERS = {
   declared(consumer) {
     const declaring = manifestsDeclaring(consumer.package);
-    expect(declaring.map(({ dir }) => dir), `nothing declares ${consumer.package}`).not.toEqual([]);
+    expect(
+      declaring.map(({ dir }) => dir),
+      `nothing declares ${consumer.package}`,
+    ).not.toEqual([]);
     const invoking = declaring.filter(({ manifest }) => manifest.scripts?.[consumer.invokedBy]);
     expect(
       invoking.map(({ dir }) => dir),
@@ -70,7 +70,10 @@ const RESOLVERS = {
   },
   transitive(consumer) {
     const declaring = manifestsDeclaring(consumer.via);
-    expect(declaring.map(({ dir }) => dir), `nothing declares ${consumer.via}`).not.toEqual([]);
+    expect(
+      declaring.map(({ dir }) => dir),
+      `nothing declares ${consumer.via}`,
+    ).not.toEqual([]);
     const invoking = declaring.filter(({ manifest }) => manifest.scripts?.[consumer.invokedBy]);
     expect(
       invoking.map(({ dir }) => dir),
@@ -168,9 +171,10 @@ describe('the dispositions that removed a shape stay justified by the config tha
     const classic = tsconfigSources().filter((source) =>
       /"jsx"\s*:\s*"(?:react|preserve|react-native)"/.test(source),
     );
-    expect(classic, 're-admit @jsx and @jsxFrag: a tsconfig went back to the classic runtime').toEqual(
-      [],
-    );
+    expect(
+      classic,
+      're-admit @jsx and @jsxFrag: a tsconfig went back to the classic runtime',
+    ).toEqual([]);
   });
 
   test('no tsconfig sets checkJs, which is what leaves @ts-check unreached', () => {

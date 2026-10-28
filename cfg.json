@@ -1,0 +1,138 @@
+{
+    "ETag": "E13V1IB3VIYZZH",
+    "DistributionConfig": {
+        "CallerReference": "d7357a0f-7370-4eb3-9449-3ac44088ef68",
+        "Aliases": {
+            "Quantity": 2,
+            "Items": [
+                "plm.snake-release-non-prod.toluna.me",
+                "snake-release-non-prod.toluna.me"
+            ]
+        },
+        "DefaultRootObject": "",
+        "Origins": {
+            "Quantity": 1,
+            "Items": [
+                {
+                    "Id": "42d0a9b1-219e-38d6-d239-4a0873016f2e.lambda-microvm.us-east-1.on.aws-mvf0vxnfo7x",
+                    "DomainName": "e6d0a9dd-0527-065f-a974-4443502da587.lambda-microvm.us-east-1.on.aws",
+                    "OriginPath": "",
+                    "CustomHeaders": {
+                        "Quantity": 2,
+                        "Items": [
+                            {
+                                "HeaderName": "X-aws-proxy-auth",
+                                "HeaderValue": "eyJraWQiOiIyODIwOTEyYi1jNDFiLTRhOGMtOWM5OC0wMjQzOGQ0ZTNkNzEiLCJhbGciOiJkaXIiLCJlbmMiOiJBMjU2R0NNIn0..0F0MiAc6wETDEgoX.-ZzK6PG1Hi-4HY2Z_gQJCV4VutPSLhSV4KvR8RUHWLoev7QGiS6ACa0RGrhLD6hGRpP8GdFHke6gL03ZzOAcI_nmGTqA5gFtVuA-aCl47Iyy4IAXczj_cRyHIofh0zyuXlvtngGWOHfWsm4zaCRa6F8m1hK0A4iE40XrP-ldhCo0H_dUfVlp7BdMeWqfnQDfehyjbHk6Tv-8XQa3fsna4a7FVoJX7Fuk1Qtb6e4uHL1kVpF5EB9fgSPvmij1DumZjt5DwdjZozyOJ7QtjVyMZhuQhax3xHZvGPxUVJT5-_qhYuGFYxACjCsEeMFzZg2SU3gjxQZ3-vIYzsrKPcMldXHKFewW3SoMAT8Azen1AKakmlu9Z2X0VK_1l4vBd8yD71ig680HQlSMJnY__Xbj09FDmu0hwPsa3klSeezpcKVb-Y4G11k9tpIQ3qWqyFNvsxeV9vAJHlt6heNSxs1h5J9TpYNlt5MP0vQqdrmOlPhVkUjrHLGBpGST3ftXUlLVKRn5VL4Q5Al05GPpQk9RCKKJYP1DQvQ3JIMz5QTQ1b-SOUgrvaTQ3UsdJXhg7x5OLinvp88eJg_euJT5v0IYGvsl1gBgFuRevRXQ8osII-zPJ57Lcp4f9_VVzy8-vlm8nbQfmIgC3pq_KzLCwDJDArqc-y59.D2oY7ayODSzJWGy5CUVJUQ"
+                            },
+                            {
+                                "HeaderName": "X-aws-proxy-port",
+                                "HeaderValue": "9000"
+                            }
+                        ]
+                    },
+                    "CustomOriginConfig": {
+                        "HTTPPort": 80,
+                        "HTTPSPort": 443,
+                        "OriginProtocolPolicy": "https-only",
+                        "OriginSslProtocols": {
+                            "Quantity": 1,
+                            "Items": [
+                                "TLSv1.2"
+                            ]
+                        },
+                        "OriginReadTimeout": 30,
+                        "OriginKeepaliveTimeout": 5,
+                        "IpAddressType": "ipv4"
+                    },
+                    "ConnectionAttempts": 3,
+                    "ConnectionTimeout": 10,
+                    "OriginShield": {
+                        "Enabled": false
+                    },
+                    "OriginAccessControlId": ""
+                }
+            ]
+        },
+        "OriginGroups": {
+            "Quantity": 0
+        },
+        "DefaultCacheBehavior": {
+            "TargetOriginId": "42d0a9b1-219e-38d6-d239-4a0873016f2e.lambda-microvm.us-east-1.on.aws-mvf0vxnfo7x",
+            "TrustedSigners": {
+                "Enabled": false,
+                "Quantity": 0
+            },
+            "TrustedKeyGroups": {
+                "Enabled": false,
+                "Quantity": 0
+            },
+            "ViewerProtocolPolicy": "redirect-to-https",
+            "AllowedMethods": {
+                "Quantity": 7,
+                "Items": [
+                    "HEAD",
+                    "DELETE",
+                    "POST",
+                    "GET",
+                    "OPTIONS",
+                    "PUT",
+                    "PATCH"
+                ],
+                "CachedMethods": {
+                    "Quantity": 2,
+                    "Items": [
+                        "HEAD",
+                        "GET"
+                    ]
+                }
+            },
+            "SmoothStreaming": false,
+            "Compress": true,
+            "LambdaFunctionAssociations": {
+                "Quantity": 0
+            },
+            "FunctionAssociations": {
+                "Quantity": 0
+            },
+            "FieldLevelEncryptionId": "",
+            "CachePolicyId": "83da9c7e-98b4-4e11-a168-04f0df8e2c65",
+            "GrpcConfig": {
+                "Enabled": false
+            }
+        },
+        "CacheBehaviors": {
+            "Quantity": 0
+        },
+        "CustomErrorResponses": {
+            "Quantity": 0
+        },
+        "Comment": "",
+        "Logging": {
+            "Enabled": false,
+            "IncludeCookies": false,
+            "Bucket": "",
+            "Prefix": ""
+        },
+        "PriceClass": "PriceClass_All",
+        "Enabled": true,
+        "ViewerCertificate": {
+            "CloudFrontDefaultCertificate": false,
+            "ACMCertificateArn": "arn:aws:acm:us-east-1:603106382807:certificate/8cd7466a-9053-47d4-bd09-d4019a7037b5",
+            "SSLSupportMethod": "sni-only",
+            "MinimumProtocolVersion": "TLSv1.2_2021",
+            "Certificate": "arn:aws:acm:us-east-1:603106382807:certificate/8cd7466a-9053-47d4-bd09-d4019a7037b5",
+            "CertificateSource": "acm"
+        },
+        "Restrictions": {
+            "GeoRestriction": {
+                "RestrictionType": "none",
+                "Quantity": 0
+            }
+        },
+        "WebACLId": "arn:aws:wafv2:us-east-1:603106382807:global/webacl/CreatedByCloudFront-c47f9a54/663b960a-2c10-4457-9deb-e5fcd1bb62cb",
+        "HttpVersion": "http2",
+        "IsIPV6Enabled": true,
+        "ContinuousDeploymentPolicyId": "",
+        "Staging": false
+    }
+}

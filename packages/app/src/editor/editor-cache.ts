@@ -87,6 +87,8 @@ export interface CmCacheEntry {
   wordWrapCompartment: Compartment;
   placeholderCompartment: Compartment;
   lintCompartment: Compartment;
+  /** Reconfigured live from `useReadOnlyMode()` to flip EditorState.readOnly + EditorView.editable. */
+  editableCompartment: Compartment;
   undoManager?: Y.UndoManager;
   scrollTop: number;
   hadFocus: boolean;
@@ -114,6 +116,7 @@ interface CmFactoryResult {
   wordWrapCompartment: Compartment;
   placeholderCompartment: Compartment;
   lintCompartment: Compartment;
+  editableCompartment: Compartment;
 }
 
 type CmFactory = (container: HTMLElement) => CmFactoryResult;
@@ -508,6 +511,7 @@ export function mountCmEditor(params: MountCmParams): CmCacheEntry {
       wordWrapCompartment: fresh.wordWrapCompartment,
       placeholderCompartment: fresh.placeholderCompartment,
       lintCompartment: fresh.lintCompartment,
+      editableCompartment: fresh.editableCompartment,
       scrollTop: 0,
       hadFocus: false,
       activeMountKey: docName,
@@ -572,6 +576,7 @@ export function mountCmEditor(params: MountCmParams): CmCacheEntry {
     wordWrapCompartment: fresh.wordWrapCompartment,
     placeholderCompartment: fresh.placeholderCompartment,
     lintCompartment: fresh.lintCompartment,
+    editableCompartment: fresh.editableCompartment,
     scrollTop: 0,
     hadFocus: false,
     activeMountKey: docName,

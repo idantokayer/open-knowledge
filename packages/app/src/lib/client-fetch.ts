@@ -9,6 +9,7 @@ const FETCH_WRAPPER_MARKER = Symbol.for('ok.client.fetchWrapper');
 export function installClientFetchWrapper(config: ClientFetchConfig = {}): void {
   if (typeof window === 'undefined') return;
   const apiOrigin = config.apiOrigin && config.apiOrigin.length > 0 ? config.apiOrigin : undefined;
+  const basePath = configuredBasePath();
 
   const current = window.fetch as typeof window.fetch & { [FETCH_WRAPPER_MARKER]?: true };
   if (current[FETCH_WRAPPER_MARKER]) return;
@@ -17,7 +18,7 @@ export function installClientFetchWrapper(config: ClientFetchConfig = {}): void 
   const versionHeaders = browserClientVersionHeaders();
 
   const wrapped = ((input: RequestInfo | URL, init?: RequestInit) => {
-    const target = resolveApiTarget(input, apiOrigin);
+    const target = resolveApiTarget(input, apiOrigin, basePath);
     if (!target.isApi) return origFetch(input, init);
 
     if (input instanceof Request) {
@@ -43,7 +44,11 @@ interface ApiTarget {
   url: string;
 }
 
-function resolveApiTarget(input: RequestInfo | URL, apiOrigin: string | undefined): ApiTarget {
+function resolveApiTarget(
+  input: RequestInfo | URL,
+  apiOrigin: string | undefined,
+  basePath: string,
+): ApiTarget {
   if (typeof input === 'string') {
     if (input.startsWith('/api/')) {
       return { isApi: true, url: apiOrigin ? apiOrigin + input : input };
@@ -56,7 +61,7 @@ function resolveApiTarget(input: RequestInfo | URL, apiOrigin: string | undefine
   }
 
   const parsed = input instanceof URL ? input : tryParseUrl(input.url, window.location.origin);
-  if (parsed && isLocalApiUrl(parsed, apiOrigin)) {
+  if (parsed && isLocalApiUrl(parsed, apiOrigin, basePath)) {
     const original = input instanceof URL ? input.href : input.url;
     return { isApi: true, url: rewriteToApiOrigin(parsed, original, apiOrigin) };
   }
@@ -78,12 +83,33 @@ function tryParseUrl(url: string, base?: string): URL | null {
   }
 }
 
-function isLocalApiUrl(url: URL, apiOrigin: string | undefined): boolean {
-  if (!url.pathname.startsWith('/api/')) return false;
+function isLocalApiUrl(url: URL, apiOrigin: string | undefined, basePath: string): boolean {
+  if (!isApiPathname(url.pathname, basePath)) return false;
   if (url.origin === window.location.origin || url.protocol === 'file:') return true;
   if (apiOrigin) {
     const api = tryParseUrl(apiOrigin);
     if (api && url.origin === api.origin) return true;
   }
   return false;
+}
+
+function configuredBasePath(): string {
+  if (typeof document === 'undefined') return '';
+  const href = document.querySelector('base')?.getAttribute('href');
+  if (!href) return '';
+  const pathname = new URL(href, window.location.origin).pathname;
+  return pathname === '/' ? '' : pathname.replace(/\/$/, '');
+}
+
+function isApiPathname(pathname: string, basePath: string): boolean {
+  return (
+    pathname === '/api' ||
+    pathname.startsWith('/api/') ||
+    (basePath !== '' && (pathname === `${basePath}/api` || pathname.startsWith(`${basePath}/api/`)))
+  );
+}
+
+function apiPathname(pathname: string, basePath: string): string {
+  if (basePath === '' || !pathname.startsWith('/api')) return pathname;
+  return `${basePath}${pathname}`;
 }

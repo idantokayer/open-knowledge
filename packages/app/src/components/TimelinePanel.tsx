@@ -44,6 +44,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { closeAgentDiff } from '@/lib/agent-diff-store';
+import { useReadOnlyMode } from '@/lib/read-only-mode';
 import { createSelfSchedulingPoll, type PollOutcome } from '@/lib/self-scheduling-poll';
 import {
   closeTimelineDiff,
@@ -385,6 +386,7 @@ function EntryRow({
   flashing,
 }: EntryRowProps) {
   const { t } = useLingui();
+  const readOnly = useReadOnlyMode();
   const relative = formatRelativeTime(entry.timestamp);
   const authorName = displayAuthor(entry);
   const absoluteTime = formatAbsoluteTime(entry.timestamp);
@@ -529,7 +531,7 @@ function EntryRow({
                     className="size-5 shrink-0 text-muted-foreground hover:text-destructive"
                     data-testid="timeline-entry-restore"
                     aria-label={t`Restore to this point`}
-                    disabled={restoring}
+                    disabled={restoring || readOnly}
                     onClick={(e) => {
                       e.stopPropagation();
                       if (laterEdits > 0) setDialogOpen(true);
@@ -589,7 +591,7 @@ function EntryRow({
             <Button
               variant="destructive"
               data-testid="timeline-entry-restore-confirm"
-              disabled={restoring}
+              disabled={restoring || readOnly}
               onClick={() => handleRestore()}
             >
               {restoring ? <Spinner aria-hidden="true" className="mr-2 size-4" /> : null}

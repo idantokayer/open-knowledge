@@ -46,6 +46,7 @@ let servers: Array<{ httpServer: HttpServer; mount: MountMcpAndApiHandle }> = []
 async function startMountedServer(
   handler: McpHttpHandler,
   serverHocuspocus: Hocuspocus = hocuspocus,
+  basePath?: string,
 ): Promise<{ port: number; mount: MountMcpAndApiHandle }> {
   const httpServer = createServer();
   const mount = mountMcpAndApi({
@@ -54,6 +55,7 @@ async function startMountedServer(
     hocuspocus: serverHocuspocus,
     mcpHttpHandler: handler,
     log,
+    basePath,
   });
   const port = await getFreeLoopbackPort();
   await new Promise<void>((resolve) => httpServer.listen(port, '127.0.0.1', () => resolve()));
@@ -106,6 +108,25 @@ async function getWithHost(
         );
       },
     );
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+async function optionsMcp(port: number, path: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const req = httpRequest({
+      hostname: '127.0.0.1',
+      port,
+      path,
+      method: 'OPTIONS',
+      headers: { Host: '127.0.0.1' },
+    });
+    req.on('response', (res) => {
+      const status = res.statusCode ?? 0;
+      res.resume();
+      res.on('end', () => resolve(status));
+    });
     req.on('error', reject);
     req.end();
   });
@@ -196,6 +217,47 @@ beforeEach(() => {
 });
 
 describe('mountMcpAndApi /mcp guard', () => {
+  test('routes HTTP requests only under the configured base path', async () => {
+    const { port } = await startMountedServer(
+      { handle: async (_req, res) => res.end(), close: async () => {} },
+      hocuspocus,
+      '/plm',
+    );
+    expect(await optionsMcp(port, '/plm/mcp')).toBe(204);
+    expect(await optionsMcp(port, '/mcp')).toBe(404);
+    expect((await getWithHost(port, '/other', '127.0.0.1')).status).toBe(404);
+    const root = await fetch(`http://127.0.0.1:${port}/`, { redirect: 'manual' });
+    expect(root.status).toBe(308);
+    expect(root.headers.get('location')).toBe('/plm/');
+  });
+
+  test('routes collaboration WebSocket upgrades under the configured base path', async () => {
+    const handleConnection = vi.fn(() => ({
+      handleMessage: () => {},
+      handleClose: () => {},
+    }));
+    const scopedHocuspocus = {
+      hooks: async () => {},
+      handleConnection,
+    } as unknown as Hocuspocus;
+    const { port } = await startMountedServer(
+      { handle: async () => {}, close: async () => {} },
+      scopedHocuspocus,
+      '/plm',
+    );
+    await expect(requestUpgrade(port, '/collab')).resolves.toBe('');
+    const client = new WebSocket(`ws://127.0.0.1:${port}/plm/collab`);
+    client.on('error', () => {});
+    await new Promise<void>((resolve, reject) => {
+      client.once('open', resolve);
+      client.once('error', reject);
+    });
+    expect(handleConnection).toHaveBeenCalledOnce();
+    const closed = new Promise<void>((resolve) => client.once('close', () => resolve()));
+    client.close();
+    await closed;
+  });
+
   test('rejects non-loopback Origin before the MCP handler runs', async () => {
     let calls = 0;
     const { port } = await startMountedServer({

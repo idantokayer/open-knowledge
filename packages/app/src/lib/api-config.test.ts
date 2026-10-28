@@ -37,6 +37,7 @@ describe('fetchApiConfig', () => {
         previewUrl: 'http://localhost:3000/',
         port: 3000,
         singleFile: false,
+        readOnly: false,
       },
     });
   });
@@ -51,7 +52,7 @@ describe('fetchApiConfig', () => {
     const result = await fetchApiConfig();
     expect(result).toEqual({
       status: 'ok',
-      config: { collabUrl: null, previewUrl: null, port: 0, singleFile: false },
+      config: { collabUrl: null, previewUrl: null, port: 0, singleFile: false, readOnly: false },
     });
   });
 
@@ -66,7 +67,7 @@ describe('fetchApiConfig', () => {
     const result = await fetchApiConfig();
     expect(result).toEqual({
       status: 'ok',
-      config: { collabUrl: null, previewUrl: null, port: 0, singleFile: true },
+      config: { collabUrl: null, previewUrl: null, port: 0, singleFile: true, readOnly: false },
     });
   });
 
@@ -112,7 +113,7 @@ describe('fetchApiConfig', () => {
     const result = await fetchApiConfig();
     expect(result).toEqual({
       status: 'ok',
-      config: { collabUrl: null, previewUrl: null, port: 0, singleFile: false },
+      config: { collabUrl: null, previewUrl: null, port: 0, singleFile: false, readOnly: false },
     });
   });
 

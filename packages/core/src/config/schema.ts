@@ -78,6 +78,19 @@ const HTTP_URL_SCHEME_RE = /^https?:\/\//;
 
 export const DEFAULT_TUNNEL_PORT = 24550;
 
+function isValidServerBasePath(value: string): boolean {
+  if (value === '' || value === '/') return true;
+  if (!value.startsWith('/') || value.endsWith('/')) return false;
+  return value
+    .slice(1)
+    .split('/')
+    .every((segment) => {
+      return (
+        segment !== '' && segment !== '.' && segment !== '..' && /^[A-Za-z0-9._~-]+$/.test(segment)
+      );
+    });
+}
+
 export type EmbeddingsBaseUrlProblem = 'invalid-url' | 'insecure-scheme';
 
 export function isLoopbackEmbeddingsUrl(baseUrl: string): boolean {
@@ -1069,6 +1082,18 @@ export const ConfigSchema = z.looseObject({
     .default({ enabled: true }),
   server: z
     .looseObject({
+      basePath: z
+        .string()
+        .refine(isValidServerBasePath, 'Expected a canonical path prefix such as /plm or /')
+        .register(fieldRegistry, {
+          scope: 'project-local',
+          agentSettable: false,
+          reload: 'boot',
+          defaultScope: 'project-local',
+          description:
+            'Path prefix served by this instance, such as /plm. Requests and browser API/WebSocket URLs stay under this prefix; unset or / serves at the root. Per-machine (project-local) — set with OK_BASE_PATH or .ok/local/config.yml. Read at server start; changing it requires a restart.',
+        })
+        .default(''),
       port: z
         .number()
         .int()
@@ -1140,11 +1165,140 @@ export const ConfigSchema = z.looseObject({
             "Shut the server down after this long with no activity: a duration like '30m' (positive integer with unit s, m, or h), or 'off'. Default derived: '30m' for a loopback-only, unexposed server; 'off' otherwise — a non-loopback bind, or a loopback bind declared externally reachable (server.allowExternal + server.externalUrl), stays up, because a remote agent keeps it busy over /mcp, which the idle timer does not count. Residual case the derivation cannot see: a loopback server reached by remote agents with no server.externalUrl (e.g. behind a same-box reverse proxy) still idles at 30m — set 'off' by hand. Reloadable — a valid change applies without a restart. Per-machine (project-local) — not shared.",
         })
         .optional(),
+      readOnly: z
+        .boolean()
+        .register(fieldRegistry, {
+          scope: 'project-local',
+          agentSettable: false,
+          reload: 'boot',
+          defaultScope: 'project-local',
+          description:
+            "Read-only mode. When true, every content-mutating MCP tool (write, edit, delete, move, install, import, checkpoint, restore_version, and lint with fix:true) is refused with a read-only error; read and search tools (exec, search, links, audit, history, skills, palette, config, preview_url, share_link, and plain lint) are unaffected. The gate covers MCP tools only — the web editor's own HTTP write routes (/api/agent-write-md etc.) are NOT affected by this flag. The server has no authentication of its own, so this is a posture control, not an authorization boundary. Default off (read-write). Read at server start; changing it requires a restart.",
+        })
+        .default(false),
     })
     .default({
+      basePath: '',
       bind: [...DEFAULT_SERVER_BIND],
       allowExternal: false,
+      readOnly: false,
     }),
+  remoteAuth: z
+    .looseObject({
+      enabled: z
+        .boolean()
+        .register(fieldRegistry, {
+          scope: 'project-local',
+          agentSettable: false,
+          reload: 'boot',
+          defaultScope: 'project-local',
+          description:
+            'Trust an authenticating edge (reverse proxy / gateway) to carry a verified OIDC token the server maps to a read/write principal. The server has no login of its own; when off (default) every request runs under the stock config-derived principal and no token is read. Enabling requires remoteAuth.provider. Per-machine (project-local): consent to delegate auth never travels via git, clone, or share. Read at server start; changing it requires a restart.',
+        })
+        .default(false),
+      provider: z
+        .looseObject({
+          issuer: z.url({ protocol: /^https$/ }).register(fieldRegistry, {
+            scope: 'project',
+            agentSettable: false,
+            reload: 'boot',
+            defaultScope: 'project',
+            description:
+              'OIDC issuer (https URL), matched against the token `iss` claim and used to discover JWKS when remoteAuth.provider.jwksUri is unset. Shared via git (project scope). Read at server start; changing it requires a restart.',
+          }),
+          audience: z.string().min(1).register(fieldRegistry, {
+            scope: 'project',
+            agentSettable: false,
+            reload: 'boot',
+            defaultScope: 'project',
+            description:
+              'Expected token audience, matched against the `aud` claim so a token minted for another service is rejected. Shared via git (project scope). Read at server start; changing it requires a restart.',
+          }),
+          jwksUri: z
+            .url({ protocol: /^https$/ })
+            .register(fieldRegistry, {
+              scope: 'project',
+              agentSettable: false,
+              reload: 'boot',
+              defaultScope: 'project',
+              description:
+                'Explicit JWKS endpoint (https URL) for the signing keys. Optional: when unset the server derives it from the issuer via OIDC discovery. Shared via git (project scope). Read at server start; changing it requires a restart.',
+            })
+            .optional(),
+          groupsClaim: z
+            .string()
+            .register(fieldRegistry, {
+              scope: 'project',
+              agentSettable: false,
+              reload: 'boot',
+              defaultScope: 'project',
+              description:
+                "Token claim read for the principal's group memberships (default 'groups'), consulted by roleMap to resolve a role. Shared via git (project scope). Read at server start; changing it requires a restart.",
+            })
+            .default('groups'),
+          roleMap: z
+            .record(z.string(), z.enum(['reader', 'writer']))
+            .register(fieldRegistry, {
+              scope: 'project',
+              agentSettable: false,
+              reload: 'boot',
+              defaultScope: 'project',
+              description:
+                "Map from a group name (as it appears in the groupsClaim) to the role it grants: 'reader' or 'writer' only — the write policy is binary and there is no editor/admin tier. A principal in no mapped group falls back to remoteAuth.provider.defaultRole. Shared via git (project scope). Read at server start; changing it requires a restart.",
+            })
+            .default({}),
+          defaultRole: z
+            .enum(['reader', 'writer'])
+            .register(fieldRegistry, {
+              scope: 'project',
+              agentSettable: false,
+              reload: 'boot',
+              defaultScope: 'project',
+              description:
+                "Role granted to an authenticated principal that matches no roleMap group: 'reader' (default) or 'writer'. Shared via git (project scope). Read at server start; changing it requires a restart.",
+            })
+            .default('reader'),
+          tokenUse: z
+            .enum(['id', 'access', 'any'])
+            .register(fieldRegistry, {
+              scope: 'project',
+              agentSettable: false,
+              reload: 'boot',
+              defaultScope: 'project',
+              description:
+                "Which token flavor to accept: an OIDC ID token ('id'), an OAuth access token ('access'), or either ('any', default). Checked against the token's `token_use`/`typ` where the issuer provides it. Shared via git (project scope). Read at server start; changing it requires a restart.",
+            })
+            .default('any'),
+          jwksCacheTtlSeconds: z
+            .number()
+            .int()
+            .min(0)
+            .register(fieldRegistry, {
+              scope: 'project',
+              agentSettable: false,
+              reload: 'boot',
+              defaultScope: 'project',
+              description:
+                'How long (seconds, default 600) to cache fetched JWKS signing keys before refetching. 0 refetches on every verification. Shared via git (project scope). Read at server start; changing it requires a restart.',
+            })
+            .default(600),
+          clockToleranceSeconds: z
+            .number()
+            .int()
+            .min(0)
+            .register(fieldRegistry, {
+              scope: 'project',
+              agentSettable: false,
+              reload: 'boot',
+              defaultScope: 'project',
+              description:
+                'Leeway (seconds, default 60) applied to token `exp`/`nbf`/`iat` checks to absorb clock skew between the issuer and this server. Shared via git (project scope). Read at server start; changing it requires a restart.',
+            })
+            .default(60),
+        })
+        .optional(),
+    })
+    .default({ enabled: false }),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

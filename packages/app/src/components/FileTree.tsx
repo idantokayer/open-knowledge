@@ -211,6 +211,7 @@ import { importTemplate } from '@/lib/folder-config-api';
 import { isOverlayLayerOpen } from '@/lib/overlay-layers';
 import { parseServerResponse, parseSuccessOrWarn } from '@/lib/parse-server-response';
 import { revealInFileManagerLabel, trashNounLabel } from '@/lib/platform-labels';
+import { useReadOnlyMode } from '@/lib/read-only-mode';
 import { scheduleClipboardWrite } from '@/lib/share/clipboard-adapter';
 import {
   buildDocShareInput,
@@ -513,6 +514,7 @@ function FileTreeMenu({
   documents,
 }: FileTreeMenuProps) {
   const { t } = useLingui();
+  const readOnly = useReadOnlyMode();
   const target = treeItemToTarget(item, documents);
   const isFolder = item.kind === 'directory';
   const isOkRow = hasOkPathSegment(item.path);
@@ -632,6 +634,7 @@ function FileTreeMenu({
       >
         <FileTargetMenuItems
           busy={anyActionBusy}
+          readOnly={readOnly}
           deleteLabel={deleteLabel}
           primitives={DROPDOWN_FILE_TARGET_MENU_PRIMITIVES}
           workspaceReady={workspace != null}

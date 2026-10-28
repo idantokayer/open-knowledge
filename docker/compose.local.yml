@@ -1,0 +1,19 @@
+name: toluna-ok
+services:
+  toluna-ok:
+    image: toluna-ok:local
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    ports:
+      - "127.0.0.1:3010:3000"
+    environment:
+      OK_EXTERNAL_URL: http://localhost:3010
+      OK_READ_ONLY: "1"
+    volumes:
+      - toluna-ok-content:/content
+      - toluna-ok-home:/home/node
+    restart: unless-stopped
+volumes:
+  toluna-ok-content:
+  toluna-ok-home:

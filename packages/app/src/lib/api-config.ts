@@ -3,6 +3,7 @@ interface ApiConfig {
   previewUrl: string | null;
   port: number;
   singleFile: boolean;
+  readOnly: boolean;
 }
 
 export type FetchApiConfigResult =
@@ -44,6 +45,7 @@ export async function fetchApiConfig(signal?: AbortSignal): Promise<FetchApiConf
       previewUrl: typeof obj.previewUrl === 'string' ? obj.previewUrl : null,
       port: typeof obj.port === 'number' ? obj.port : 0,
       singleFile: obj.singleFile === true,
+      readOnly: obj.readOnly === true,
     },
   };
 }

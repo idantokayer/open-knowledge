@@ -46,8 +46,7 @@ async function resolveAppPath(inputPath, deps = {}) {
     detached = true;
     try {
       await runCommand('hdiutil', ['detach', '-quiet', mountRoot]);
-    } catch {
-    }
+    } catch {}
   };
   try {
     await runCommand('hdiutil', [
@@ -120,13 +119,11 @@ async function spawnAppWithEnv(appPath, outPath, deps = {}) {
     const timer = setTimeoutImpl(() => {
       try {
         child.kill('SIGTERM');
-      } catch {
-      }
+      } catch {}
       sigkillTimer = setTimeoutImpl(() => {
         try {
           child.kill('SIGKILL');
-        } catch {
-        }
+        } catch {}
         settle(null);
       }, killEscalationMs);
     }, timeoutMs);

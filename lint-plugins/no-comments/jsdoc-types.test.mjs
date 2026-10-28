@@ -26,7 +26,8 @@ describe('the jsdoc-type class: the only typing mechanism the untyped strata hav
   });
 
   test('a description smuggled behind the type grammar is prose', () => {
-    const source = "/** @param {string} name The name we normalize for the picker */\nexport const f = 1;\n";
+    const source =
+      '/** @param {string} name The name we normalize for the picker */\nexport const f = 1;\n';
     expect(violationsFor(source, 'scripts/probe.mjs').map((v) => v.class)).toEqual(['prose']);
   });
 

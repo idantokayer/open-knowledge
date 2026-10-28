@@ -24,6 +24,7 @@ import {
   stampIngressContext,
 } from '../ingress-policy.ts';
 import type { PinoLogger } from '../logger.ts';
+import { canWrite, type Principal as WritePolicyPrincipal } from '../mcp/write-policy.ts';
 import { getMeter, getTracer, onTelemetryShutdown } from '../telemetry.ts';
 import { errorResponse } from './error-response.ts';
 import { REQUEST_ID_HEADER, rememberRequestId, resolveRequestId } from './request-id.ts';
@@ -140,6 +141,14 @@ export interface ApiPipelineOptions {
 
 export type ApiRequestPipeline = (req: IncomingMessage, res: ServerResponse) => Promise<boolean>;
 
+const GITHUB_CREDENTIAL_ROUTES: ReadonlySet<string> = new Set([
+  '/api/local-op/auth/login',
+  '/api/local-op/auth/status',
+  '/api/local-op/auth/pat',
+  '/api/local-op/auth/gh-login',
+  '/api/local-op/auth/cancel',
+]);
+
 let _httpDurationHist: ReturnType<ReturnType<typeof getMeter>['createHistogram']> | null = null;
 onTelemetryShutdown(() => {
   _httpDurationHist = null;
@@ -155,6 +164,11 @@ function httpDurationHist(): ReturnType<ReturnType<typeof getMeter>['createHisto
 export function createApiRequestPipeline(opts: ApiPipelineOptions): ApiRequestPipeline {
   const { log, ephemeral, table } = opts;
   const policy = opts.policy ?? buildIngressPolicy({});
+  // Default to a writer when no resolver is supplied (stock read-write). The
+  // resolver is called PER REQUEST so a future RBAC posture can vary by caller;
+  // today it returns a lifetime-constant role derived from `server.readOnly`.
+  const resolveWritePolicyPrincipal: () => WritePolicyPrincipal =
+    opts.getWritePolicyPrincipal ?? (() => ({ role: 'writer' }));
   const isAllowedWorkspaceHostHeader = (host: string | undefined): boolean =>
     isHostAdmitted(host, policy);
 

@@ -104,8 +104,7 @@ function* installedManifests(pnpmDir) {
       for (const name of names) {
         try {
           yield JSON.parse(fs.readFileSync(path.join(nm, name, 'package.json'), 'utf8'));
-        } catch {
-        }
+        } catch {}
       }
     }
   }
@@ -185,7 +184,8 @@ export const DEPENDENCY_FIELDS = ['dependencies', 'peerDependencies', 'optionalD
 
 export const WORKSPACE_DEPENDENCY_FIELDS = [...DEPENDENCY_FIELDS, 'devDependencies'];
 
-const byDependantThenDep = (a, b) => a.dependant.localeCompare(b.dependant) || a.dep.localeCompare(b.dep);
+const byDependantThenDep = (a, b) =>
+  a.dependant.localeCompare(b.dependant) || a.dep.localeCompare(b.dep);
 
 export function findFloorViolations(overrides, manifests, fields = DEPENDENCY_FIELDS) {
   const seen = new Set();
@@ -193,7 +193,8 @@ export function findFloorViolations(overrides, manifests, fields = DEPENDENCY_FI
   for (const manifest of manifests) {
     for (const field of fields) {
       for (const [dep, range] of Object.entries(manifest?.[field] ?? {})) {
-        if (field === 'peerDependencies' && manifest?.peerDependenciesMeta?.[dep]?.optional) continue;
+        if (field === 'peerDependencies' && manifest?.peerDependenciesMeta?.[dep]?.optional)
+          continue;
         const pinned = overrides.get(dep);
         if (!pinned) continue;
         const floor = rangeFloor(range);
@@ -228,14 +229,18 @@ function main() {
   const root = path.resolve(import.meta.dirname, '..');
   const workspaceFile = path.join(root, 'pnpm-workspace.yaml');
   if (!fs.existsSync(workspaceFile)) {
-    console.error(`check-override-floors: no pnpm-workspace.yaml beside ${root}. The subtree layout moved.`);
+    console.error(
+      `check-override-floors: no pnpm-workspace.yaml beside ${root}. The subtree layout moved.`,
+    );
     process.exit(1);
   }
   const workspaceYaml = fs.readFileSync(workspaceFile, 'utf8');
   const overrides = parseExactOverrides(workspaceYaml);
   const pnpmDir = path.join(root, 'node_modules', '.pnpm');
   if (!fs.existsSync(pnpmDir)) {
-    console.error('check-override-floors: node_modules/.pnpm is missing. Run `pnpm install` first.');
+    console.error(
+      'check-override-floors: node_modules/.pnpm is missing. Run `pnpm install` first.',
+    );
     process.exit(1);
   }
   const unknownPatterns = [];
@@ -256,7 +261,9 @@ function main() {
     process.exit(1);
   }
   if (installed.length === 0) {
-    console.error(`check-override-floors: read no package manifests under ${pnpmDir}. Refusing to report a pass.`);
+    console.error(
+      `check-override-floors: read no package manifests under ${pnpmDir}. Refusing to report a pass.`,
+    );
     process.exit(1);
   }
   if (emptyPatterns.length > 0) {
@@ -273,10 +280,14 @@ function main() {
     );
     return;
   }
-  console.error('check-override-floors: an override pins a package below a floor a dependant declares.\n');
+  console.error(
+    'check-override-floors: an override pins a package below a floor a dependant declares.\n',
+  );
   for (const v of violations) {
     console.error(`  ${v.dependant}`);
-    console.error(`    ${v.field}: ${v.dep}@${v.range} (floor ${v.floor}), override pins ${v.pinned}`);
+    console.error(
+      `    ${v.field}: ${v.dep}@${v.range} (floor ${v.floor}), override pins ${v.pinned}`,
+    );
   }
   console.error(
     '\nRaise the override in pnpm-workspace.yaml to satisfy the highest declared floor, then run `pnpm install`.',

@@ -31,15 +31,17 @@ describe('mechanical naming rule', () => {
 });
 
 describe('recognized surface pin', () => {
-  it('is exactly the ratified Table 2 set', () => {
+  it('contains the recognized server environment variables', () => {
     expect(new Map(RECOGNIZED_ENV_VARS)).toEqual(
       new Map([
         ['PORT', ['server', 'port']],
+        ['OK_BASE_PATH', ['server', 'basePath']],
         ['OK_BIND', ['server', 'bind']],
         ['OK_EXTERNAL_URL', ['server', 'externalUrl']],
         ['OK_ALLOW_EXTERNAL', ['server', 'allowExternal']],
         ['OK_OPEN_BROWSER', ['server', 'openBrowser']],
         ['OK_IDLE_SHUTDOWN', ['server', 'idleShutdown']],
+        ['OK_READ_ONLY', ['server', 'readOnly']],
       ]),
     );
   });
@@ -49,6 +51,7 @@ describe('resolveEnvConfigLayer', () => {
   it('parses the full ratified surface into a deep-partial layer', () => {
     const { layer, overrides, diagnostics } = resolveEnvConfigLayer({
       PORT: '8080',
+      OK_BASE_PATH: '/plm',
       OK_BIND: '127.0.0.1 100.64.0.7',
       OK_EXTERNAL_URL: 'https://kb.example.com',
       OK_ALLOW_EXTERNAL: '1',
@@ -58,6 +61,7 @@ describe('resolveEnvConfigLayer', () => {
     expect(layer).toEqual({
       server: {
         port: 8080,
+        basePath: '/plm',
         bind: ['127.0.0.1', '100.64.0.7'],
         externalUrl: 'https://kb.example.com',
         allowExternal: true,
@@ -65,7 +69,7 @@ describe('resolveEnvConfigLayer', () => {
         idleShutdown: 'off',
       },
     });
-    expect(overrides).toHaveLength(6);
+    expect(overrides).toHaveLength(7);
     expect(diagnostics).toEqual([]);
   });
 
@@ -86,6 +90,7 @@ describe('resolveEnvConfigLayer', () => {
   });
 
   it('rejects malformed values with the env var named', () => {
+    expect(() => resolveEnvConfigLayer({ OK_BASE_PATH: '/plm/../other' })).toThrow(/OK_BASE_PATH/);
     expect(() => resolveEnvConfigLayer({ PORT: 'dynamic' })).toThrow(/^PORT:/);
     expect(() => resolveEnvConfigLayer({ PORT: '70000' })).toThrow(EnvVarError);
     expect(() => resolveEnvConfigLayer({ OK_EXTERNAL_URL: 'not a url' })).toThrow(

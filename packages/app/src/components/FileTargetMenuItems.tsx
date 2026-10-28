@@ -85,6 +85,13 @@ export interface FileTargetMenuItemsProps {
   onImportTemplate?: (deleteSource: boolean) => void;
   onRename?: () => void;
   workspaceReady: boolean;
+  /**
+   * Server read-only posture. Disables the content-mutating affordances
+   * (new file/folder, import-as-template, duplicate, rename, hide, delete)
+   * while leaving reads (reveal, copy path, share, expand/collapse) enabled.
+   * Advisory — the server already refuses these writes.
+   */
+  readOnly?: boolean;
 }
 
 export function FileTargetMenuItems({
@@ -104,9 +111,13 @@ export function FileTargetMenuItems({
   onImportTemplate,
   onRename,
   workspaceReady,
+  readOnly = false,
 }: FileTargetMenuItemsProps) {
   const { Item, Separator, Sub, SubContent, SubTrigger } = primitives;
   const Group = primitives.Group ?? MenuGroupFallback;
+  // Mutating affordances are disabled while busy OR when the server is
+  // read-only. Reads (reveal, copy-path, share, expand/collapse) stay enabled.
+  const writesDisabled = busy || readOnly;
   const hasTreeActions = folderTree?.onExpandAll != null || folderTree?.onCollapseAll != null;
   const hasMutationActions =
     onImportTemplate != null ||
@@ -120,13 +131,13 @@ export function FileTargetMenuItems({
       {folderCreate ? (
         <>
           <Group>
-            <Item disabled={busy} onSelect={folderCreate.onNewFile}>
+            <Item disabled={writesDisabled} onSelect={folderCreate.onNewFile}>
               <SquarePen aria-hidden="true" />
               <Trans>New file</Trans>
             </Item>
             {folderCreate.templateItems ? (
               <Sub>
-                <SubTrigger disabled={busy}>
+                <SubTrigger disabled={writesDisabled}>
                   <FilePlus aria-hidden="true" />
                   <Trans>New from template</Trans>
                 </SubTrigger>
@@ -135,7 +146,7 @@ export function FileTargetMenuItems({
                 </SubContent>
               </Sub>
             ) : null}
-            <Item disabled={busy} onSelect={folderCreate.onNewFolder}>
+            <Item disabled={writesDisabled} onSelect={folderCreate.onNewFolder}>
               <FolderPlus aria-hidden="true" />
               <Trans>New folder</Trans>
             </Item>
@@ -207,16 +218,16 @@ export function FileTargetMenuItems({
           <Group>
             {onImportTemplate ? (
               <Sub>
-                <SubTrigger disabled={busy}>
+                <SubTrigger disabled={writesDisabled}>
                   <FileKey aria-hidden="true" />
                   <Trans>Import as template</Trans>
                 </SubTrigger>
                 <SubContent>
                   <Group>
-                    <Item disabled={busy} onSelect={() => onImportTemplate(false)}>
+                    <Item disabled={writesDisabled} onSelect={() => onImportTemplate(false)}>
                       <Trans>Keep original file</Trans>
                     </Item>
-                    <Item disabled={busy} onSelect={() => onImportTemplate(true)}>
+                    <Item disabled={writesDisabled} onSelect={() => onImportTemplate(true)}>
                       <Trans>Convert (delete original)</Trans>
                     </Item>
                   </Group>
@@ -224,13 +235,13 @@ export function FileTargetMenuItems({
               </Sub>
             ) : null}
             {onDuplicate ? (
-              <Item disabled={busy} onSelect={onDuplicate}>
+              <Item disabled={writesDisabled} onSelect={onDuplicate}>
                 <CopyPlus aria-hidden="true" />
                 <Trans>Duplicate</Trans>
               </Item>
             ) : null}
             {onRename ? (
-              <Item disabled={busy} onSelect={onRename}>
+              <Item disabled={writesDisabled} onSelect={onRename}>
                 <Pencil aria-hidden="true" />
                 <Trans>Rename</Trans>
               </Item>
@@ -238,7 +249,7 @@ export function FileTargetMenuItems({
             {hide ? (
               <Item
                 data-testid="file-tree-menu-hide"
-                disabled={hide.disabled}
+                disabled={writesDisabled || hide.disabled}
                 onSelect={hide.onSelect}
               >
                 <EyeOff aria-hidden="true" />
@@ -246,7 +257,7 @@ export function FileTargetMenuItems({
               </Item>
             ) : null}
             {onDelete ? (
-              <Item variant="destructive" disabled={busy} onSelect={onDelete}>
+              <Item variant="destructive" disabled={writesDisabled} onSelect={onDelete}>
                 <Trash2 aria-hidden="true" />
                 {deleteLabel ?? <Trans>Delete</Trans>}
               </Item>

@@ -29,6 +29,7 @@ import {
 } from './acp/thread-manager.ts';
 import { collectServerHostSnapshot } from './agent-registry-probes.ts';
 import { createAssetServeMiddleware } from './asset-serve-middleware.ts';
+import { normalizeServerBasePath } from './base-path.ts';
 import { bootElapsedMs, recordBootPhase, startBootTimings } from './boot-timings.ts';
 import type { Config } from './config/schema.ts';
 import { installCrashCapture } from './crash-capture.ts';
@@ -375,6 +376,7 @@ async function bootServerInner(opts: BootServerOptions): Promise<BootedServer> {
     );
   }
 
+  const basePath = normalizeServerBasePath(opts.config.server?.basePath);
   let collabClientCounter: CollabClientCounter | null = null;
 
   const serverInstance = createServer({
@@ -411,6 +413,7 @@ async function bootServerInner(opts: BootServerOptions): Promise<BootedServer> {
     singleDocRelPath: opts.singleDocRelPath,
     ephemeral: opts.ephemeral,
     configHomedirOverride: opts.configHomedirOverride,
+    readOnly: opts.config.server?.readOnly === true,
   });
 
   const {
@@ -462,12 +465,7 @@ async function bootServerInner(opts: BootServerOptions): Promise<BootedServer> {
       : undefined;
 
   const reactShellMiddleware = opts.reactShellDistDir
-    ? sirv(opts.reactShellDistDir, {
-        single: true,
-        gzip: true,
-        etag: true,
-        dev: true,
-      })
+    ? createReactShellMiddleware(opts.reactShellDistDir, basePath)
     : undefined;
 
   const acpThreadManager = opts.ephemeral
@@ -537,6 +535,7 @@ async function bootServerInner(opts: BootServerOptions): Promise<BootedServer> {
     keepaliveGraceMs: opts.keepaliveGraceMs,
     contentAssetMiddleware,
     reactShellMiddleware,
+    basePath,
     ephemeral: opts.ephemeral,
     acpThreadManager,
   });

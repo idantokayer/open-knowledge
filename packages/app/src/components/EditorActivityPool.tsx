@@ -23,6 +23,8 @@ import {
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { ReadOnlyModeBanner } from '@/components/ReadOnlyModeBanner';
+import { ReadonlyFrontmatterPanel } from '@/components/ReadonlyFrontmatterPanel';
 import { Spinner } from '@/components/ui/spinner';
 import { type PoolEntrySnapshot, useDocumentContext } from '@/editor/DocumentContext';
 import { DOCUMENT_SCROLL_HOST_CLASS } from '@/editor/document-scrollports';
@@ -44,6 +46,7 @@ import { parseProjectSkillContentDocName } from '@/lib/managed-artifact-doc-name
 import { isNoteWindow } from '@/lib/note-window-mode';
 import { mark, ProfilerBoundary } from '@/lib/perf';
 import { readNumericOverride } from '@/lib/perf/env-override';
+import { useReadOnlyMode } from '@/lib/read-only-mode';
 import { cn } from '@/lib/utils';
 import { DocumentBoundary } from './DocumentBoundary';
 import { DocumentErrorBoundary } from './DocumentErrorBoundary';
@@ -743,6 +746,7 @@ function ActivityEntry({
 }: ActivityEntryProps) {
   const recoveryView = getServerRestartRecoveryView(entry.docName, serverRestartRecovery);
 
+  const readOnly = useReadOnlyMode();
   const conflict = useDocConflict(entry.docName);
   const isMermaid = isMermaidDocFile(entry.docName);
   const isExcalidraw = isExcalidrawDocFile(entry.docName);
@@ -901,6 +905,7 @@ function ActivityEntry({
                     <TextDocEditor docName={entry.docName} provider={entry.provider} />
                   ) : (
                     <div className="flex h-full flex-col">
+                      {readOnly ? <ReadOnlyModeBanner /> : null}
                       {}
                       {!effectiveIsSourceMode &&
                         (isManagedArtifactDocName(entry.docName) ||
@@ -915,7 +920,11 @@ function ActivityEntry({
                         ) : (
                           <>
                             <PageHeader provider={entry.provider} />
-                            <PropertyPanel provider={entry.provider} />
+                            {readOnly ? (
+                              <ReadonlyFrontmatterPanel provider={entry.provider} />
+                            ) : (
+                              <PropertyPanel provider={entry.provider} />
+                            )}
                           </>
                         ))}
                       {}

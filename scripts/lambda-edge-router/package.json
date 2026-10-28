@@ -1,0 +1,8 @@
+{
+  "name": "ok-lambda-edge-router",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@aws-sdk/client-secrets-manager": "3.922.0"
+  }
+}
