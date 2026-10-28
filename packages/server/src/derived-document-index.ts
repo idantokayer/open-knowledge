@@ -1,5 +1,9 @@
 import { readFile } from 'node:fs/promises';
-import type { DerivedViewChannel } from '@inkeep/open-knowledge-core';
+import {
+  createTargetNamespace,
+  type DerivedViewChannel,
+  type TargetNamespace,
+} from '@inkeep/open-knowledge-core';
 import {
   type BacklinkEntry,
   BacklinkIndex,
@@ -24,6 +28,7 @@ import { getLogger } from './logger.ts';
 import { TagIndex, type TagSummaryEntry } from './tag-index.ts';
 
 const log = getLogger('derived-document-index');
+const SLOW_STARTUP_LOG_THRESHOLD_MS = 10_000;
 
 const DERIVED_INDEX_SAVE_DEBOUNCE_MS = 2000;
 const LOCAL_TARGET_REBUILD_RETRY_BASE_MS = 1000;
@@ -48,7 +53,6 @@ export function isDerivedOrphanMode(value: unknown): value is DerivedOrphanMode 
 }
 
 export interface DerivedIndexStartupBacklinksResult {
-  deletedDocNames: readonly string[];
   backlinkIndexDegraded: boolean;
 }
 
@@ -96,6 +100,7 @@ export interface DerivedDocumentIndexApiPort {
     markdown: string,
   ): Promise<void>;
   recordLinkRewrite(documentName: string, markdown: string): Promise<void>;
+  isReady(): boolean;
   getBacklinks(documentName: string): Promise<BacklinkEntry[]>;
   getBacklinkCount(documentName: string): Promise<number>;
   getBacklinkCounts(documentNames: readonly string[]): Promise<Record<string, number>>;
@@ -193,13 +198,15 @@ export class DerivedDocumentIndex
   private readonly localTargetFileExistenceTimer: ReturnType<typeof setInterval>;
   private localTargetRebuildRetryAttempt = 0;
   private graphFileTargetsSource: readonly string[] | null = null;
-  private graphFileTargets: Set<string> | null = null;
+  private graphFileTargets: TargetNamespace<'file'> | null = null;
   private startupBranch: string | null = null;
   private graphBuiltWithoutFileOracle = false;
   private saveTagsOnNextDebounce = false;
   private branchTransition: BranchTransition | null = null;
   private startupBegun = false;
+  private startupBegunAt = 0;
   private startupSettled = false;
+  private ready = false;
   private liveUpdateToken = 0;
   private lastSignaledLocalTargetGeneration = 0;
   private closed = false;
@@ -249,20 +256,25 @@ export class DerivedDocumentIndex
     this.localTargetFileExistenceTimer.unref?.();
   }
 
-  beginStartup(branch: string): { backlinksReady: Promise<DerivedIndexStartupBacklinksResult> } {
+  beginStartup(branch: string): {
+    backlinksReady: Promise<DerivedIndexStartupBacklinksResult>;
+    offlineDeletionsReady: Promise<readonly string[]>;
+  } {
     this.assertOpen();
     if (this.startupBegun) {
       throw new Error('Derived document index startup has already begun');
     }
     this.startupBegun = true;
+    this.startupBegunAt = performance.now();
     this.startupBranch = branch;
     this.backlinkIndex.switchBranch(branch);
 
-    const backlinksReady = this.initializeBacklinks(branch);
+    const offlineDeletions = Promise.withResolvers<readonly string[]>();
+    const backlinksReady = this.initializeBacklinks(branch, offlineDeletions.resolve);
     const tagsWarm = this.warmTags();
     this.tail = Promise.all([backlinksReady.then(() => undefined), tagsWarm]).then(() => undefined);
     this.startupAdmission.resolve();
-    return { backlinksReady };
+    return { backlinksReady, offlineDeletionsReady: offlineDeletions.promise };
   }
 
   async settleStartupAfterWatcherSeed(): Promise<DerivedIndexStartupSettlement> {
@@ -298,7 +310,15 @@ export class DerivedDocumentIndex
         return { tagIndexDegraded };
       });
     } finally {
+      this.ready = true;
       this.readyBarrier.resolve();
+      const startupMs = Math.round(performance.now() - this.startupBegunAt);
+      const logSettled = startupMs >= SLOW_STARTUP_LOG_THRESHOLD_MS ? log.info : log.debug;
+      logSettled.call(
+        log,
+        { startupMs },
+        '[derived-index] startup settled; deferred link checks resume',
+      );
     }
   }
 
@@ -433,6 +453,13 @@ export class DerivedDocumentIndex
     });
   }
 
+  recordInventoryReconciled(): Promise<void> {
+    return this.runCommand(async () => {
+      this.reconcileLocalTargetInventory();
+      this.maybeSignalLocalTargets();
+    });
+  }
+
   recordFileTargetUpsert(relativePath: string): Promise<void> {
     return this.runCommand(async () => {
       const inventory = this.reconcileLocalTargetInventory();
@@ -472,7 +499,11 @@ export class DerivedDocumentIndex
   }
 
   recordLinkRewrite(documentName: string, markdown: string): Promise<void> {
-    return this.recordDirectMutations([{ kind: 'link-rewrite', documentName, markdown }]);
+    return this.runCommand(async () => {
+      this.updateBacklinks(documentName, markdown);
+      this.scheduleSave(false);
+      this.signalBacklinks();
+    });
   }
 
   recordDirectMutations(mutations: readonly DerivedDocumentIndexMutation[]): Promise<void> {
@@ -551,6 +582,10 @@ export class DerivedDocumentIndex
   announceReadyViews(): void {
     this.assertOpen();
     this.signalAllRelations();
+  }
+
+  isReady(): boolean {
+    return this.ready && !this.closed;
   }
 
   getBacklinks(documentName: string): Promise<BacklinkEntry[]> {
@@ -699,13 +734,15 @@ export class DerivedDocumentIndex
     });
   }
 
-  private async initializeBacklinks(branch: string): Promise<DerivedIndexStartupBacklinksResult> {
+  private async initializeBacklinks(
+    branch: string,
+    resolveOfflineDeletions: (deletedDocNames: readonly string[]) => void,
+  ): Promise<DerivedIndexStartupBacklinksResult> {
     try {
-      let deletedDocNames: readonly string[] = [];
       this.graphFileOracle();
       if (await this.backlinkIndex.loadFromDisk(branch)) {
         const diff = await this.backlinkIndex.reconcileWithDisk(branch);
-        deletedDocNames = diff.deletedDocNames;
+        resolveOfflineDeletions(diff.deletedDocNames);
         if (diff.added > 0 || diff.updated > 0 || diff.deleted > 0) {
           log.info(
             {
@@ -717,17 +754,19 @@ export class DerivedDocumentIndex
           );
         }
       } else {
+        resolveOfflineDeletions([]);
         await this.backlinkIndex.rebuildFromDisk(branch);
       }
       await this.ingestGlobalSkillNodesLogOnly(branch, 'startup');
       await this.saveBacklinksLogOnly('startup', branch);
-      return { deletedDocNames, backlinkIndexDegraded: false };
+      return { backlinkIndexDegraded: false };
     } catch (err) {
+      resolveOfflineDeletions([]);
       log.error(
         { err, branch },
         '[backlinks] startup init failed; index will populate incrementally via watcher',
       );
-      return { deletedDocNames: [], backlinkIndexDegraded: true };
+      return { backlinkIndexDegraded: true };
     }
   }
 
@@ -820,10 +859,10 @@ export class DerivedDocumentIndex
     }
     if (this.graphFileTargetsSource !== inventory.fileTargets) {
       this.graphFileTargetsSource = inventory.fileTargets;
-      this.graphFileTargets = new Set(inventory.fileTargets);
+      this.graphFileTargets = createTargetNamespace('file', inventory.fileTargets);
     }
     const files = this.graphFileTargets;
-    return files ? { hasFile: (path) => files.has(path) } : undefined;
+    return files ? { hasFile: (path) => files.resolve(path) !== undefined } : undefined;
   }
 
   private async reconcileGraphWithFileInventory(branch: string): Promise<void> {

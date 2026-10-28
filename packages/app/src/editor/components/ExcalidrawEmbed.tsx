@@ -1,4 +1,4 @@
-import { isExcalidrawDocFile } from '@inkeep/open-knowledge-core';
+import { isExcalidrawDocFile } from '@inkeep/open-knowledge-core/constants/upload';
 import { Trans, useLingui } from '@lingui/react/macro';
 import type { PanzoomObject } from '@panzoom/panzoom';
 import { AlertTriangle, ExternalLink } from 'lucide-react';
@@ -55,6 +55,10 @@ export function boardDocNameFromSrc(
   } catch {
     return null;
   }
+}
+
+export function isLiveBoardSrc(src: unknown): boolean {
+  return typeof src === 'string' && boardDocNameFromSrc(src) !== null;
 }
 
 interface ExcalidrawEmbedProps {

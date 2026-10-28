@@ -1,4 +1,11 @@
-interface DialogLike {
+import { isAbsolute } from 'node:path';
+import type { BrowserWindow } from 'electron';
+import { getLogger } from './desktop-logger.ts';
+import { type ErrorDialogHost, showErrorDialog } from './error-dialog.ts';
+
+type OpenDialogOptions = Parameters<DialogLike['showOpenDialog']>[0];
+
+interface DialogLike extends ErrorDialogHost {
   showOpenDialog(opts: {
     properties: (
       | 'openDirectory'
@@ -12,8 +19,59 @@ interface DialogLike {
   }): Promise<{ canceled: boolean; filePaths: string[] }>;
 }
 
+const NO_SELECTION_COPY = {
+  folder: {
+    title: 'Couldn\u2019t open that folder',
+    body: 'The folder picker closed without choosing a folder. Try again, and select the folder in the list instead of typing its path.',
+  },
+  file: {
+    title: 'Couldn\u2019t open that file',
+    body: 'The file picker closed without choosing a file. Try again, and select the file in the list instead of typing its path.',
+  },
+} as const;
+
+function unusablePickShape(picked: string | undefined): 'none' | 'empty' | 'relative' | null {
+  if (picked === undefined) return 'none';
+  if (picked.length === 0) return 'empty';
+  if (!isAbsolute(picked)) return 'relative';
+  return null;
+}
+
+async function runPicker(
+  dialogModule: DialogLike,
+  target: keyof typeof NO_SELECTION_COPY,
+  options: OpenDialogOptions,
+  errorParent: () => BrowserWindow | null,
+): Promise<string | null> {
+  const log = getLogger('dialog');
+  let result: Awaited<ReturnType<DialogLike['showOpenDialog']>>;
+  try {
+    result = await dialogModule.showOpenDialog(options);
+  } catch (err) {
+    log.error({ outcome: 'failed', target, err }, 'picker failed to open');
+    throw err;
+  }
+  if (result.canceled) {
+    log.info({ outcome: 'canceled', target }, 'picker closed');
+    return null;
+  }
+  const picked = result.filePaths[0];
+  const unusable = unusablePickShape(picked);
+  if (unusable !== null) {
+    log.warn(
+      { outcome: 'no-selection', target, shape: unusable, count: result.filePaths.length },
+      'picker returned no usable path',
+    );
+    const copy = NO_SELECTION_COPY[target];
+    void showErrorDialog(dialogModule, errorParent(), copy.title, copy.body);
+    return null;
+  }
+  return picked;
+}
+
 interface PromptForPickerOpts {
   defaultPath?: string;
+  errorParent: () => BrowserWindow | null;
 }
 
 export function resolvePickedPathForIndex(raw: string, callIndex: number): string | null {
@@ -37,29 +95,35 @@ function readTestPickedPath(): string | null {
 
 export async function promptForExistingFolder(
   dialogModule: DialogLike,
-  opts: PromptForPickerOpts = {},
+  opts: PromptForPickerOpts,
 ): Promise<string | null> {
   const testSeam = readTestPickedPath();
   if (testSeam !== null) return testSeam;
-  const result = await dialogModule.showOpenDialog({
-    properties: ['openDirectory', 'createDirectory', 'showHiddenFiles'],
-    ...(opts.defaultPath !== undefined ? { defaultPath: opts.defaultPath } : {}),
-  });
-  if (result.canceled) return null;
-  return result.filePaths[0] ?? null;
+  return runPicker(
+    dialogModule,
+    'folder',
+    {
+      properties: ['openDirectory', 'createDirectory', 'showHiddenFiles'],
+      ...(opts.defaultPath !== undefined ? { defaultPath: opts.defaultPath } : {}),
+    },
+    opts.errorParent,
+  );
 }
 
 export async function promptForExistingMarkdownFile(
   dialogModule: DialogLike,
-  opts: PromptForPickerOpts = {},
+  opts: PromptForPickerOpts,
 ): Promise<string | null> {
   const testSeam = readTestPickedPath();
   if (testSeam !== null) return testSeam;
-  const result = await dialogModule.showOpenDialog({
-    properties: ['openFile'],
-    filters: [{ name: 'Markdown', extensions: ['md', 'mdx'] }],
-    ...(opts.defaultPath !== undefined ? { defaultPath: opts.defaultPath } : {}),
-  });
-  if (result.canceled) return null;
-  return result.filePaths[0] ?? null;
+  return runPicker(
+    dialogModule,
+    'file',
+    {
+      properties: ['openFile'],
+      filters: [{ name: 'Markdown', extensions: ['md', 'mdx'] }],
+      ...(opts.defaultPath !== undefined ? { defaultPath: opts.defaultPath } : {}),
+    },
+    opts.errorParent,
+  );
 }

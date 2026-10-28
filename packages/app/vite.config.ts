@@ -4,6 +4,12 @@ import { defineConfig } from 'vite';
 import { injectAppVersionEnv } from './src/build/app-version';
 import { chromeTokensVitePlugin } from './src/build/chrome-tokens-vite-plugin';
 import { rejectionLoopGuardPlugin } from './src/build/rejection-loop-guard-plugin';
+import { testLoopMarkerPlugin } from './src/build/test-loop-marker-plugin';
+import { TEST_SERVER_STARTUP_ENV } from './src/build/test-server-startup-contract';
+import {
+  parseTestServerStartupRequest,
+  testServerStartupPlugin,
+} from './src/build/test-server-startup-plugin';
 import { hocuspocusPlugin } from './src/server/hocuspocus-plugin';
 import { RENDERER_DEDUPE } from './vite.dedupe';
 import { RENDERER_HTML_ENTRIES, rendererHtmlInput } from './vite.entries';
@@ -15,6 +21,13 @@ import { RENDERER_BABEL_OPTIONS } from './vite.react-babel';
 injectAppVersionEnv();
 
 const vitePort = process.env.VITE_PORT ? Number.parseInt(process.env.VITE_PORT, 10) : undefined;
+const startupRequest = parseTestServerStartupRequest(process.env[TEST_SERVER_STARTUP_ENV]);
+if (
+  startupRequest !== undefined &&
+  process.env.VITE_PORT !== String(startupRequest.candidatePort)
+) {
+  throw new Error('automatic Vite startup candidate differs from VITE_PORT');
+}
 
 // Per-worker Vite optimized-dependency cache dir. Set by the per-worker
 // Playwright fixture alongside `VITE_PORT` and `OK_TEST_CONTENT_DIR`, so N
@@ -62,6 +75,9 @@ export default defineConfig({
     // options are shared with the Electron renderer build.
     babel(RENDERER_BABEL_OPTIONS),
     hocuspocusPlugin(),
+    ...(startupRequest === undefined
+      ? []
+      : [testServerStartupPlugin(startupRequest), testLoopMarkerPlugin()]),
   ],
   resolve: {
     tsconfigPaths: true,
@@ -75,7 +91,7 @@ export default defineConfig({
   },
   server: {
     port: vitePort ?? 5173,
-    strictPort: vitePort !== undefined,
+    strictPort: startupRequest === undefined && vitePort !== undefined,
     watch: {
       // Exclude the content/ directory from Vite's HMR watcher.
       // Markdown files here are managed by the Hocuspocus file watcher + persistence

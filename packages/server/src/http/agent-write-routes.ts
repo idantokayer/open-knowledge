@@ -73,13 +73,12 @@ import {
   reconcileDiskBeforeAgentWrite,
 } from '../external-change.ts';
 import { extractActorIdentity } from '../extract-actor-identity.ts';
-import type { FileIndexEntry } from '../file-watcher.ts';
 import {
   FrontmatterMalformedError,
   respondFrontmatterMalformed,
 } from '../frontmatter-malformed-error.ts';
 import { recordFrontmatterEditSurface } from '../frontmatter-telemetry.ts';
-import { type LinkAdvisoryPolicy, projectWriteAdvisoryLinks } from '../link-advisory-policy.ts';
+import type { LinkAdvisoryPolicy, PrepareWriteLinkAdvisory } from '../link-advisory-policy.ts';
 import { getLogger } from '../logger.ts';
 import { validateMermaidFences } from '../mermaid-validator.ts';
 import { incrementAgentPatchFindMismatches, incrementAgentWriteCalls } from '../metrics.ts';
@@ -98,7 +97,7 @@ import {
   type WriterIdentity,
 } from '../shadow-repo.ts';
 import { getMeter, withSpanSync } from '../telemetry.ts';
-import { computeWriteAdvisoryLinks } from '../write-advisory-links.ts';
+import { respondAgentSessionCapacity } from './agent-session-capacity.ts';
 import { type ApiRouteGroup, createApiRouteGroup } from './api-pipeline.ts';
 import { errorResponse } from './error-response.ts';
 import { getRequestId } from './request-id.ts';
@@ -155,6 +154,7 @@ export interface AgentWriteRouteDeps {
     label: string | undefined;
   };
   docNameExistsWithAnySupportedExtension: (contentDir: string, docName: string) => boolean;
+  findMissingDocCandidates: (docName: string) => string[];
   contentDir: string;
   summaryResponseFields: (normalized: NormalizedSummary) => {
     response?: SummaryResponse;
@@ -201,11 +201,7 @@ export interface AgentWriteRouteDeps {
     docName: string,
   ) => Promise<Array<{ type: 'orphan'; parentCandidates: string[]; message: string }> | undefined>;
   registerWrittenDocInFileIndex: (docName: string, content: string) => void;
-  collectAdmittedDocNames: () => Promise<Set<string>>;
-  createLinkedFileExists: (
-    allFiles?: ReadonlyMap<string, FileIndexEntry>,
-  ) => (contentRootRelativePath: string) => boolean;
-  createLinkedFolderExists: () => (folderPath: string) => boolean;
+  prepareWriteLinkAdvisory: PrepareWriteLinkAdvisory;
   buildReconcileWarning: (
     reconcile: ReconcileBeforeWriteResult,
   ) => DiskEditReconciledWarning | undefined;
@@ -216,6 +212,7 @@ export interface AgentWriteRouteDeps {
   ) => Promise<LintViolationWarning[]>;
   log: import('../logger.ts').PinoLogger;
   flushDocToGit: (docName: string, label: string) => void;
+  commitOkArtifactWrite: (context: string) => Promise<unknown>;
   isSafeDocName: (docName: string) => boolean;
   shadowRef: ShadowRef | undefined;
   getPrincipal: (() => Principal | null) | undefined;
@@ -236,6 +233,7 @@ export function createAgentWriteRoutes(deps: AgentWriteRouteDeps): ApiRouteGroup
     resolveAlias,
     extractAgentIdentity,
     docNameExistsWithAnySupportedExtension,
+    findMissingDocCandidates,
     contentDir,
     summaryResponseFields,
     sessionManager,
@@ -255,13 +253,12 @@ export function createAgentWriteRoutes(deps: AgentWriteRouteDeps): ApiRouteGroup
     onAgentWrite,
     computeOrphanHints,
     registerWrittenDocInFileIndex,
-    collectAdmittedDocNames,
-    createLinkedFileExists,
-    createLinkedFolderExists,
+    prepareWriteLinkAdvisory,
     buildReconcileWarning,
     computeLintViolations,
     log,
     flushDocToGit,
+    commitOkArtifactWrite,
     isSafeDocName,
     shadowRef,
     getPrincipal,
@@ -272,6 +269,7 @@ export function createAgentWriteRoutes(deps: AgentWriteRouteDeps): ApiRouteGroup
     stripDefaultPathTruncation,
     renameAttributionCounter,
   } = deps;
+
   const versionOpsService = createVersionOpsService({ getCurrentBranch, contentRoot });
 
   function getSubscriberCount(docName: string): number {
@@ -281,6 +279,28 @@ export function createAgentWriteRoutes(deps: AgentWriteRouteDeps): ApiRouteGroup
     } catch {
       return 0;
     }
+  }
+
+  function respondIfDocumentMissing(
+    res: ServerResponse,
+    docName: string,
+    handler: 'agent-patch' | 'frontmatter-patch',
+  ): boolean {
+    if (docNameExistsWithAnySupportedExtension(contentDir, docName)) return false;
+    if ((hocuspocus.documents.get(docName)?.getText('source').length ?? 0) > 0) return false;
+    const candidates = findMissingDocCandidates(docName);
+    const nextStep =
+      candidates.length === 0
+        ? 'edit only changes an existing document; use write({ document: { path, content } }) to create one.'
+        : `Did you mean ${candidates.map((c) => `"${c}"`).join(' or ')}? Retry the edit at that path.`;
+    errorResponse(
+      res,
+      404,
+      'urn:ok:error:doc-not-found',
+      `No document at "${docName}" (paths are relative to the content root). ${nextStep}`,
+      { handler, extensions: { candidates, committed: false } },
+    );
+    return true;
   }
 
   function getSystemSubscriberCount(): number {
@@ -329,177 +349,172 @@ export function createAgentWriteRoutes(deps: AgentWriteRouteDeps): ApiRouteGroup
         const normalizedSummary = normalizeSummary(body.summary);
         const { response: summaryResponse, stored: storedSummary } =
           summaryResponseFields(normalizedSummary);
-        const session = await sessionManager.getSession(resolvedDocName, agentId, {
-          displayName: agentName,
-          colorSeed,
-          clientName,
-        });
-        const writeMdReconcile = reconcileDiskBeforeAgentWrite(
-          durabilityState,
-          hocuspocus,
-          resolvedDocName,
-          contentDir,
-          options.resolveEmbed,
-          getBridgeLossReporter?.(),
-          conflicts,
-        );
-        const writeMdEmbedResolver = options.resolveEmbed
-          ? { resolveEmbed: options.resolveEmbed, sourcePath: resolvedDocName }
-          : undefined;
-        const writeMdPrecomputed = await prepareAgentMarkdownParse(
-          session.dc.document,
-          body.markdown,
-          position,
-          writeMdEmbedResolver,
-        );
-        const timestamp = new Date().toISOString();
-        let writeDivergence: AgentWriteContentDivergence | undefined;
-        let disposeEffectCapture: (() => void) | undefined;
-        try {
-          const icon = iconFromClientName(clientName);
-          const color = AGENT_ICON_COLORS[icon] ?? colorFromSeed(colorSeed ?? agentId);
-          agentPresenceBroadcaster?.setPresence(agentId, {
+        await sessionManager.withSessions(async (getSession) => {
+          const session = await getSession(resolvedDocName, agentId, {
             displayName: agentName,
-            icon,
-            color,
-            currentDoc: resolvedDocName,
-            mode: 'writing',
-            ts: Date.now(),
-          });
-          disposeEffectCapture = captureEffect(
-            session.dc.document.getText('source'),
-            agentId,
-            session.origin,
             colorSeed,
             clientName,
-          );
-          agentWritePreDrain(session.dc.document, body.markdown, position);
-          session.dc.document.transact(() => {
-            const beforeBlocks = snapshotBlocks(session.dc.document);
-            writeDivergence = applyAgentMarkdownWrite(
-              session.dc.document,
-              body.markdown,
-              position,
-              writeMdEmbedResolver,
-              writeMdPrecomputed,
-              agentWriteLossDetect(session),
-              suppliedWriterId,
-            );
-            const changedBlocks =
-              changedBlockRange(beforeBlocks, snapshotBlocks(session.dc.document)) ?? undefined;
-            const activityMap = session.dc.document.getMap('agent-flash');
-            activityMap.set(agentId, {
-              agentId,
-              timestamp: Date.now(),
-              type: 'insert',
-              description: `Added (${agentName}): ${body.markdown.trim().slice(0, 50)}`,
-              ...(changedBlocks !== undefined ? { changedBlocks } : {}),
-            });
-          }, session.origin);
-          if (writeDivergence !== undefined) {
-            console.warn(
-              JSON.stringify({
-                event: 'agent-write-content-divergence',
-                'doc.name': resolvedDocName,
-                position,
-                intendedBytes: writeDivergence.intendedBytes,
-                actualBytes: writeDivergence.actualBytes,
-                byteDelta: writeDivergence.byteDelta,
-                'agent.id': agentId,
-                'agent.client_name': clientName,
-              }),
-            );
-          }
-          recordContentDivergenceGate('agent-write-md', writeDivergence);
-          recordContributor(
+          });
+          const writeMdReconcile = reconcileDiskBeforeAgentWrite(
+            durabilityState,
+            hocuspocus,
             resolvedDocName,
-            agentId,
-            agentName,
-            colorSeed,
-            undefined,
-            buildAgentActor({ clientName, clientVersion, label }),
-            storedSummary,
+            contentDir,
+            options.resolveEmbed,
+            getBridgeLossReporter?.(),
+            conflicts,
           );
-          incrementAgentWriteCalls();
-          countNormalizedSummary(normalizedSummary);
-        } finally {
-          disposeEffectCapture?.();
-          agentPresenceBroadcaster?.touchMode(agentId, 'idle');
-        }
-        const flushOutcome = await flushDiskAndDetectOutcome(resolvedDocName);
-        if (flushOutcome?.kind === 'failure') {
-          respondPersistenceFailure(res, flushOutcome.failure, 'agent-write-md');
-          return;
-        }
-        if (flushOutcome?.kind === 'divergence') {
-          respondDiskDivergence(res, 'agent-write-md');
-          return;
-        }
-        if (flushOutcome?.kind === 'stale-external-write') {
-          respondStaleExternalWrite(res, 'agent-write-md', resolvedDocName);
-          return;
-        }
-        flushDocToDisk(resolvedDocName, 'agent-write-md');
-        agentFocusBroadcaster?.setFocus(agentId, {
-          agentName,
-          currentDoc: resolvedDocName,
-          writeKind: 'write',
-          ts: Date.now(),
-        });
-        onAgentWrite?.();
-        const hints = await computeOrphanHints(resolvedDocName);
-        const writtenSource = session.dc.document.getText('source').toString();
-        registerWrittenDocInFileIndex(resolvedDocName, writtenSource);
-        const renderWarnings = await validateMermaidFences(writtenSource, resolvedDocName);
-        const admittedForLinks = await collectAdmittedDocNames();
-        admittedForLinks.add(resolvedDocName);
-        const linkAdvisory = projectWriteAdvisoryLinks(
-          computeWriteAdvisoryLinks(
+          const writeMdEmbedResolver = options.resolveEmbed
+            ? { resolveEmbed: options.resolveEmbed, sourcePath: resolvedDocName }
+            : undefined;
+          const writeMdPrecomputed = await prepareAgentMarkdownParse(
+            session.dc.document,
+            body.markdown,
+            position,
+            writeMdEmbedResolver,
+          );
+          const timestamp = new Date().toISOString();
+          let writeDivergence: AgentWriteContentDivergence | undefined;
+          let disposeEffectCapture: (() => void) | undefined;
+          try {
+            const icon = iconFromClientName(clientName);
+            const color = AGENT_ICON_COLORS[icon] ?? colorFromSeed(colorSeed ?? agentId);
+            agentPresenceBroadcaster?.setPresence(agentId, {
+              displayName: agentName,
+              icon,
+              color,
+              currentDoc: resolvedDocName,
+              mode: 'writing',
+              ts: Date.now(),
+            });
+            disposeEffectCapture = captureEffect(
+              session.dc.document.getText('source'),
+              agentId,
+              session.origin,
+              colorSeed,
+              clientName,
+            );
+            agentWritePreDrain(session.dc.document, body.markdown, position);
+            session.dc.document.transact(() => {
+              const beforeBlocks = snapshotBlocks(session.dc.document);
+              writeDivergence = applyAgentMarkdownWrite(
+                session.dc.document,
+                body.markdown,
+                position,
+                writeMdEmbedResolver,
+                writeMdPrecomputed,
+                agentWriteLossDetect(session),
+                suppliedWriterId,
+              );
+              const changedBlocks =
+                changedBlockRange(beforeBlocks, snapshotBlocks(session.dc.document)) ?? undefined;
+              const activityMap = session.dc.document.getMap('agent-flash');
+              activityMap.set(agentId, {
+                agentId,
+                timestamp: Date.now(),
+                type: 'insert',
+                description: `Added (${agentName}): ${body.markdown.trim().slice(0, 50)}`,
+                ...(changedBlocks !== undefined ? { changedBlocks } : {}),
+              });
+            }, session.origin);
+            if (writeDivergence !== undefined) {
+              console.warn(
+                JSON.stringify({
+                  event: 'agent-write-content-divergence',
+                  'doc.name': resolvedDocName,
+                  position,
+                  intendedBytes: writeDivergence.intendedBytes,
+                  actualBytes: writeDivergence.actualBytes,
+                  byteDelta: writeDivergence.byteDelta,
+                  'agent.id': agentId,
+                  'agent.client_name': clientName,
+                }),
+              );
+            }
+            recordContentDivergenceGate('agent-write-md', writeDivergence);
+            recordContributor(
+              resolvedDocName,
+              agentId,
+              agentName,
+              colorSeed,
+              undefined,
+              buildAgentActor({ clientName, clientVersion, label }),
+              storedSummary,
+            );
+            incrementAgentWriteCalls();
+            countNormalizedSummary(normalizedSummary);
+          } finally {
+            disposeEffectCapture?.();
+            agentPresenceBroadcaster?.touchMode(agentId, 'idle');
+          }
+          const flushOutcome = await flushDiskAndDetectOutcome(resolvedDocName);
+          if (flushOutcome?.kind === 'failure') {
+            respondPersistenceFailure(res, flushOutcome.failure, 'agent-write-md');
+            return;
+          }
+          if (flushOutcome?.kind === 'divergence') {
+            respondDiskDivergence(res, 'agent-write-md');
+            return;
+          }
+          if (flushOutcome?.kind === 'stale-external-write') {
+            respondStaleExternalWrite(res, 'agent-write-md', resolvedDocName);
+            return;
+          }
+          flushDocToDisk(resolvedDocName, 'agent-write-md');
+          agentFocusBroadcaster?.setFocus(agentId, {
+            agentName,
+            currentDoc: resolvedDocName,
+            writeKind: 'write',
+            ts: Date.now(),
+          });
+          onAgentWrite?.();
+          const hints = await computeOrphanHints(resolvedDocName);
+          const writtenSource = session.dc.document.getText('source').toString();
+          registerWrittenDocInFileIndex(resolvedDocName, writtenSource);
+          const renderWarnings = await validateMermaidFences(writtenSource, resolvedDocName);
+          const linkAdvisory = (await prepareWriteLinkAdvisory([resolvedDocName]))(
             writtenSource,
             resolvedDocName,
-            admittedForLinks,
-            createLinkedFileExists(),
-            createLinkedFolderExists(),
-          ),
-          resolvedDocName,
-          linkPolicy.suppressLogLinkAdvisories,
-        );
-        const subscriberCount = getSubscriberCount(resolvedDocName);
-        const systemSubscriberCount = getSystemSubscriberCount();
-        if (systemSubscriberCount === 0) {
-          hintEmittedCounter().add(1, {
-            'shadow.writer': 'agent',
-            'agent.type': resolveAgentType(clientName),
-          });
-        }
-        const writeMdWarning = buildReconcileWarning(writeMdReconcile);
-        const writeMdDivergenceEntry =
-          writeDivergence !== undefined ? toContentDivergenceWarning(writeDivergence) : undefined;
-        const writeMdAdvisories = [
-          ...(writeMdDivergenceEntry ? [writeMdDivergenceEntry] : []),
-          ...(writeMdWarning ? [writeMdWarning] : []),
-          ...(renderWarnings ?? []),
-          ...(await computeLintViolations(
-            session.dc.document.getText('source').toString(),
-            resolvedDocName,
-            linkPolicy,
-          )),
-        ];
-        successResponse(
-          res,
-          200,
-          AgentWriteMdSuccessSchema,
-          {
-            timestamp,
-            subscriberCount,
-            systemSubscriberCount,
-            ...(hints ? { hints } : {}),
-            ...(summaryResponse ? { summary: summaryResponse } : {}),
-            ...(writeMdAdvisories.length > 0 ? { warnings: writeMdAdvisories } : {}),
-            ...linkAdvisory,
-          },
-          { handler: 'agent-write-md' },
-        );
+            linkPolicy.suppressLogLinkAdvisories,
+          );
+          const subscriberCount = getSubscriberCount(resolvedDocName);
+          const systemSubscriberCount = getSystemSubscriberCount();
+          if (systemSubscriberCount === 0) {
+            hintEmittedCounter().add(1, {
+              'shadow.writer': 'agent',
+              'agent.type': resolveAgentType(clientName),
+            });
+          }
+          const writeMdWarning = buildReconcileWarning(writeMdReconcile);
+          const writeMdDivergenceEntry =
+            writeDivergence !== undefined ? toContentDivergenceWarning(writeDivergence) : undefined;
+          const writeMdAdvisories = [
+            ...(writeMdDivergenceEntry ? [writeMdDivergenceEntry] : []),
+            ...(writeMdWarning ? [writeMdWarning] : []),
+            ...(renderWarnings ?? []),
+            ...(await computeLintViolations(
+              session.dc.document.getText('source').toString(),
+              resolvedDocName,
+              linkPolicy,
+            )),
+            ...linkAdvisory.warnings,
+          ];
+          successResponse(
+            res,
+            200,
+            AgentWriteMdSuccessSchema,
+            {
+              timestamp,
+              subscriberCount,
+              systemSubscriberCount,
+              ...(hints ? { hints } : {}),
+              ...(summaryResponse ? { summary: summaryResponse } : {}),
+              ...(writeMdAdvisories.length > 0 ? { warnings: writeMdAdvisories } : {}),
+              ...linkAdvisory.links,
+            },
+            { handler: 'agent-write-md' },
+          );
+        });
       } catch (e) {
         if (e instanceof DocInConflictError) {
           respondDocInConflict(
@@ -519,13 +534,7 @@ export function createAgentWriteRoutes(deps: AgentWriteRouteDeps): ApiRouteGroup
           return;
         }
         if (e instanceof AgentSessionCapacityError) {
-          errorResponse(
-            res,
-            503,
-            'urn:ok:error:too-many-agent-sessions',
-            'Too many agent sessions.',
-            { handler: 'agent-write-md', cause: e, extraHeaders: { 'Retry-After': '10' } },
-          );
+          respondAgentSessionCapacity(res, e, 'agent-write-md');
           return;
         }
         log.error({ err: e, requestId: getRequestId(_req) }, '[agent-write-md] handler failed');
@@ -558,225 +567,216 @@ export function createAgentWriteRoutes(deps: AgentWriteRouteDeps): ApiRouteGroup
           );
           return;
         }
+        if (respondIfDocumentMissing(res, resolvedDocName, 'frontmatter-patch')) return;
         const patch = body.patch ?? {};
         const patchKeys = Object.keys(patch);
         const normalizedSummary = normalizeSummary(body.summary);
         const { response: summaryResponse, stored: storedSummary } =
           summaryResponseFields(normalizedSummary);
-        const session = await sessionManager.getSession(resolvedDocName, agentId, {
-          displayName: agentName,
-          colorSeed,
-          clientName,
-        });
-        const fmReconcile = reconcileDiskBeforeAgentWrite(
-          durabilityState,
-          hocuspocus,
-          resolvedDocName,
-          contentDir,
-          options.resolveEmbed,
-          getBridgeLossReporter?.(),
-          conflicts,
-        );
-        const fmPatchPrecomputed = await prepareFrontmatterPatchParse(session.dc.document, patch);
-        const timestamp = new Date().toISOString();
-        let editError: import('@inkeep/open-knowledge-core').FmEditError | undefined;
-        let applied = false;
-        let bodyMutated = false;
-        const appliedKeys: string[] = [];
-        try {
-          const icon = iconFromClientName(clientName);
-          const color = AGENT_ICON_COLORS[icon] ?? colorFromSeed(colorSeed ?? agentId);
-          agentPresenceBroadcaster?.setPresence(agentId, {
+        await sessionManager.withSessions(async (getSession) => {
+          const session = await getSession(resolvedDocName, agentId, {
             displayName: agentName,
-            icon,
-            color,
+            colorSeed,
+            clientName,
+          });
+          const fmReconcile = reconcileDiskBeforeAgentWrite(
+            durabilityState,
+            hocuspocus,
+            resolvedDocName,
+            contentDir,
+            options.resolveEmbed,
+            getBridgeLossReporter?.(),
+            conflicts,
+          );
+          const fmPatchPrecomputed = await prepareFrontmatterPatchParse(session.dc.document, patch);
+          const timestamp = new Date().toISOString();
+          let editError: import('@inkeep/open-knowledge-core').FmEditError | undefined;
+          let applied = false;
+          let bodyMutated = false;
+          const appliedKeys: string[] = [];
+          try {
+            const icon = iconFromClientName(clientName);
+            const color = AGENT_ICON_COLORS[icon] ?? colorFromSeed(colorSeed ?? agentId);
+            agentPresenceBroadcaster?.setPresence(agentId, {
+              displayName: agentName,
+              icon,
+              color,
+              currentDoc: resolvedDocName,
+              mode: 'writing',
+              ts: Date.now(),
+            });
+            withSpanSync(
+              'ok.frontmatter_patch',
+              {
+                attributes: {
+                  'doc.name': resolvedDocName,
+                  'frontmatter_patch.keys': patchKeys.length,
+                },
+              },
+              () => {
+                session.dc.document.transact(() => {
+                  const ytext = session.dc.document.getText('source');
+                  const currentFull = ytext.toString();
+                  const { fenced: currentFenced, body: currentBody } = detectFmRegion(currentFull);
+                  const result = applyPatchToFm(currentFenced, patch);
+                  if (!result.ok) {
+                    editError = result.error;
+                    return;
+                  }
+                  for (const key of Object.keys(patch)) {
+                    appliedKeys.push(key);
+                  }
+                  if (result.nextFenced !== currentFenced) {
+                    /**
+                     * Routed through the sanctioned `composeAndWriteRawBody` primitive
+                     * (precedent #38) so paired-write semantics survive.
+                     */
+                    const needsFenceSeparator =
+                      currentFenced === '' && currentBody !== '' && !currentBody.startsWith('\n');
+                    const newFull = composeWithDerivedFrontmatter(
+                      result.nextFenced,
+                      (needsFenceSeparator ? '\n' : '') + currentBody,
+                    ).md;
+                    composeAndWriteRawBody(
+                      session.dc.document,
+                      newFull,
+                      'agent',
+                      undefined,
+                      fmPatchPrecomputed,
+                    );
+                    recordFrontmatterEditSurface('mcp-write');
+                    bodyMutated = true;
+                  }
+                  applied = true;
+                }, session.origin);
+              },
+            );
+          } finally {
+            agentPresenceBroadcaster?.touchMode(agentId, 'idle');
+          }
+          if (editError) {
+            let fieldErrors: Record<string, string>;
+            switch (editError.kind) {
+              case 'invalid_value':
+                fieldErrors = { [editError.key]: editError.reason };
+                break;
+              case 'reserved_key':
+                fieldErrors = { [editError.key]: `'${editError.key}' is reserved` };
+                break;
+              case 'unknown_key':
+                fieldErrors = { [editError.key]: `'${editError.key}' is not a recognized key` };
+                break;
+              case 'duplicate_target':
+                fieldErrors = { [editError.key]: `'${editError.key}' appears more than once` };
+                break;
+              case 'reorder_mismatch':
+                fieldErrors = {
+                  __region__: `frontmatter reorder mismatch (expected: ${editError.expected.join(', ')}; got: ${editError.got.join(', ')})`,
+                };
+                break;
+              case 'region_too_large':
+                fieldErrors = {
+                  __region__: `frontmatter region too large (${editError.bytes} > ${editError.limit} bytes)`,
+                };
+                break;
+              case 'parse_failed':
+                fieldErrors = { __region__: `frontmatter region unparseable: ${editError.reason}` };
+                break;
+              case 'invalid_path':
+                fieldErrors = {
+                  [editError.path.map(String).join('.') || '__path__']: editError.reason,
+                };
+                break;
+              default: {
+                const _exhaustive: never = editError;
+                fieldErrors = {
+                  __region__: `unhandled frontmatter edit error (${String(_exhaustive)})`,
+                };
+              }
+            }
+            errorResponse(
+              res,
+              400,
+              'urn:ok:error:invalid-frontmatter-patch',
+              'Frontmatter patch rejected: schema validation failed.',
+              { handler: 'frontmatter-patch', extensions: { fieldErrors } },
+            );
+            return;
+          }
+          if (applied && appliedKeys.length > 0) {
+            recordContributor(
+              resolvedDocName,
+              agentId,
+              agentName,
+              colorSeed,
+              undefined,
+              buildAgentActor({ clientName, clientVersion, label }),
+              storedSummary,
+            );
+            incrementAgentWriteCalls();
+            countNormalizedSummary(normalizedSummary);
+            if (bodyMutated) {
+              const flushOutcome = await flushDiskAndDetectOutcome(resolvedDocName);
+              if (flushOutcome?.kind === 'failure') {
+                respondPersistenceFailure(res, flushOutcome.failure, 'frontmatter-patch');
+                return;
+              }
+              if (flushOutcome?.kind === 'divergence') {
+                respondDiskDivergence(res, 'frontmatter-patch');
+                return;
+              }
+              if (flushOutcome?.kind === 'stale-external-write') {
+                respondStaleExternalWrite(res, 'frontmatter-patch', resolvedDocName);
+                return;
+              }
+            }
+            flushDocToDisk(resolvedDocName, 'frontmatter-patch');
+          }
+          agentFocusBroadcaster?.setFocus(agentId, {
+            agentName,
             currentDoc: resolvedDocName,
-            mode: 'writing',
+            writeKind: 'write',
             ts: Date.now(),
           });
-          withSpanSync(
-            'ok.frontmatter_patch',
-            {
-              attributes: {
-                'doc.name': resolvedDocName,
-                'frontmatter_patch.keys': patchKeys.length,
-              },
-            },
-            () => {
-              session.dc.document.transact(() => {
-                const ytext = session.dc.document.getText('source');
-                const currentFull = ytext.toString();
-                const { fenced: currentFenced, body: currentBody } = detectFmRegion(currentFull);
-                const result = applyPatchToFm(currentFenced, patch);
-                if (!result.ok) {
-                  editError = result.error;
-                  return;
-                }
-                for (const key of Object.keys(patch)) {
-                  appliedKeys.push(key);
-                }
-                if (result.nextFenced !== currentFenced) {
-                  /**
-                   * Routed through the sanctioned `composeAndWriteRawBody` primitive
-                   * (precedent #38) so paired-write semantics survive.
-                   */
-                  const needsFenceSeparator =
-                    currentFenced === '' && currentBody !== '' && !currentBody.startsWith('\n');
-                  const newFull = composeWithDerivedFrontmatter(
-                    result.nextFenced,
-                    (needsFenceSeparator ? '\n' : '') + currentBody,
-                  ).md;
-                  composeAndWriteRawBody(
-                    session.dc.document,
-                    newFull,
-                    'agent',
-                    undefined,
-                    fmPatchPrecomputed,
-                  );
-                  recordFrontmatterEditSurface('mcp-write');
-                  bodyMutated = true;
-                }
-                applied = true;
-              }, session.origin);
-            },
-          );
-        } finally {
-          agentPresenceBroadcaster?.touchMode(agentId, 'idle');
-        }
-        if (editError) {
-          let fieldErrors: Record<string, string>;
-          switch (editError.kind) {
-            case 'invalid_value':
-              fieldErrors = { [editError.key]: editError.reason };
-              break;
-            case 'reserved_key':
-              fieldErrors = { [editError.key]: `'${editError.key}' is reserved` };
-              break;
-            case 'unknown_key':
-              fieldErrors = { [editError.key]: `'${editError.key}' is not a recognized key` };
-              break;
-            case 'duplicate_target':
-              fieldErrors = { [editError.key]: `'${editError.key}' appears more than once` };
-              break;
-            case 'reorder_mismatch':
-              fieldErrors = {
-                __region__: `frontmatter reorder mismatch (expected: ${editError.expected.join(', ')}; got: ${editError.got.join(', ')})`,
-              };
-              break;
-            case 'region_too_large':
-              fieldErrors = {
-                __region__: `frontmatter region too large (${editError.bytes} > ${editError.limit} bytes)`,
-              };
-              break;
-            case 'parse_failed':
-              fieldErrors = { __region__: `frontmatter region unparseable: ${editError.reason}` };
-              break;
-            case 'invalid_path':
-              fieldErrors = {
-                [editError.path.map(String).join('.') || '__path__']: editError.reason,
-              };
-              break;
-            default: {
-              const _exhaustive: never = editError;
-              fieldErrors = {
-                __region__: `unhandled frontmatter edit error (${String(_exhaustive)})`,
-              };
-            }
+          onAgentWrite?.();
+          const subscriberCount = getSubscriberCount(resolvedDocName);
+          const systemSubscriberCount = getSystemSubscriberCount();
+          if (systemSubscriberCount === 0) {
+            hintEmittedCounter().add(1, {
+              'shadow.writer': 'agent',
+              'agent.type': resolveAgentType(clientName),
+            });
           }
-          errorResponse(
-            res,
-            400,
-            'urn:ok:error:invalid-frontmatter-patch',
-            'Frontmatter patch rejected: schema validation failed.',
-            { handler: 'frontmatter-patch', extensions: { fieldErrors } },
-          );
-          return;
-        }
-        if (applied && appliedKeys.length > 0) {
-          recordContributor(
+          const fmWarning = buildReconcileWarning(fmReconcile);
+          registerWrittenDocInFileIndex(
             resolvedDocName,
-            agentId,
-            agentName,
-            colorSeed,
-            undefined,
-            buildAgentActor({ clientName, clientVersion, label }),
-            storedSummary,
+            session.dc.document.getText('source').toString(),
           );
-          incrementAgentWriteCalls();
-          countNormalizedSummary(normalizedSummary);
-          if (bodyMutated) {
-            const flushOutcome = await flushDiskAndDetectOutcome(resolvedDocName);
-            if (flushOutcome?.kind === 'failure') {
-              respondPersistenceFailure(res, flushOutcome.failure, 'frontmatter-patch');
-              return;
-            }
-            if (flushOutcome?.kind === 'divergence') {
-              respondDiskDivergence(res, 'frontmatter-patch');
-              return;
-            }
-            if (flushOutcome?.kind === 'stale-external-write') {
-              respondStaleExternalWrite(res, 'frontmatter-patch', resolvedDocName);
-              return;
-            }
-          }
-          flushDocToDisk(resolvedDocName, 'frontmatter-patch');
-        }
-        agentFocusBroadcaster?.setFocus(agentId, {
-          agentName,
-          currentDoc: resolvedDocName,
-          writeKind: 'write',
-          ts: Date.now(),
-        });
-        onAgentWrite?.();
-        const subscriberCount = getSubscriberCount(resolvedDocName);
-        const systemSubscriberCount = getSystemSubscriberCount();
-        if (systemSubscriberCount === 0) {
-          hintEmittedCounter().add(1, {
-            'shadow.writer': 'agent',
-            'agent.type': resolveAgentType(clientName),
-          });
-        }
-        const fmWarning = buildReconcileWarning(fmReconcile);
-        registerWrittenDocInFileIndex(
-          resolvedDocName,
-          session.dc.document.getText('source').toString(),
-        );
-        const admittedForLinks = await collectAdmittedDocNames();
-        admittedForLinks.add(resolvedDocName);
-        const linkAdvisory = projectWriteAdvisoryLinks(
-          computeWriteAdvisoryLinks(
+          const linkAdvisory = (await prepareWriteLinkAdvisory([resolvedDocName]))(
             session.dc.document.getText('source').toString(),
             resolvedDocName,
-            admittedForLinks,
-            createLinkedFileExists(),
-          ),
-          resolvedDocName,
-          linkPolicy.suppressLogLinkAdvisories,
-        );
-        successResponse(
-          res,
-          200,
-          FrontmatterPatchSuccessSchema,
-          {
-            timestamp,
-            subscriberCount,
-            systemSubscriberCount,
-            appliedKeys,
-            ...(summaryResponse ? { summary: summaryResponse } : {}),
-            ...(fmWarning ? { warnings: [fmWarning] } : {}),
-            ...linkAdvisory,
-          },
-          { handler: 'frontmatter-patch' },
-        );
+            linkPolicy.suppressLogLinkAdvisories,
+          );
+          const fmAdvisories = [...(fmWarning ? [fmWarning] : []), ...linkAdvisory.warnings];
+          successResponse(
+            res,
+            200,
+            FrontmatterPatchSuccessSchema,
+            {
+              timestamp,
+              subscriberCount,
+              systemSubscriberCount,
+              appliedKeys,
+              ...(summaryResponse ? { summary: summaryResponse } : {}),
+              ...(fmAdvisories.length > 0 ? { warnings: fmAdvisories } : {}),
+              ...linkAdvisory.links,
+            },
+            { handler: 'frontmatter-patch' },
+          );
+        });
       } catch (e) {
         if (e instanceof AgentSessionCapacityError) {
-          errorResponse(
-            res,
-            503,
-            'urn:ok:error:too-many-agent-sessions',
-            'Too many agent sessions.',
-            { handler: 'frontmatter-patch', cause: e, extraHeaders: { 'Retry-After': '10' } },
-          );
+          respondAgentSessionCapacity(res, e, 'frontmatter-patch');
           return;
         }
         log.error({ err: e, requestId: getRequestId(_req) }, '[frontmatter-patch] handler failed');
@@ -817,279 +817,282 @@ export function createAgentWriteRoutes(deps: AgentWriteRouteDeps): ApiRouteGroup
           );
           return;
         }
+        if (respondIfDocumentMissing(res, docName, 'agent-patch')) return;
         const normalizedSummary = normalizeSummary(body.summary);
-        const session = await sessionManager.getSession(docName, agentId, {
-          displayName: agentName,
-          colorSeed,
-          clientName,
-        });
-        const patchReconcile = reconcileDiskBeforeAgentWrite(
-          durabilityState,
-          hocuspocus,
-          docName,
-          contentDir,
-          options.resolveEmbed,
-          getBridgeLossReporter?.(),
-          conflicts,
-        );
-        const patchEmbedResolver = options.resolveEmbed
-          ? { resolveEmbed: options.resolveEmbed, sourcePath: docName }
-          : undefined;
-        let patchPrecomputed: PrecomputedParse | undefined;
-        {
-          const preSnapshot = session.dc.document.getText('source').toString();
-          const { frontmatter: preFm, body: preBody } = stripFrontmatter(preSnapshot);
-          const preFull = prependFrontmatter(preFm, preBody);
-          const prePos =
-            offset == null
-              ? preFull.indexOf(find)
-              : preFull.slice(offset, offset + find.length) === find
-                ? offset
-                : -1;
-          if (prePos !== -1 && prePos >= preFm.length) {
-            const guessFull =
-              preFull.slice(0, prePos) + replace + preFull.slice(prePos + find.length);
-            patchPrecomputed = await prepareAgentMarkdownParse(
-              session.dc.document,
-              stripFrontmatter(guessFull).body,
-              'patch',
-              patchEmbedResolver,
-            );
-          }
-        }
-        const timestamp = new Date().toISOString();
-        let notFound = false;
-        let staleTarget = false;
-        let fmIntersect = false;
-        let fmPromoted = false;
-        let patchDivergence: AgentWriteContentDivergence | undefined;
-        let disposeEffectCapture: (() => void) | undefined;
-        try {
-          const icon = iconFromClientName(clientName);
-          const color = AGENT_ICON_COLORS[icon] ?? colorFromSeed(colorSeed ?? agentId);
-          agentPresenceBroadcaster?.setPresence(agentId, {
+        await sessionManager.withSessions(async (getSession) => {
+          const session = await getSession(docName, agentId, {
             displayName: agentName,
-            icon,
-            color,
-            currentDoc: docName,
-            mode: 'writing',
-            ts: Date.now(),
-          });
-          disposeEffectCapture = captureEffect(
-            session.dc.document.getText('source'),
-            agentId,
-            session.origin,
             colorSeed,
             clientName,
+          });
+          const patchReconcile = reconcileDiskBeforeAgentWrite(
+            durabilityState,
+            hocuspocus,
+            docName,
+            contentDir,
+            options.resolveEmbed,
+            getBridgeLossReporter?.(),
+            conflicts,
           );
-          session.dc.document.transact(() => {
-            /**
-             * Read current authoritative state from Y.Text, the user's intended source-form bytes
-             * (Y.Text-is-truth, precedent #38); `serialize(fragment)` would compute offsets against
-             * canonical bytes instead.
-             */
-            const ytextSnapshot = session.dc.document.getText('source').toString();
-            const { frontmatter: currentFm, body: currentBody } = stripFrontmatter(ytextSnapshot);
-            const currentFull = prependFrontmatter(currentFm, currentBody);
-            const pos =
+          const patchEmbedResolver = options.resolveEmbed
+            ? { resolveEmbed: options.resolveEmbed, sourcePath: docName }
+            : undefined;
+          let patchPrecomputed: PrecomputedParse | undefined;
+          {
+            const preSnapshot = session.dc.document.getText('source').toString();
+            const { frontmatter: preFm, body: preBody } = stripFrontmatter(preSnapshot);
+            const preFull = prependFrontmatter(preFm, preBody);
+            const prePos =
               offset == null
-                ? currentFull.indexOf(find)
-                : currentFull.slice(offset, offset + find.length) === find
+                ? preFull.indexOf(find)
+                : preFull.slice(offset, offset + find.length) === find
                   ? offset
                   : -1;
-            if (pos === -1) {
-              if (offset == null) {
-                notFound = true;
-              } else {
-                staleTarget = true;
+            if (prePos !== -1 && prePos >= preFm.length) {
+              const guessFull =
+                preFull.slice(0, prePos) + replace + preFull.slice(prePos + find.length);
+              patchPrecomputed = await prepareAgentMarkdownParse(
+                session.dc.document,
+                stripFrontmatter(guessFull).body,
+                'patch',
+                patchEmbedResolver,
+              );
+            }
+          }
+          const timestamp = new Date().toISOString();
+          let notFound = false;
+          let staleTarget = false;
+          let fmIntersect = false;
+          let fmPromoted = false;
+          let patchDivergence: AgentWriteContentDivergence | undefined;
+          let disposeEffectCapture: (() => void) | undefined;
+          try {
+            const icon = iconFromClientName(clientName);
+            const color = AGENT_ICON_COLORS[icon] ?? colorFromSeed(colorSeed ?? agentId);
+            agentPresenceBroadcaster?.setPresence(agentId, {
+              displayName: agentName,
+              icon,
+              color,
+              currentDoc: docName,
+              mode: 'writing',
+              ts: Date.now(),
+            });
+            disposeEffectCapture = captureEffect(
+              session.dc.document.getText('source'),
+              agentId,
+              session.origin,
+              colorSeed,
+              clientName,
+            );
+            session.dc.document.transact(() => {
+              /**
+               * Read current authoritative state from Y.Text, the user's intended source-form bytes
+               * (Y.Text-is-truth, precedent #38); `serialize(fragment)` would compute offsets against
+               * canonical bytes instead.
+               */
+              const ytextSnapshot = session.dc.document.getText('source').toString();
+              const { frontmatter: currentFm, body: currentBody } = stripFrontmatter(ytextSnapshot);
+              const currentFull = prependFrontmatter(currentFm, currentBody);
+              const pos =
+                offset == null
+                  ? currentFull.indexOf(find)
+                  : currentFull.slice(offset, offset + find.length) === find
+                    ? offset
+                    : -1;
+              if (pos === -1) {
+                if (offset == null) {
+                  notFound = true;
+                } else {
+                  staleTarget = true;
+                }
+                console.warn(
+                  JSON.stringify({
+                    event: 'agent-patch-find-mismatch',
+                    'doc.name': docName,
+                    findLength: find.length,
+                    replaceLength: replace.length,
+                    hadOffset: offset != null,
+                  }),
+                );
+                incrementAgentPatchFindMismatches();
+                return;
               }
+              if (pos < currentFm.length) {
+                fmIntersect = true;
+                return;
+              }
+              const newFull =
+                currentFull.slice(0, pos) + replace + currentFull.slice(pos + find.length);
+              if (currentFm === '' && stripFrontmatter(newFull).frontmatter !== '') {
+                fmPromoted = true;
+                return;
+              }
+              const { body: newBody } = stripFrontmatter(newFull);
+              const beforeBlocks = snapshotBlocks(session.dc.document);
+              patchDivergence = applyAgentMarkdownWrite(
+                session.dc.document,
+                newBody,
+                'patch',
+                patchEmbedResolver,
+                patchPrecomputed,
+                agentWriteLossDetect(session),
+                suppliedWriterId,
+              );
+              const changedBlocks =
+                changedBlockRange(beforeBlocks, snapshotBlocks(session.dc.document)) ?? undefined;
+              const activityMap = session.dc.document.getMap('agent-flash');
+              activityMap.set(agentId, {
+                agentId,
+                timestamp: Date.now(),
+                type: 'insert',
+                description: `Patched (${agentName}): ${find.slice(0, 50)}`,
+                ...(changedBlocks !== undefined ? { changedBlocks } : {}),
+              });
+            }, session.origin);
+            if (patchDivergence !== undefined) {
               console.warn(
                 JSON.stringify({
-                  event: 'agent-patch-find-mismatch',
+                  event: 'agent-write-content-divergence',
                   'doc.name': docName,
-                  findLength: find.length,
-                  replaceLength: replace.length,
-                  hadOffset: offset != null,
+                  position: 'patch',
+                  intendedBytes: patchDivergence.intendedBytes,
+                  actualBytes: patchDivergence.actualBytes,
+                  byteDelta: patchDivergence.byteDelta,
+                  'agent.id': agentId,
+                  'agent.client_name': clientName,
                 }),
               );
-              incrementAgentPatchFindMismatches();
-              return;
             }
-            if (pos < currentFm.length) {
-              fmIntersect = true;
-              return;
+            if (!notFound && !staleTarget && !fmIntersect && !fmPromoted) {
+              const { stored: storedSummary } = summaryResponseFields(normalizedSummary);
+              recordContributor(
+                docName,
+                agentId,
+                agentName,
+                colorSeed,
+                undefined,
+                buildAgentActor({ clientName, clientVersion, label }),
+                storedSummary,
+              );
+              incrementAgentWriteCalls();
+              countNormalizedSummary(normalizedSummary);
+              recordContentDivergenceGate('agent-patch', patchDivergence);
             }
-            const newFull =
-              currentFull.slice(0, pos) + replace + currentFull.slice(pos + find.length);
-            if (currentFm === '' && stripFrontmatter(newFull).frontmatter !== '') {
-              fmPromoted = true;
-              return;
-            }
-            const { body: newBody } = stripFrontmatter(newFull);
-            const beforeBlocks = snapshotBlocks(session.dc.document);
-            patchDivergence = applyAgentMarkdownWrite(
-              session.dc.document,
-              newBody,
-              'patch',
-              patchEmbedResolver,
-              patchPrecomputed,
-              agentWriteLossDetect(session),
-              suppliedWriterId,
+          } finally {
+            disposeEffectCapture?.();
+            agentPresenceBroadcaster?.touchMode(agentId, 'idle');
+          }
+          if (staleTarget) {
+            errorResponse(
+              res,
+              409,
+              'urn:ok:error:stale-target',
+              'Target text no longer matches at the requested offset.',
+              { handler: 'agent-patch' },
             );
-            const changedBlocks =
-              changedBlockRange(beforeBlocks, snapshotBlocks(session.dc.document)) ?? undefined;
-            const activityMap = session.dc.document.getMap('agent-flash');
-            activityMap.set(agentId, {
-              agentId,
-              timestamp: Date.now(),
-              type: 'insert',
-              description: `Patched (${agentName}): ${find.slice(0, 50)}`,
-              ...(changedBlocks !== undefined ? { changedBlocks } : {}),
+            return;
+          }
+          if (notFound) {
+            errorResponse(
+              res,
+              404,
+              'urn:ok:error:target-not-found',
+              'Text not found in document.',
+              {
+                handler: 'agent-patch',
+              },
+            );
+            return;
+          }
+          if (fmIntersect) {
+            agentPatchFmTouchCounter().add(1, { result: 'rejected', reason: 'intersect' });
+            errorResponse(
+              res,
+              400,
+              'urn:ok:error:frontmatter-edit-not-supported',
+              'Frontmatter edits are not supported via a body find/replace. Use edit({ document: { path, frontmatter } }) to change frontmatter, or write({ document: { path, content, position: "replace" } }) to rewrite the whole document including its YAML block.',
+              { handler: 'agent-patch' },
+            );
+            return;
+          }
+          if (fmPromoted) {
+            agentPatchFmTouchCounter().add(1, { result: 'rejected', reason: 'promoted' });
+            errorResponse(
+              res,
+              400,
+              'urn:ok:error:frontmatter-edit-not-supported',
+              "This edit would turn the replacement text into the document's frontmatter: the document has no frontmatter, the match starts at byte 0, and `replace` opens a `---` fence pair — so the composed document would re-read that block as its YAML region. Use edit({ document: { path, frontmatter } }) to set frontmatter, or keep the `---` out of the first line (a leading blank line, or `***` / `___` for a thematic break).",
+              { handler: 'agent-patch' },
+            );
+            return;
+          }
+          const flushOutcome = await flushDiskAndDetectOutcome(docName);
+          if (flushOutcome?.kind === 'failure') {
+            respondPersistenceFailure(res, flushOutcome.failure, 'agent-patch');
+            return;
+          }
+          if (flushOutcome?.kind === 'divergence') {
+            respondDiskDivergence(res, 'agent-patch');
+            return;
+          }
+          if (flushOutcome?.kind === 'stale-external-write') {
+            respondStaleExternalWrite(res, 'agent-patch', docName);
+            return;
+          }
+          flushDocToDisk(docName, 'agent-patch');
+          agentFocusBroadcaster?.setFocus(agentId, {
+            agentName,
+            currentDoc: docName,
+            writeKind: 'edit',
+            ts: Date.now(),
+          });
+          onAgentWrite?.();
+          const subscriberCount = getSubscriberCount(docName);
+          const systemSubscriberCount = getSystemSubscriberCount();
+          if (systemSubscriberCount === 0) {
+            hintEmittedCounter().add(1, {
+              'shadow.writer': 'agent',
+              'agent.type': resolveAgentType(clientName),
             });
-          }, session.origin);
-          if (patchDivergence !== undefined) {
-            console.warn(
-              JSON.stringify({
-                event: 'agent-write-content-divergence',
-                'doc.name': docName,
-                position: 'patch',
-                intendedBytes: patchDivergence.intendedBytes,
-                actualBytes: patchDivergence.actualBytes,
-                byteDelta: patchDivergence.byteDelta,
-                'agent.id': agentId,
-                'agent.client_name': clientName,
-              }),
-            );
           }
-          if (!notFound && !staleTarget && !fmIntersect && !fmPromoted) {
-            const { stored: storedSummary } = summaryResponseFields(normalizedSummary);
-            recordContributor(
-              docName,
-              agentId,
-              agentName,
-              colorSeed,
-              undefined,
-              buildAgentActor({ clientName, clientVersion, label }),
-              storedSummary,
-            );
-            incrementAgentWriteCalls();
-            countNormalizedSummary(normalizedSummary);
-            recordContentDivergenceGate('agent-patch', patchDivergence);
-          }
-        } finally {
-          disposeEffectCapture?.();
-          agentPresenceBroadcaster?.touchMode(agentId, 'idle');
-        }
-        if (staleTarget) {
-          errorResponse(
-            res,
-            409,
-            'urn:ok:error:stale-target',
-            'Target text no longer matches at the requested offset.',
-            { handler: 'agent-patch' },
-          );
-          return;
-        }
-        if (notFound) {
-          errorResponse(res, 404, 'urn:ok:error:target-not-found', 'Text not found in document.', {
-            handler: 'agent-patch',
-          });
-          return;
-        }
-        if (fmIntersect) {
-          agentPatchFmTouchCounter().add(1, { result: 'rejected', reason: 'intersect' });
-          errorResponse(
-            res,
-            400,
-            'urn:ok:error:frontmatter-edit-not-supported',
-            'Frontmatter edits are not supported via a body find/replace. Use edit({ document: { path, frontmatter } }) to change frontmatter, or write({ document: { path, content, position: "replace" } }) to rewrite the whole document including its YAML block.',
-            { handler: 'agent-patch' },
-          );
-          return;
-        }
-        if (fmPromoted) {
-          agentPatchFmTouchCounter().add(1, { result: 'rejected', reason: 'promoted' });
-          errorResponse(
-            res,
-            400,
-            'urn:ok:error:frontmatter-edit-not-supported',
-            "This edit would turn the replacement text into the document's frontmatter: the document has no frontmatter, the match starts at byte 0, and `replace` opens a `---` fence pair — so the composed document would re-read that block as its YAML region. Use edit({ document: { path, frontmatter } }) to set frontmatter, or keep the `---` out of the first line (a leading blank line, or `***` / `___` for a thematic break).",
-            { handler: 'agent-patch' },
-          );
-          return;
-        }
-        const flushOutcome = await flushDiskAndDetectOutcome(docName);
-        if (flushOutcome?.kind === 'failure') {
-          respondPersistenceFailure(res, flushOutcome.failure, 'agent-patch');
-          return;
-        }
-        if (flushOutcome?.kind === 'divergence') {
-          respondDiskDivergence(res, 'agent-patch');
-          return;
-        }
-        if (flushOutcome?.kind === 'stale-external-write') {
-          respondStaleExternalWrite(res, 'agent-patch', docName);
-          return;
-        }
-        flushDocToDisk(docName, 'agent-patch');
-        agentFocusBroadcaster?.setFocus(agentId, {
-          agentName,
-          currentDoc: docName,
-          writeKind: 'edit',
-          ts: Date.now(),
-        });
-        onAgentWrite?.();
-        const subscriberCount = getSubscriberCount(docName);
-        const systemSubscriberCount = getSystemSubscriberCount();
-        if (systemSubscriberCount === 0) {
-          hintEmittedCounter().add(1, {
-            'shadow.writer': 'agent',
-            'agent.type': resolveAgentType(clientName),
-          });
-        }
-        const { response: summaryResponse } = summaryResponseFields(normalizedSummary);
-        const patchedSource = session.dc.document.getText('source').toString();
-        registerWrittenDocInFileIndex(docName, patchedSource);
-        const renderWarnings = await validateMermaidFences(patchedSource, docName);
-        const admittedForLinks = await collectAdmittedDocNames();
-        admittedForLinks.add(docName);
-        const linkAdvisory = projectWriteAdvisoryLinks(
-          computeWriteAdvisoryLinks(
+          const { response: summaryResponse } = summaryResponseFields(normalizedSummary);
+          const patchedSource = session.dc.document.getText('source').toString();
+          registerWrittenDocInFileIndex(docName, patchedSource);
+          const renderWarnings = await validateMermaidFences(patchedSource, docName);
+          const linkAdvisory = (await prepareWriteLinkAdvisory([docName]))(
             patchedSource,
             docName,
-            admittedForLinks,
-            createLinkedFileExists(),
-          ),
-          docName,
-          linkPolicy.suppressLogLinkAdvisories,
-        );
-        const patchWarning = buildReconcileWarning(patchReconcile);
-        const patchDivergenceEntry =
-          patchDivergence !== undefined ? toContentDivergenceWarning(patchDivergence) : undefined;
-        const patchAdvisories = [
-          ...(patchDivergenceEntry ? [patchDivergenceEntry] : []),
-          ...(patchWarning ? [patchWarning] : []),
-          ...(renderWarnings ?? []),
-          ...(await computeLintViolations(
-            session.dc.document.getText('source').toString(),
-            docName,
-            linkPolicy,
-          )),
-        ];
-        successResponse(
-          res,
-          200,
-          AgentPatchSuccessSchema,
-          {
-            timestamp,
-            subscriberCount,
-            systemSubscriberCount,
-            ...(summaryResponse ? { summary: summaryResponse } : {}),
-            ...(patchAdvisories.length > 0 ? { warnings: patchAdvisories } : {}),
-            ...linkAdvisory,
-          },
-          { handler: 'agent-patch' },
-        );
+            linkPolicy.suppressLogLinkAdvisories,
+          );
+          const patchWarning = buildReconcileWarning(patchReconcile);
+          const patchDivergenceEntry =
+            patchDivergence !== undefined ? toContentDivergenceWarning(patchDivergence) : undefined;
+          const patchAdvisories = [
+            ...(patchDivergenceEntry ? [patchDivergenceEntry] : []),
+            ...(patchWarning ? [patchWarning] : []),
+            ...(renderWarnings ?? []),
+            ...(await computeLintViolations(
+              session.dc.document.getText('source').toString(),
+              docName,
+              linkPolicy,
+            )),
+            ...linkAdvisory.warnings,
+          ];
+          successResponse(
+            res,
+            200,
+            AgentPatchSuccessSchema,
+            {
+              timestamp,
+              subscriberCount,
+              systemSubscriberCount,
+              ...(summaryResponse ? { summary: summaryResponse } : {}),
+              ...(patchAdvisories.length > 0 ? { warnings: patchAdvisories } : {}),
+              ...linkAdvisory.links,
+            },
+            { handler: 'agent-patch' },
+          );
+        });
       } catch (e) {
         if (e instanceof DocInConflictError) {
           respondDocInConflict(
@@ -1105,13 +1108,7 @@ export function createAgentWriteRoutes(deps: AgentWriteRouteDeps): ApiRouteGroup
           return;
         }
         if (e instanceof AgentSessionCapacityError) {
-          errorResponse(
-            res,
-            503,
-            'urn:ok:error:too-many-agent-sessions',
-            'Too many agent sessions.',
-            { handler: 'agent-patch', cause: e, extraHeaders: { 'Retry-After': '10' } },
-          );
+          respondAgentSessionCapacity(res, e, 'agent-patch');
           return;
         }
         log.error({ err: e, requestId: getRequestId(_req) }, '[agent-patch] handler failed');
@@ -1513,6 +1510,7 @@ export function createAgentWriteRoutes(deps: AgentWriteRouteDeps): ApiRouteGroup
       const sg = shadowGit(shadow);
       const t0 = Date.now();
       try {
+        await commitOkArtifactWrite('rollback-read');
         const renameLogIndex = getOrLoadRenameLogIndex(shadow.gitDir);
         const ancestorCache = createAncestorShaSetCache();
         const branch = getCurrentBranch?.() ?? 'main';

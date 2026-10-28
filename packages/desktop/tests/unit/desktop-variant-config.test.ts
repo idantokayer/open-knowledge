@@ -1,6 +1,7 @@
 import { type ChildProcess, spawn } from 'node:child_process';
 import {
   copyFileSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -339,6 +340,21 @@ describe('desktop variant builder config', () => {
     ]);
   });
 
+  test.each([
+    { variant: 'stable', icon: 'build/icon.ico' },
+    { variant: 'beta', icon: 'build/icon-beta.ico' },
+    { variant: 'legacy-beta', icon: 'build/icon.ico' },
+  ] as const)('selects the committed Windows icon for $variant', ({ variant, icon }) => {
+    expect(existsSync(resolve(desktopRoot, icon)), icon).toBe(true);
+    const config = createVariantBuilderConfig(
+      parseBuilderConfig(configSource),
+      variant,
+      paths,
+      '0.77.7',
+    );
+    expect(config.win.icon).toBe(icon);
+  });
+
   test('selects the matching signed profile when it is available', () => {
     const beta = createVariantBuilderConfig(
       parseBuilderConfig(configSource),
@@ -475,6 +491,7 @@ describe('electron-builder wrapper execution', () => {
         readFileSync(join(fixture, '.variant-build/electron-builder.yml'), 'utf8'),
       );
       expect(generated.npmRebuild).toBe(target === '--linux' ? false : baseRebuild);
+      expect(generated.mac.notarize).toBe(false);
       if (target === '--mac') {
         const manifest = parseYaml(
           readFileSync(join(fixture, 'dist-desktop/latest-mac.yml'), 'utf8'),

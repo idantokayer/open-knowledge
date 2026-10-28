@@ -341,6 +341,27 @@ describe('DerivedDocumentIndex', () => {
     expect(rig.signals).toEqual(['backlinks', 'graph']);
   });
 
+  test('link rewrites debounce their backlink cache save instead of saving before returning', async () => {
+    vi.useFakeTimers();
+    const backlinkSave = vi.spyOn(BacklinkIndex.prototype, 'saveToDisk');
+    const tagSave = vi.spyOn(TagIndex.prototype, 'saveToDisk');
+    const rig = createRig();
+    await settleStartup(rig);
+    backlinkSave.mockClear();
+    tagSave.mockClear();
+
+    await rig.index.recordLinkRewrite('source', 'See [[first]].\n');
+    await rig.index.recordLinkRewrite('source', 'See [[second]].\n');
+
+    expect(await rig.index.getBacklinks('second')).toHaveLength(1);
+    expect(backlinkSave).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(2000);
+
+    expect(backlinkSave).toHaveBeenCalledTimes(1);
+    expect(tagSave).not.toHaveBeenCalled();
+  });
+
   test('direct rename moves link and tag membership atomically', async () => {
     const rig = createRig();
     await settleStartup(rig);
@@ -717,8 +738,8 @@ describe('DerivedDocumentIndex', () => {
 
     const startup = index.beginStartup('main');
 
+    await expect(startup.offlineDeletionsReady).resolves.toEqual(['stale']);
     await expect(startup.backlinksReady).resolves.toEqual({
-      deletedDocNames: ['stale'],
       backlinkIndexDegraded: false,
     });
     await index.settleStartupAfterWatcherSeed();
@@ -734,8 +755,8 @@ describe('DerivedDocumentIndex', () => {
       new Error('broken tag cache'),
     );
     const startup = rig.index.beginStartup('main');
+    await expect(startup.offlineDeletionsReady).resolves.toEqual([]);
     await expect(startup.backlinksReady).resolves.toEqual({
-      deletedDocNames: [],
       backlinkIndexDegraded: true,
     });
     vi.spyOn(TagIndex.prototype, 'reconcileWithDisk').mockRejectedValueOnce(
@@ -779,6 +800,23 @@ describe('DerivedDocumentIndex', () => {
     await rig.index.settleStartupAfterWatcherSeed();
 
     expect(await rig.index.getBacklinks('assets/NOTICE')).toEqual([]);
+  });
+
+  test('the graph file oracle recognises a file under an equivalent spelling', async () => {
+    const stored = 'assets/NOTICE\u0301';
+    const linked = 'assets/NOTIC\u00c9';
+    let inventory: WatcherLocalTargetInventory | null = null;
+    const rig = createRig(() => inventory);
+    writeDoc(rig, 'src.md', `See [notice](${linked}).\n`);
+    writeDoc(rig, stored, 'plain text\n');
+
+    const startup = rig.index.beginStartup('main');
+    await startup.backlinksReady;
+    inventory = { documentTargets: ['src'], fileTargets: [stored] };
+    await rig.index.settleStartupAfterWatcherSeed();
+
+    expect(await rig.index.getBacklinks(linked)).toEqual([]);
+    expect(await rig.index.getDeadLinks(['src'])).toEqual([]);
   });
 
   test('startup settlement re-derives a warm graph cache against the watcher inventory', async () => {

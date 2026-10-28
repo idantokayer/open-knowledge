@@ -25,6 +25,9 @@
     ],
     "-bFGPF": ["Perubahan berikutnya"],
     "-dNlfM": ["Suntingan terakhir pada ", ["docName"], " dibatalkan"],
+    "-eFr9g": [
+      "OpenKnowledge di komputer ini berganti ke build lain, tetapi tab ini masih menjalankan yang lama."
+    ],
     "-g6KIS": ["Tautan tidak dikenali"],
     "-kKdCC": [["imported"], " keterampilan dipasang dari ", ["0"]],
     "-kbIAr": ["Tautan & gambar"],
@@ -35,6 +38,9 @@
     ],
     "-l6jM7": ["Mulai obrolan dengan tombol ＋, atau luncurkan agen dari halaman."],
     "-lCAuQ": ["Memuat graf"],
+    "-nA68n": [
+      "Tambahkan token akses untuk server GitLab, Gitea, Bitbucket, Azure DevOps, atau git yang di-host sendiri. Tanpa token, git memakai kredensial yang sudah tersimpan untuk host tersebut; dengan token, OpenKnowledge memakai token itu sebagai gantinya."
+    ],
     "-o5XAG": [
       "Dikirim secara pribadi ke tim OpenKnowledge, beserta catatan Anda dan versi aplikasinya. Tidak pernah dipublikasikan."
     ],
@@ -51,6 +57,7 @@
     ],
     "-rMxuf": ["Agen kehabisan memori."],
     "-slrNR": ["Menyalakan atau mematikan daftar tugas."],
+    "-u0gMq": ["Ini tidak dapat diurai sebagai YAML atau JSON — periksa baris ", ["0"], "."],
     "-uaQnI": ["Tidak ada worktree atau cabang yang cocok."],
     "-yOx8u": ["Menyimpan perubahan…"],
     "-yPBXI": ["Pilih berkas"],
@@ -228,8 +235,10 @@
     "1njn7W": ["Terang"],
     "1nke1r": ["Buka ", ["0"], " di GitHub (terbuka di tab baru)"],
     "1oSHI0": [["skillName"], " tidak bisa dipasang: ", ["0"]],
+    "1ouiTz": ["Gambar ", ["identity"], " dikecualikan. Buka referensi."],
     "1pdLQw": ["Gambar tidak ditemukan"],
     "1qpGKz": ["Perubahan tidak dapat disimpan. Coba sunting warna lagi."],
+    "1rsUiG": ["Crash dump tidak dapat ditambahkan ke laporan ini."],
     "1ruosn": ["OpenKnowledge"],
     "1t_NnN": ["Tolak"],
     "1u-mAI": ["Sinkronisasinya tidak bisa dimulai. Periksa koneksi Anda, lalu coba lagi."],
@@ -237,6 +246,7 @@
     "1vczDE": ["Buka ", ["displayName"], " Desktop"],
     "1vn0CI": ["Respons server tidak valid"],
     "1xui0Q": ["Gagal memuat berkas lokal"],
+    "1yHVE-": ["Menambahkan"],
     "2-3Mlu": ["Tidak dapat melepas sematan ", ["name"]],
     "20LVKb": ["Sesuatu di luar obrolan ini meminta proses agen berhenti (", ["signal"], ")."],
     "2277Tu": ["Ciutkan graf"],
@@ -406,6 +416,9 @@
     "3zDeFb": ["Merenung…"],
     "3zyg_A": ["Pola abaikan"],
     "4-Phgi": ["Tampilkan atau sembunyikan agen"],
+    "40dUmM": [
+      "Gagal menonaktifkan pemeliharaan indeks karena bagian Open Knowledge di .gitattributes telah diedit atau tidak lengkap. Hapus bagian tersebut, lalu coba lagi."
+    ],
     "42QMZH": ["permintaan"],
     "438Fca": ["Berhasil dikloning, tetapi proyeknya tidak dapat dibuka."],
     "43qzxu": ["DevOps"],
@@ -471,6 +484,15 @@
     "4mp6Tv": ["OpenKnowledge menampilkan daftar keterampilan yang terpasang"],
     "4niEzY": ["Sematan HTML tersekat — tulis HTML, lihat pratinjau terendernya secara langsung."],
     "4nj6n8": ["/api/config mengembalikan HTTP ", ["code"]],
+    "4p8Baj": [
+      "Token disimpan untuk ",
+      ["login"],
+      " di ",
+      ["host"],
+      ". Untuk menghapusnya, jalankan <0>ok auth signout --host ",
+      ["host"],
+      "</0>."
+    ],
     "4pDZ2N": ["\"", ["0"], "\" dihapus dari semua lokasi lain — folder sumbernya tetap dimuat"],
     "4r6p_B": [
       "Perintah ini berisi karakter tersembunyi yang dapat membuatnya terlihat berbeda dari yang dijalankan. Karakter tersebut ditampilkan di sini sebagai ⟨U+…⟩."
@@ -489,6 +511,9 @@
     "5-FeN2": ["URL berbagi"],
     "5-o4kO": ["Hanya berkas markdown"],
     "50ORFs": ["Setel ulang ", ["0"], " ke bawaan"],
+    "50gx7V": [
+      "Pilih apakah penyiapan OpenKnowledge proyek ini, termasuk koneksi alat AI-nya dan mode sinkronisasi Bawaan bersama, disimpan bersama proyek agar rekan tim juga mendapatkannya, atau disimpan hanya di komputer Anda."
+    ],
     "54Y6Fg": ["Templat tidak dapat dimuat. Coba lagi nanti."],
     "56WWtu": ["Paket awal tidak bisa dimuat: ", ["error"]],
     "56xUL1": ["Nama properti"],
@@ -554,6 +579,7 @@
     "5ZbJFS": ["Versi Anda saat ini disimpan lebih dulu, jadi ini bisa dikembalikan."],
     "5_j-DA": ["Matikan Terminal"],
     "5aahsI": ["tidak apa pun (", ["0"], " bukan pola yang valid)"],
+    "5afD3A": ["Tentang & pembaruan"],
     "5b3WD-": ["OpenKnowledge menyimpan titik pemeriksaan"],
     "5e1Dri": ["Label menu yang dipakai agen untuk memilih templat ini (wajib)."],
     "5ecEGe": [
@@ -705,6 +731,9 @@
     "7C9JcA": [
       "Jalur proyek OpenKnowledge pada branch ini keluar dari worktree. Worktree dibuat, tetapi tidak dibuka."
     ],
+    "7Crqsa": [
+      "OpenKnowledge tidak memeriksa atau mengunduh pembaruan dengan sendirinya. Periksa pembaruan tetap berfungsi saat Anda menginginkan versi yang lebih baru."
+    ],
     "7FA2iI": ["Komentar yang menunggu dikirim tidak bisa dibaca — tidak ada yang dikirim."],
     "7FamGZ": ["Ke baris"],
     "7Fkcej": ["+ Tambah ", ["addChildName"]],
@@ -736,13 +765,7 @@
     "7YRrJ9": [
       "Tersedia di aplikasi desktop OpenKnowledge. Dari terminal, gunakan<0> ok config-sharing status</0> / <1>share</1> / <2>unshare</2>."
     ],
-    "7_I248": [
-      "Remote git proyek ini berada di ",
-      ["host"],
-      ", yang tidak dikenali OpenKnowledge sebagai host GitHub. Jika ",
-      ["host"],
-      " menjalankan GitHub Enterprise Server, tambahkan ke Host GitHub Enterprise Server di bawah, lalu mulai ulang OpenKnowledge."
-    ],
+    "7ZpNC-": ["gh"],
     "7_bFEL": ["Seret ", ["patternText"], " untuk menata ulang"],
     "7a0YcF": ["Tekan <0>Spasi</0> atau ketuk blob untuk mulai"],
     "7aNk5D": ["OpenKnowledge menyunting ", ["subject"]],
@@ -774,7 +797,9 @@
     "7l15X4": ["gagal"],
     "7lFX_h": ["Alihkan sekarang"],
     "7m3Ade": ["pemasangan:"],
+    "7mxVbK": ["Unduh dan pasang pembaruan secara otomatis"],
     "7qRHf0": ["Pasang untuk Claude Chat & Cowork"],
+    "7sNhEz": ["Nama pengguna"],
     "7uBlRT": ["Menyalin item pohon berkas yang sedang difokus agar Tempel bisa menggandakannya."],
     "7vxWET": ["Pratinjau paket tidak tersedia."],
     "7wogIQ": [["0", "plural", { "other": ["Plugin"] }]],
@@ -783,7 +808,6 @@
     ],
     "80c4-P": ["Kode disalin ke papan klip"],
     "81H_23": ["Tambahkan properti"],
-    "851WA-": ["Ini bisa diatur di Pengaturan > Alat AI & CLI"],
     "87GMKe": ["Ekspos proyek ini ke jaringan?"],
     "881Uwh": ["Hapus tabel terpilih"],
     "89SLQ-": ["Pratinjau tautan eksternal dan kartu referensi GitHub"],
@@ -804,6 +828,7 @@
       " — folder itu bukan keterampilan ini. Ganti nama atau hapus salah satu dari keduanya untuk menyelesaikannya."
     ],
     "8HxtjY": ["Bahasa itu tidak tersedia untuk pemeriksaan ejaan."],
+    "8I3MkQ": ["versi"],
     "8Jm2EP": ["Menyalakan atau mematikan tingkat judul 1 sampai 6."],
     "8L0EPw": ["atau tempelkan sebuah token"],
     "8OGgNM": ["Membuka atau menutup pencarian penyunting visual."],
@@ -906,6 +931,9 @@
       ["trimmed"],
       "\". Lanjutkan mengetik untuk membuat satu."
     ],
+    "9U-7Xv": [
+      "Sinkronisasi otomatis aktif, tetapi belum ada remote untuk disinkronkan. Sinkronisasi akan dimulai begitu remote terhubung."
+    ],
     "9UQ730": ["Kloning"],
     "9V0W-R": [
       "Menambahkan keterampilan OpenKnowledge ke <0>aplikasi Claude Desktop</0> agar tersedia di sesi Chat dan Cowork."
@@ -926,6 +954,8 @@
     "9bCiQ8": ["Tidak ada halaman yang kehilangan tautan graf masuk."],
     "9bG48P": ["Mengirim"],
     "9clcD5": ["Buka dokumen bertag #", ["chip"]],
+    "9djC8C": ["Hubungkan akun GitHub untuk menjelajahi dan menerbitkan repositori GitHub."],
+    "9eQiRf": ["GitHub CLI"],
     "9euN0m": [["count", "plural", { "other": ["#", " peserta lagi dari dokumen lain"] }]],
     "9fhQRL": ["Kanal beta"],
     "9fvog2": ["Pratinjau tidak tersedia: ", ["errorDetail"]],
@@ -955,6 +985,9 @@
     "9x-lMu": ["Di repositori ini — kolaborator mendapat salinan lewat git."],
     "9xCnv8": ["Sembunyikan Terminal"],
     "9zb2WA": ["Menghubungkan"],
+    "A1JMsI": [
+      "Muat ulang tab ini untuk memperbaruinya. Suntingan Anda disimpan sebelum tab dimuat ulang."
+    ],
     "A1taO8": ["Cari"],
     "A50vr3": ["Pakai hanya huruf kecil, angka, dan <0>-</0>."],
     "A5CYnd": ["Tautan rusak"],
@@ -1017,7 +1050,6 @@
       " dalam ",
       ["parentLabel"]
     ],
-    "AeXO77": ["Akun"],
     "AgoIW4": [
       ["source"],
       ": ",
@@ -1030,6 +1062,7 @@
       ["detail"]
     ],
     "AhoGwP": ["Siapkan integrasi OpenKnowledge"],
+    "Ai2U7L": ["Host"],
     "AiNMQ7": [
       "Proyek ini hanya ada di komputer ini. Hubungkan ke GitHub untuk mencadangkannya dan membagikannya dengan orang lain."
     ],
@@ -1075,6 +1108,9 @@
     ],
     "BQKHuL": ["Mulai ulang terminal"],
     "BQu9Pg": ["Symlink"],
+    "BRtKwG": [
+      "Untuk menghubungkan alat AI tanpa proyek, gunakan Berkas > Siapkan integrasi OpenKnowledge…"
+    ],
     "BUyQnq": ["Server tidak bisa dimulai ulang. Coba `ok start` di folder ini."],
     "BVkqD9": [
       "Pemeliharaan indeks dihentikan sementara karena atribut Git lainnya mengontrol index.md. Perbarui .gitattributes sehingga jalur index.md yang dicakup menggunakan merge=union, lalu coba lagi."
@@ -1098,6 +1134,9 @@
       "Membatalkan, mengulangi, atau menelusuri perubahan pilihan di panel Sunting sumber atau bidang properti berbentuk kode."
     ],
     "BlLxpG": ["Cari keterampilan"],
+    "BmHzMW": [
+      "Beberapa templat mungkin tidak tercantum karena basis pengetahuan ini memiliki terlalu banyak folder untuk dipindai. Untuk melihat templat sebuah folder, buka menunya di pohon berkas lalu pilih \"Baru dari templat\"."
+    ],
     "BowKyI": ["Tampilkan detail"],
     "Bv5a9_": ["Statistik pilihan"],
     "BwKH4d": ["Aplikasi eksternal"],
@@ -1229,6 +1268,9 @@
     ],
     "DMLE5q": ["Perbaikan otomatis MCP gagal"],
     "DMeaxi": ["Mengunduh ", ["0"], " ", ["1"], "…"],
+    "DMwy6X": [
+      "Ini juga menambahkan penghentian OpenKnowledge karena kehabisan memori yang dicatat jurnal sistem dalam seminggu terakhir, tanpa nama mesin, ID akun, atau jalur folder."
+    ],
     "DNkveC": ["Opsi kolom"],
     "DPfwMq": ["Selesai"],
     "DTI-fp": [
@@ -1268,6 +1310,7 @@
     "DqyItq": [
       "Log OpenKnowledge lintas proyek. Tidak ada proyek yang terbuka, jadi log server proyek tidak disertakan."
     ],
+    "DrKYv7": ["Folder proyek: <0>", ["projectDir"], "</0>"],
     "DsDwR-": [["0", "plural", { "other": ["#", " galat"] }]],
     "DskIkK": ["Aliran proses masuk berakhir tanpa konfirmasi — silakan coba lagi"],
     "DuCPiG": [
@@ -1306,9 +1349,6 @@
     "E2Mv-X": ["Salin sumber"],
     "E4XYYH": ["Aktifkan terminal untuk proyek ini"],
     "E5WeIy": ["Membuka lagi tab penyunting yang paling akhir ditutup."],
-    "E6lrpp": [
-      "Kelola akun GitHub yang dipakai OpenKnowledge untuk menelusuri dan menyinkronkan repositori Anda."
-    ],
     "E7BhZn": ["Catatan kosong"],
     "E8NbNG": ["Worktree tidak dapat dimuat."],
     "E91VZY": ["Buka di Jendela Baru"],
@@ -1322,7 +1362,6 @@
     "EEYbdt": ["Terbitkan"],
     "EFfGAv": ["Pesan itu sudah terkirim — hasil suntinganmu tidak diterapkan."],
     "EHu0x2": ["Menyinkronkan"],
-    "EJuO7B": ["Hubungkan akun GitHub untuk menelusuri dan menyinkronkan repositori Anda."],
     "EKwNEe": [
       "Embedding dalam cache milik endpoint dan model yang menghasilkannya, jadi ini membangun ulang indeksnya dari nol."
     ],
@@ -1477,6 +1516,9 @@
     "FgRAvd": ["Log & info sistem"],
     "Fhp4Gn": ["Lihat plugin"],
     "Fim5F3": ["embedding"],
+    "FioJgb": [
+      "Perlu menyambung ulang untuk melanjutkan sinkronisasi. Tambahkan token untuk host ini di Pengaturan, atau ganti token yang tersimpan."
+    ],
     "FiyNln": ["Lompat ke teks terpilih di properti"],
     "FjkaiT": ["Perkecil"],
     "Fjz6aJ": ["Kirim ke obrolan baru"],
@@ -1581,9 +1623,6 @@
     "GesfyX": [["shown"], " dan ", ["more"], " lagi"],
     "Gfr4fu": ["Server tidak bisa membuka dokumen"],
     "GhjUB_": ["Tersambung kembali"],
-    "Gi8Akx": [
-      "Belum ada agen yang disiapkan — untuk melampirkan berkas, tambahkan agen dalam aplikasi lewat Koneksi agen."
-    ],
     "GidGkh": ["Perbarui dari sumber"],
     "GifIjR": [
       "Skill “",
@@ -1638,6 +1677,9 @@
       "Penyiapan ini dibagikan dengan ",
       ["peers"],
       ", dan OpenKnowledge tidak dapat mengubahnya dari sini. Lepaskan tautan folder di Skills Studio terlebih dahulu."
+    ],
+    "HADdBA": [
+      "Sinkronisasi menjaga salinan di komputer ini tetap mutakhir dengan remote Git Anda. Pengaturan bersama di bawah menentukan apa yang didapat rekan tim saat mereka membuka proyek."
     ],
     "HAkEqR": ["Berkas terbaru"],
     "HAvHev": ["Pembaruan otomatis mati untuk \"", ["name"], "\""],
@@ -1714,6 +1756,7 @@
     "I5AfhE": ["Status sinkronisasi tidak tersedia — server tidak dapat dihubungi."],
     "I6gXOa": ["Jalur"],
     "I7Exsw": ["Ikuti kami di X"],
+    "I7F-p1": ["Slot warna yang belum ada (", ["0"], "): ", ["1"]],
     "I7y_vn": ["Jalankan ulang audit proyek"],
     "IA1wNb": [
       "Aplikasi Claude Desktop tidak membuka berkasnya. Apakah ia terpasang? (",
@@ -1865,6 +1908,7 @@
     "KIIamL": [
       "OpenKnowledge akan membuat commit dan mengirimkannya ke remote Anda secara otomatis. Jika Anda tidak ingin commit otomatis di riwayat git Anda, sebaiknya jangan aktifkan sinkronisasi otomatis."
     ],
+    "KJ_eAL": ["Dikecualikan"],
     "KOZud0": [
       "Bangun basis pengetahuan riset pesaing. Mulai dengan halaman ikhtisar, lalu tambahkan halaman yang saling tertaut untuk tiap pesaing, produk dan harganya, serta sumber di balik setiap klaim."
     ],
@@ -1922,6 +1966,9 @@
     "KvwJv8": ["Sebagian file tidak ditampilkan: working tree memiliki terlalu banyak perubahan."],
     "Kx881F": [["0"], " dipulihkan."],
     "KziH2K": ["Cepat"],
+    "L-crEu": [
+      "git tidak dapat mengautentikasi ke host ini. Periksa kunci SSH atau kredensial tersimpan yang dipakai git untuk host tersebut."
+    ],
     "L-rMC9": ["Setel ulang ke bawaan"],
     "L1BQTH": [["0"], " belum terpasang — membuka halaman unduhannya."],
     "L1ZE3M": ["Statistik dokumen"],
@@ -1934,6 +1981,9 @@
       "Tampilkan dokumen sebagai dek slide di jendela tersendiri. Tambahkan <0>slides: true</0> ke frontmatter dokumen, lalu buka dengan aksi Slidev. Perenderan ditangani oleh CLI Slidev, yang tidak disertakan OpenKnowledge."
     ],
     "L4Cdd9": ["atau buat berkas baru <0/>"],
+    "L5wak0": [
+      "Ini juga menambahkan catatan crash dan macet yang dicatat Windows untuk OpenKnowledge dalam seminggu terakhir, tanpa jalur file, serta waktu setiap pematian, mulai ulang, listrik padam, dan peringatan memori rendah di komputer ini selama minggu itu, apa pun penyebabnya."
+    ],
     "L6Hhh6": ["(akar)"],
     "L6Ud-t": ["Tidak dapat memuat konflik. Muat ulang untuk mencoba lagi."],
     "L7NFTZ": ["Masukkan jumlah detik antara ", ["minimum"], " dan ", ["maximum"], "."],
@@ -1967,6 +2017,7 @@
       ]
     ],
     "LKOLNn": ["Tidak ada agen AI yang terpasang"],
+    "LMUw1U": ["Aplikasi"],
     "LMVNT6": [["agentName"], " memerlukan Anda untuk masuk."],
     "LPAv9E": [["days"], " hr lalu"],
     "LPLWpO": ["Konten papan bukan scene Excalidraw yang valid."],
@@ -1976,6 +2027,9 @@
     "LRgZAt": [["owner"], "/", ["name"], " sudah ada"],
     "LSuMte": [["0"], " dari ", ["totalCount"]],
     "LTeJuX": ["Layar Penuh"],
+    "LVWA9A": [
+      "Autentikasi gagal untuk host git ini. Tambahkan token untuknya di Pengaturan, atau ganti token yang tersimpan."
+    ],
     "LXIm4m": ["Jendela konteks"],
     "LXdWeS": ["Judul bagian sedang."],
     "LXfNU-": ["Navigasi dan saran"],
@@ -2030,9 +2084,6 @@
     "LzM_ga": ["Saring keterampilan"],
     "M0jOcG": ["Lihat di markdown sumber"],
     "M1OfV9": ["Diagnostik sumber berikutnya"],
-    "M3ytY_": [
-      "Ini tampak seperti akar sebuah drive (mis. C:\\). Menyusun proyek di sini akan memindai seluruh drive."
-    ],
     "M5_9s2": ["Mengirim laporan"],
     "M5mfAe": ["Tambahkan tag"],
     "M6mvVi": ["Salin jalur relatif"],
@@ -2088,6 +2139,7 @@
     "Mj8R8K": ["Keterampilan tidak bisa dipasang: ", ["0"]],
     "MmDDWK": ["Baru saja dibuka"],
     "Mnavhe": ["Properti ", ["propPanelDescriptorLabel"]],
+    "MpZRQy": ["Git"],
     "MqQoV-": [
       "Jelaskan apa yang ingin Anda bangun, mulai dari berkas kosong, atau susun dari templat."
     ],
@@ -2116,9 +2168,6 @@
     "N2eHWq": ["Blok Kode"],
     "N3_ozB": ["Pusat"],
     "N40H-G": ["Semua"],
-    "N55YNr": [
-      "Pilih apakah penyiapan OpenKnowledge proyek ini, termasuk koneksi alat AI-nya, disimpan bersama proyek agar rekan tim juga mendapatkannya, atau disimpan hanya di komputer Anda."
-    ],
     "N5rzKJ": ["Hapus ", ["0"], " keterampilan"],
     "N6j2JH": ["Sunting ", ["0"]],
     "N7Lau6": ["Commit dan sinkronkan"],
@@ -2195,6 +2244,11 @@
     "NuH1jp": ["Repositori publik"],
     "Nv3mUj": ["Tampilkan opsi lanjutan"],
     "NvOvTi": ["Buat di <0>", ["dirDisplay"], "</0>"],
+    "NwHa_3": [
+      "Belum ada agen yang disiapkan — untuk melampirkan berkas, tambahkan agen dalam aplikasi lewat ",
+      ["agentConnectionsLabel"],
+      "."
+    ],
     "Nwbs0q": ["Jangan tampilkan"],
     "NxW-md": ["Ubah ukuran ", ["handleKey"]],
     "NzFvyK": ["Sesi berakhir — pembatalan tidak tersedia"],
@@ -2255,8 +2309,14 @@
     "OOIVJo": ["\"", ["0"], "\" dicopot dari ", ["1"]],
     "OOLsBh": [["0"], " berbagi folder ini."],
     "OPOiKn": ["Aturan konten"],
+    "OP_8go": [
+      "Gagal menonaktifkan pemeliharaan indeks karena Open Knowledge tidak dapat menjangkau server proyek. Coba lagi saat proyek tersambung kembali."
+    ],
     "OTF92M": ["Label <0>(teks tampilan opsional)</0>"],
     "OVjNeX": ["Terminal ", ["0"]],
+    "OWs-8P": [
+      "Token yang ditambahkan di sini hanya berlaku untuk remote HTTPS, dan remote proyek ini tidak memakai HTTPS."
+    ],
     "OX2Neh": ["Kode sebaris"],
     "OXb_Df": ["Isi pengaturan"],
     "OXdGnd": ["Masalah"],
@@ -2265,6 +2325,7 @@
     "OdmsFg": ["Gagal menghapus item"],
     "OeAl1e": ["mis. assets/uploads"],
     "OfhWJH": ["Setel ulang"],
+    "OgvwrM": ["Memuat status sinkronisasi"],
     "Ohpzub": ["Beri komentar atau tanya AI tentang blok kode ini"],
     "Oi56Cu": ["Log pembersihan"],
     "OiHJdA": [
@@ -2336,6 +2397,7 @@
     "PWh9Ii": ["Terapkan perubahan"],
     "PWqtgd": ["Memuat obrolan"],
     "PXaT32": ["Server mengembalikan respons target skill yang tidak lengkap."],
+    "PXg8xK": ["Pengaturan pengguna Anda tidak dapat dibaca"],
     "PYmp-0": ["Impor sebagai templat"],
     "PZKdTd": ["Laporan tanpa judul"],
     "PZn2LP": ["Simpan sumbernya"],
@@ -2376,6 +2438,7 @@
       ["filePath"],
       ". Jelaskan apa yang perlu saya bandingkan di tampilan konflik OpenKnowledge; saya akan memilih dan menerapkan penyelesaiannya di sana."
     ],
+    "Q14Keq": ["Bitbucket"],
     "Q1mtyd": ["Sembunyikan bilah sisi"],
     "Q5fqMz": ["Galat koneksi — coba lagi"],
     "Q6hhn8": ["Preferensi"],
@@ -2437,6 +2500,7 @@
       " dengan ",
       ["childCount", "plural", { "other": ["#", " item"] }]
     ],
+    "Qe6_xF": ["tentang"],
     "QeREu8": ["Diganti nama"],
     "QfFBdJ": ["Nama berkas templatnya (tanpa `.md`)."],
     "Qft6eW": ["Pindahkan ", ["0"], " ke Global"],
@@ -2532,6 +2596,7 @@
     "RXYvxn": ["Opsi ini tidak dapat diubah secara otomatis."],
     "RY6Bq1": ["Buka ", ["targetNoun"], " yang dibagikan"],
     "RZXTlY": ["Perbaikan otomatis (", ["count"], ")"],
+    "R_U8x8": ["\"", ["name"], "\""],
     "R_U_A4": ["Tambahkan pola berkas atau folder, mis. guides/**/*"],
     "RaPMZv": ["Pintasan papan ketik yang tersedia di penyunting dan ruang kerja."],
     "RaUKLu": ["Kontrol jarak jauh"],
@@ -2560,6 +2625,7 @@
       "</0> untuk meng-embed konten Anda. Disimpan hanya di komputer ini (di <1>~/.ok/secrets.yml</1>), tidak pernah di proyek."
     ],
     "Rj01Fz": ["Tautan"],
+    "RkXlPZ": ["GitHub"],
     "RlCInP": ["Perintah garis miring"],
     "RmBY0A": ["Tidak ada remote git"],
     "RnrnTe": ["Sudah disiapkan — ok tersedia di terminal Anda"],
@@ -2582,6 +2648,7 @@
       " ini sudah dipindahkan, diganti nama, atau dihapus di salinan lokal Anda, dan perubahan itu belum tersinkron."
     ],
     "S-7ej_": ["Komentar itu tidak bisa ditandai untuk dikirim."],
+    "S1sFIQ": ["Ini tidak dapat diurai sebagai YAML atau JSON."],
     "S33tz3": ["Tidak terhubung"],
     "S3qu11": ["Itu hanya percobaan atau proyek sekali pakai"],
     "S48xcO": ["tertunda"],
@@ -2634,6 +2701,7 @@
     "SiUUCS": ["Kecocokan berikutnya"],
     "SkMZlS": ["<0>", ["targetGitPath"], "</0> tidak bisa dihapus: ", ["removeGitError"]],
     "SkTkKV": ["Agen tidak berhenti. Hentikan paksa menutup obrolan ini dan keluar dari agen."],
+    "SkUcEr": ["Token akses"],
     "Ske_wc": [
       "Plugin pengguna bersifat pribadi untuk perangkat ini — nyalakan atau matikan di sini. Setiap plugin yang aktif mendapat halamannya sendiri di bawah Plugin pada bilah sisi pengaturan."
     ],
@@ -2754,6 +2822,9 @@
       ["shareBranch"],
       "</0>. Ganti cabang dan perbarui untuk membukanya."
     ],
+    "UcTm1A": [
+      "Disediakan oleh GitHub CLI (<0>gh</0>) di komputer ini. Untuk berganti akun atau keluar, jalankan <1>gh auth</1> di terminal."
+    ],
     "UceXfW": [
       ["boldName"],
       " adalah bagian dari plugin <0>",
@@ -2814,6 +2885,9 @@
     ],
     "VFQXPl": [
       "Pratinjau tautan eksternal menampilkan kartu berisi nama situs, judul halaman, dan deskripsi saat Anda mengarahkan kursor ke sebuah tautan."
+    ],
+    "VIrNh0": [
+      "Beberapa suntingan belum sampai ke server, jadi tab tidak dimuat ulang. Suntingan Anda masih ada di sini."
     ],
     "VJaBca": ["Pilih folder keterampilan"],
     "VL6VsE": ["Terima yang sekarang"],
@@ -2962,16 +3036,13 @@
     "X3MMeA": ["Tidak satu pun masalah ini punya perbaikan otomatis."],
     "X59Fx2": ["Tidak dapat membuka dokumen ini di Slidev."],
     "X7ShnN": ["Buka panel agen"],
-    "X7u0xR": [["0"], " templat tersedia"],
     "X8kjQX": ["Autentikasi ulang dengan GitHub"],
     "X9VpsP": ["Memuat isi folder"],
+    "XA9uvc": ["OpenKnowledge memeriksa dan mengunduh pembaruan di latar belakang."],
     "XAnapw": ["Git aturan penggabungan"],
     "XAyxsa": ["Ambil cabang remote"],
     "XBBZnv": ["Target tautan \"", ["shown"], "\" tidak merujuk ke dokumen yang ada."],
     "XBgr2S": ["Salin ke sini"],
-    "XBpH6-": [
-      "OpenKnowledge tidak menemukan nama host di remote git proyek ini, jadi tidak dapat mengetahui server GitHub mana yang harus dimasuki."
-    ],
     "XDzAnp": ["Terbuka di tab baru"],
     "XF1kgP": ["Semua dari ", ["source"], " sudah yang terbaru"],
     "XGKy1z": ["Gambar tidak dapat ditampilkan"],
@@ -2980,6 +3051,7 @@
     "XJOV1Y": ["Aktivitas"],
     "XK5cbh": ["Menyusuri riwayat navigasi OpenKnowledge ke depan."],
     "XNBGZw": ["Pesan tidak terkirim: ", ["0"]],
+    "XN_sSd": ["Pembaruan otomatis"],
     "XNdXMR": [
       ["dependent"],
       " memerlukan ",
@@ -3075,6 +3147,7 @@
     "Y5la_5": ["Pasang ke"],
     "Y6PKd1": ["Hapus ", ["name"], " dari proyek terbaru"],
     "Y6SK9K": ["Tampilkan sumber"],
+    "Y7DcwM": ["Ini bisa diatur di Pengaturan > ", ["agentConnectionsLabel"]],
     "Y8ViJx": ["Versi yang lebih baru mungkin sudah dirilis sejak tab ini dibuka."],
     "Y9c_nf": ["0/0"],
     "YBt9YP": ["Beta"],
@@ -3175,6 +3248,9 @@
     "Z8KDox": ["Masukkan nama folder (mis. otak)."],
     "Z8lGw6": ["Bagikan"],
     "Z8nach": ["Unggahan gagal: ", ["0"]],
+    "Z9s6k8": [
+      "Tab ini masih menyambung ulang ke OpenKnowledge, jadi tidak dimuat ulang. Coba lagi sebentar lagi."
+    ],
     "ZBF9fn": ["Kelola folder keterampilan"],
     "ZBZEkP": ["Diambil sebelum dialog ini, dengan penunjuk ditandai."],
     "ZBxvV3": ["Terminal Baru"],
@@ -3196,9 +3272,6 @@
     "ZW2yR_": ["Tambahkan jalur khusus"],
     "ZW3mlR": ["Mode render perbedaan"],
     "ZWgr0b": ["Di subfolder"],
-    "ZWolSV": [
-      "Anda memilih akar sistem berkas (/). Menyusun proyek di sini akan memindai setiap berkas di komputer ini — pastikan itu memang yang Anda mau."
-    ],
     "ZWwYwM": ["Cabang dasar"],
     "ZWxfrc": ["properti folder dibersihkan"],
     "ZWyHmq": ["Proyek ini"],
@@ -3231,6 +3304,9 @@
     "Zue_jx": ["Token GitHub Anda kehilangan cakupan yang wajib. Coba masuk lagi."],
     "ZvzbDF": ["Tambahkan langsung ke proyek ini."],
     "ZwpggY": ["OpenKnowledge membaca pengaturan proyek"],
+    "Zysl7r": [
+      "Mode sinkronisasi yang digunakan rekan tim saat pertama kali membuka proyek ini. Mode ini disimpan di pengaturan OpenKnowledge proyek, jadi hanya sampai ke mereka jika Berbagi konfigurasi di bawah diatur ke Dibagikan."
+    ],
     "_0JUKX": ["Pelaporan bug memerlukan aplikasi desktop OpenKnowledge."],
     "_2cM9E": ["terbaru"],
     "_3S4Ql": [
@@ -3262,6 +3338,11 @@
       "</1>."
     ],
     "_9rYSZ": ["integrasi MCP ", ["names"], " diperbaiki"],
+    "_BOsQt": [
+      "Versi ",
+      ["label"],
+      ". Pengaturan dan datanya disimpan terpisah dari aplikasi OpenKnowledge lainnya."
+    ],
     "_Bix3-": ["Kemunculan ", ["localizedFirstMessage"]],
     "_CWM2I": ["Pilih item daftar"],
     "_DwR-n": ["Membuat…"],
@@ -3290,9 +3371,6 @@
     "_Pmhxt": ["… keluaran sebelumnya dipangkas"],
     "_PnPuw": [["0"], " diambil dari ", ["1"], "."],
     "_QwkMu": ["Tidak ada jalur yang cocok"],
-    "_RcqUM": [
-      "Anda memilih direktori beranda Anda. OpenKnowledge akan mengindeks semua yang ada di pohon beranda Anda — besar dan bisa memunculkan berkas pribadi."
-    ],
     "_SDGzH": ["Lanjutkan di peramban"],
     "_SkqfM": ["Terima yang masuk"],
     "_TDESN": ["Galat jaringan - ", ["kind"], " \"", ["createdPath"], "\" masih ada di disk"],
@@ -3405,6 +3483,9 @@
     "arUUsK": ["Kabar terbaru produk"],
     "ax9kie": ["Pengaturan pratinjau tautan belum dimuat — coba lagi sebentar"],
     "axQ1h6": ["Ada yang ingin Anda tambahkan? (opsional)"],
+    "azrR7I": [
+      "Nama pengguna yang dikirim git bersama token. Beberapa host mengharapkan nilai tetap: ketik <0>x-bitbucket-api-token-auth</0> untuk token API Bitbucket, <1>x-token-auth</1> untuk token akses repositori atau workspace Bitbucket, atau <2>oauth2</2> untuk GitLab. Untuk Gitea, gunakan nama pengguna Gitea Anda. Azure DevOps menerima nilai apa pun."
+    ],
     "b18t0_": ["Tutup perbedaan"],
     "b1FDss": ["Gulir ke awal"],
     "b2ezG_": ["Keduanya disimpan — \"", ["0"], "\" kini menjadi keterampilan tersendiri"],
@@ -3445,6 +3526,7 @@
     "bZinKv": ["Mulai obrolan baru (", ["0"], ")"],
     "ba3vIW": [["templateCount", "plural", { "other": ["templat"] }]],
     "bbJ-VR": ["Perkecil"],
+    "bc7aCh": ["Terhubung ke ", ["host"], " sebagai @", ["login"]],
     "bcDHUM": [["descriptorLabel"], " — galat render, sumber bisa disunting di bawah"],
     "bcjYUA": ["Lipat atau buka lipatan sumber"],
     "bcm0pR": ["agen yang terbuka"],
@@ -3495,6 +3577,11 @@
     "bwil08": ["Membangun <0>openknowledge.skill</0> dan membuka aplikasi Claude Desktop"],
     "bwoxGI": ["Anda perlu masuk"],
     "bwy8Y7": ["Pada <0>", ["address"], "</0>"],
+    "bzjcwc": [
+      "Belum ada alat AI yang terdeteksi. Setelah Anda memasang satu, hubungkan dari Pengaturan > ",
+      ["agentConnectionsLabel"],
+      "."
+    ],
     "bzsK8N": ["Membaca palet penulisan agar dokumen baru mengikuti gaya proyek"],
     "c0dKr4": [
       "Di chat agen, mengarahkan kursor ke tautan pull request atau issue GitHub meminta statusnya dari GitHub, dengan login GitHub Anda jika OpenKnowledge dapat menggunakannya."
@@ -3518,6 +3605,7 @@
       " akan memuat setiap ekstensi di dalamnya, bukan hanya milik Open Knowledge, dan keduanya tetap ada sampai Anda menghapus Open Knowledge dari proyek ini."
     ],
     "c9-Pi9": [["source"], " · sumber skills.sh"],
+    "c9C7DQ": ["Pengaturan ini tidak dapat disimpan. Coba lagi."],
     "cCd8Bs": ["Potong"],
     "cD3aew": [
       "Embedding dihitung ulang seiring pencarian berjalan, jadi cakupannya dimulai lagi dari nol lalu terisi kembali."
@@ -3710,6 +3798,7 @@
     "dw_dUJ": ["Gagal menggandakan jalur"],
     "dx-TwN": ["Menjalankan audit proyek"],
     "dyfMJN": ["Kode disalin"],
+    "e-SEoZ": [["0", "plural", { "other": ["Setidaknya ", "#", " templat ditemukan"] }]],
     "e-pP6g": ["Daftar ini mungkin tidak mutakhir — terakhir dibaca ", ["staleRelative"], "."],
     "e0NrBM": ["Proyek"],
     "e1Rn_k": ["Buka folder induknya"],
@@ -3725,6 +3814,7 @@
     "e8zRrb": ["Tampilkan Berkas"],
     "e8zYa8": [["shareBranch"], " tidak dapat dibuka di worktree. Coba lagi."],
     "e9sHSO": ["Lanjutkan dari tempat Anda berhenti"],
+    "eAYJMv": ["token"],
     "eBGWcy": [
       "Alat Open Knowledge tidak tersedia karena folder proyek tidak ada, tidak dapat diakses, atau telah berubah. Periksa lokasi dan izinnya, lalu coba lagi."
     ],
@@ -3741,6 +3831,7 @@
       ["names"],
       ". Setiap aslinya sudah diverifikasi tidak berubah, jadi hapus salinan itu lalu coba pemindahan lagi."
     ],
+    "eJR1Ns": ["Menyimpan suntingan Anda sebelum memuat ulang…"],
     "eJitUk": ["Unggah dari komputer"],
     "eKGK4A": ["Cari riwayat percakapan"],
     "eKThTQ": ["Gagal menata ulang"],
@@ -3789,6 +3880,9 @@
     "emgiet": ["Konten otoritatif; dicerminkan apa adanya di mana pun ia dirujuk."],
     "enPTnx": ["baris ", ["displayLine"]],
     "eolhcI": ["Membaca working tree"],
+    "epGMvx": [
+      "Tidak dapat menghubungi server OpenKnowledge, jadi opsi sinkronisasi disembunyikan. Opsi akan muncul di sini begitu status sinkronisasi dimuat; menutup lalu membuka kembali Pengaturan juga akan mencoba lagi."
+    ],
     "eps54V": ["Dihapus"],
     "epuNYK": [
       "Menandai sebuah blok sebagai sumber kebenaran. Cermin di tempat lain diperbarui langsung saat Anda menyuntingnya."
@@ -3898,6 +3992,8 @@
         { "other": ["Yakin ingin menghapus ", "#", " berkas/folder berikut beserta isinya?"] }
       ]
     ],
+    "g2E_It": ["Sudah terhubung ke: ", ["replacingToolList"]],
+    "g3ouZB": [["0", "plural", { "other": ["#", " templat tersedia"] }]],
     "g4XBm0": ["Judul bagian kecil."],
     "g4e0hS": ["Tanya ", ["agentName"]],
     "g58Kwy": [
@@ -3994,7 +4090,13 @@
     "gp3I7-": ["Sebelum menyinkronkan, setel identitas Anda untuk commit git:"],
     "gpbKxw": ["Validasi tautan tidak tersedia."],
     "gqk-3R": [["0"], " dipindahkan ke ", ["destination"], "."],
+    "gssxm9": [
+      "Target tautan \"",
+      ["shown"],
+      "\" ada, tetapi dikecualikan oleh .gitignore atau .okignore. Sertakan kembali file itu, atau foldernya, dengan aturan \"!\" di .okignore."
+    ],
     "gtEbeW": ["Sorotan"],
+    "gtuaAV": ["Berhasil diurai, tetapi ini bukan tema base16."],
     "guidance.mcp.managed-file": [
       "Menulis berkas jembatan kecil yang dimuat ",
       ["agent"],
@@ -4077,7 +4179,6 @@
     "hFmYGU": ["Berkas tema tertaut tidak didukung"],
     "hGmuTc": ["Dokumen bertag #", ["tagDocsName"]],
     "hHMv6l": ["Hapus blok"],
-    "hHQHPX": [["label"], " menggunakan data aplikasi terisolasi"],
     "hIQkLb": ["Obrolan baru"],
     "hItdtk": ["Pilih folder"],
     "hLKfZe": ["Pakai token saja"],
@@ -4203,6 +4304,7 @@
     "iTylMl": ["Templat"],
     "iUwpZI": ["Tanpa spasi — gunakan <0>-</0> saja."],
     "iXTp5j": ["Cakupan: "],
+    "iXYzwf": ["Instans aplikasi: ", ["label"], ", v", ["version"]],
     "iXs0kt": ["Daftar skill tidak cocok dengan skemanya."],
     "iYUTsI": ["Sumber ini memuat beberapa keterampilan — pilih satu, lalu Impor."],
     "iZCZmF": [["instanceCount", "plural", { "other": ["#", " instans"] }]],
@@ -4311,12 +4413,14 @@
       "Menyematkan halaman eksternal dalam iframe sebaris (dokumentasi, demo, Figma, CodeSandbox)."
     ],
     "jTUxaN": ["Aktifkan Otomatis (hanya Pull)"],
+    "jTVuAv": ["Tutup pratinjau ini, lalu buka folder untuk mengunggah file"],
     "jVe0gf": ["Lampirkan komentar: ", ["count"]],
     "jWwQo6": ["batch"],
     "jWzDfC": ["Memeriksa alat AI yang Anda miliki"],
     "jZ_E5M": ["Fetch gagal — periksa log server untuk detailnya."],
     "j_Z6g7": ["Bawaan bersama"],
     "jbSG8V": ["Tampilkan Berkas (", ["sidebarShortcutLabel"], ")"],
+    "jbhCDS": ["Host Git lainnya"],
     "jcEoUi": ["Pindahkan ke panel kanan"],
     "jdGUeI": ["Templat tidak bisa dibuat: ", ["error"]],
     "jeCFV7": ["Pindahkan ke panel baru di kanan"],
@@ -4427,6 +4531,9 @@
     "kj9pAE": ["Membuat halaman"],
     "kjlQ9D": ["menjadi tautan simbolik"],
     "kjrq_8": ["Informasi selengkapnya"],
+    "kkd4bu": [
+      "Gagal menonaktifkan pemeliharaan indeks karena Open Knowledge tidak dapat memperbarui aturan penggabungan Git. Periksa Git dan .gitattributes, lalu coba lagi."
+    ],
     "kknhfj": ["Tidak ada perubahan"],
     "kkux8f": [["0"], " tidak dapat dihapus. Coba lagi."],
     "klPS-L": ["Berkas asli — sebelum suntingan agen ini."],
@@ -4466,6 +4573,11 @@
     "l46MqT": ["Tab berikutnya"],
     "l5J_HM": [
       "Ketik sebuah kueri, lalu tekan <0>↵</0> untuk mencari di halaman Anda berdasarkan makna."
+    ],
+    "l60gJd": [
+      "Beberapa suntingan belum sampai ke server, jadi tab tidak dimuat ulang. Buka ",
+      ["docs"],
+      " untuk menyimpannya, lalu muat ulang."
     ],
     "l6GfXr": ["Memulai"],
     "l6kpzR": [
@@ -4548,6 +4660,9 @@
     "lond3p": ["Muncul di atas badan kode. Bolak-balik sebagai `title=\"...\"` di markdown."],
     "lrhetp": ["+ ", ["overflow"], " lagi"],
     "lwCV5v": [["0"], " tidak bisa dibuka untuk disunting: ", ["1"]],
+    "lwvkBP": [
+      "Ini juga menambahkan galat koneksi layar yang ditulis OpenKnowledge ke jurnal pengguna Anda dalam seminggu terakhir, dengan setiap pesan dipotong menjadi 200 karakter."
+    ],
     "lyWa43": ["Halaman terputus di tingkat proyek"],
     "lzmtKp": ["Gagal memuat properti folder: ", ["message"]],
     "lzsa2d": ["Salin galat"],
@@ -4563,6 +4678,7 @@
     "m2T1Xj": ["Tag #", ["tagValue"], ", ", ["uses"]],
     "m3ocfn": ["Menulis entri ke"],
     "m6YGpY": ["Isi panel aktif untuk tab yang dipilih muncul di sini."],
+    "m6znp-": ["pembaruan"],
     "mAzs2H": ["Nonaktifkan ", ["file"]],
     "mBK8zm": [
       "/",
@@ -4655,9 +4771,6 @@
       "Repositori yang sudah Anda kloning mungkin tetap tersinkron lewat kredensial yang disimpan git sendiri, bahkan setelah Anda memutus koneksi."
     ],
     "msqUNq": ["Folder dan templat siap pakai agar Anda cepat memulai."],
-    "msuDyW": [
-      "Setel sinkronisasi bawaan untuk pengguna yang membuka proyek ini pertama kali. Pengaturan ini disimpan di repositori Anda."
-    ],
     "mwMF9u": ["Membuka pencarian CodeMirror di mode penyunting sumber."],
     "mxGJVE": ["Ganti worktree…"],
     "mxY24F": [
@@ -4727,6 +4840,7 @@
     "ni5Vqi": ["(nama folder saja memerlukan /** setelahnya agar cocok dengan isinya)"],
     "njBeMm": ["Keduanya"],
     "njU86j": ["Properti \"", ["trimmed"], "\" sudah ada"],
+    "nlVYlU": ["Bukan warna heksa: ", ["0"]],
     "nmwqWS": ["Belum dijawab"],
     "nnhrHd": [
       "Kecualikan tautan rusak yang ditulis di dalam log.md atau log.mdx pada kedalaman folder mana pun dari Masalah, indikator penjelajah file, diagnostik editor, audit, dan saran penulisan agen. Yang menentukan adalah file tempat tautan ditulis, bukan file yang dituju, dan LOG.md adalah dokumen biasa. Panel Tautan dan editor tetap menampilkannya."
@@ -4754,9 +4868,6 @@
     ],
     "nwtY4N": ["Ada yang tidak beres"],
     "nxlOpL": ["OpenKnowledge memakai akun GitHub ini."],
-    "ny6vNn": [
-      "OpenKnowledge memakai akun GitHub yang disediakan CLI gh. Tidak ada kredensial OpenKnowledge terpisah yang perlu diputus."
-    ],
     "nzHlj8": ["Tutup ", ["0"]],
     "nzaV6Q": ["Gambar mini halaman"],
     "o-XJ9D": ["Ubah"],
@@ -4837,6 +4948,7 @@
       ["0"],
       " — sesuatu di luar OK mengubahnya sejak itu. Keadaan yang ditampilkan adalah apa yang ada di disk sekarang; Symlink/Lepas tautan Anda berikutnya yang menang."
     ],
+    "p5kgYT": ["Pembaruan otomatis saat ini tidak tersedia."],
     "p7Utw8": ["Bukan tema base16"],
     "p98xmP": ["Berlaku untuk"],
     "p9sdCy": ["Pola abaikan baru"],
@@ -4856,6 +4968,7 @@
     "pI_bKs": ["<0>Spasi</0> untuk melompat · <1>↓</1> untuk menunduk"],
     "pJ7XCo": ["Halaman ini tidak merujuk ke berkas atau gambar lokal apa pun."],
     "pMPnZv": [["deleted"], " keterampilan dihapus"],
+    "pNy87H": ["Pembaruan ini tidak lagi siap dipasang."],
     "pOo4Aa": ["Teks biasa"],
     "pPiV8s": ["Aktifkan Otomatis (Pull dan Push)"],
     "pSF7TJ": ["Jalur checkout ini tidak dapat dibaca."],
@@ -4890,6 +5003,9 @@
     "pckX1A": [["0", "plural", { "other": ["#", " penggunaan"] }]],
     "pcqlQu": [["0", "plural", { "other": ["Folder"] }]],
     "pd0UH2": ["Rata kanan"],
+    "pd6t3G": [
+      "Kelola akun dan token akses yang dipakai OpenKnowledge untuk terhubung ke host git Anda."
+    ],
     "peq20S": [
       "Browser tidak tersedia di obrolan ini karena tidak dapat disiapkan. Log OpenKnowledge berisi detailnya."
     ],
@@ -4900,6 +5016,7 @@
     "phM8Kh": ["Repo ditemukan tetapi proyeknya tidak dapat dibuka. Silakan coba lagi."],
     "pha01Y": ["Halaman tingkat proyek yang tidak punya sisi graf masuk."],
     "pkAft1": ["Pencarian gagal."],
+    "pkC8Fi": ["File ", ["identity"], " dikecualikan. Buka referensi."],
     "pkmXTp": [["agentName"], " siap"],
     "pmUArF": ["Ruang kerja"],
     "poAsUN": ["tanpa agen — disimpan, tidak dipasang di mana pun"],
@@ -4939,6 +5056,11 @@
     "q63KUv": ["Tambahkan MCP & keterampilan"],
     "q7F5am": ["judul"],
     "q8aCbb": ["Dua versi \"", ["0"], "\" — sumber melawan ", ["editor"]],
+    "qAC6UE": [
+      "Target gambar \"",
+      ["shown"],
+      "\" ada, tetapi dikecualikan oleh .gitignore atau .okignore. Sertakan kembali file itu, atau foldernya, dengan aturan \"!\" di .okignore."
+    ],
     "qAQVSD": ["Respons judul halaman bukan JSON"],
     "qAhFeg": [["userName"], " · ", ["tabCount", "plural", { "other": ["#", " tab"] }]],
     "qApCYm": ["Tidak disamarkan. Periksa gambar sebelum membagikannya."],
@@ -4988,6 +5110,7 @@
     "qi17kj": ["Sematkan cuplikan langsung papan .excalidraw dari ruang kerja ini."],
     "qi1F96": ["Tampilkan di Penjelajah Berkas"],
     "qiRoLb": ["Ringkas semua yang saya ubah minggu ini"],
+    "qimTXH": ["OpenKnowledge tidak dapat masuk ke GitHub untuk proyek ini."],
     "qioCwA": ["Lompat ke halaman ", ["pageNumber"]],
     "qjHMHf": ["Gagal menonaktifkan sinkronisasi — ", ["detail"]],
     "qkqG0b": ["Ambil versi remote"],
@@ -5011,6 +5134,9 @@
     "r51jLC": ["Berkas tersimpan & aplikasi Claude Desktop terbuka"],
     "r57GiQ": [["agentName"], " berhenti secara tak terduga."],
     "r6ncaO": ["Tutup tab"],
+    "r6riWv": [
+      "Ini juga menambahkan laporan memori rendah yang ditulis macOS dalam seminggu terakhir yang mencantumkan proses OpenKnowledge, beserta penggunaan memori masing-masing dan apakah macOS menghentikannya."
+    ],
     "r6y-jM": ["Peringatan"],
     "r7IaYp": ["Open Knowledge Format bimbingan"],
     "r7tQuq": ["Laporan Anda tersimpan di komputer ini, jadi tidak ada yang hilang."],
@@ -5026,6 +5152,9 @@
     "rENNI6": ["URL berbagi tidak valid."],
     "rFL-yb": ["Sunting salinan"],
     "rFTdVq": ["Tampilkan di Explorer"],
+    "rFbQzX": [
+      "OpenKnowledge terus mencoba lagi dan akan menampilkannya segera setelah berkas dapat dibaca."
+    ],
     "rFmBG3": ["Tema warna"],
     "rFskYz": [
       "Berlaku untuk semua proyek di mesin ini, pada obrolan Claude Code dan Codex di panel Agen yang dimulai setelah Anda mengaktifkannya. Agen dapat membuka halaman, mengeklik, mengetik, dan mengambil tangkapan layar di jendela Google Chrome miliknya dengan profil baru. Memerlukan Google Chrome dan Node.js yang terpasang. Setiap tindakan browser meminta persetujuan Anda, tanpa opsi untuk selalu mengizinkannya, kecuali mode agen itu sendiri atau pengaturan izinnya melewati persetujuan."
@@ -5043,6 +5172,9 @@
     "rQAQus": ["Templat tidak bisa disimpan: ", ["error"]],
     "rQRrkB": ["kemarin"],
     "rSoi6g": [["displayName"], " (", ["bin"], ") belum terpasang atau tidak ada di PATH Anda."],
+    "rSsp-5": [
+      "Open Knowledge tidak dapat menjangkau server proyek untuk memeriksa pemeliharaan indeks. Status akan diperbarui saat proyek tersambung kembali."
+    ],
     "rUNOLA": [
       "Pencarian semantik tidak tersedia dengan penyiapan penyedia embedding saat ini. Periksa Pengaturan → Pencarian."
     ],
@@ -5050,6 +5182,9 @@
     "rVxu1k": ["Belum ada halaman yang menaut ke sini."],
     "rXz97P": ["Daftar item bernomor."],
     "rZ9HZq": ["Akan dikerjakan"],
+    "rZFxkH": [
+      "Masukkan nama host yang dihubungi git, dengan :port opsional dan tanpa skema atau path, misalnya git.example.com."
+    ],
     "rZVMkf": ["Bidang penggantian penyunting visual sedang difokus"],
     "radOpL": ["Gambar ", ["identity"], ". Buka referensi."],
     "rageVb": ["HTML khusus dengan panel pratinjau langsung (iframe tersekat)."],
@@ -5225,9 +5360,6 @@
     "tHKQ6j": ["Mengganti nama"],
     "tKlWWY": ["Emoji"],
     "tLX6LY": ["OpenKnowledge menulis sebuah dokumen"],
-    "tLd2qa": [
-      "Belum ada alat AI yang terdeteksi. Setelah Anda memasang satu, hubungkan dari Pengaturan > Alat AI & CLI."
-    ],
     "tM5uzl": [
       "Keluarga asal, kepercayaan, dan siklus hidup: sources, generated, verified, status, dan stale_after. Setiap bidang bersifat opsional, dan ketidakhadiran tidak pernah merupakan kesalahan."
     ],
@@ -5265,6 +5397,9 @@
     "tlGXxX": ["Otomatis (hanya Pull)"],
     "tnG-m6": ["Sinkronisasi otomatis dijeda — masuk untuk melanjutkan."],
     "toyw51": ["Kendali diagram Mermaid"],
+    "tpOnU9": [
+      "OpenKnowledge tidak menyimpan kredensial apa pun untuk host ini. Tambahkan token di Pengaturan, atau biarkan git memakai kredensial yang sudah dimilikinya."
+    ],
     "tqQBwN": ["Skrip apa pun ditampilkan untuk ditinjau, tidak pernah dijalankan."],
     "troubleshooting.claude-desktop.per-tool-approval": [
       ["agent"],
@@ -5374,6 +5509,9 @@
     "uL_Wx8": ["Terminal berhenti tak terduga."],
     "uM6jnS": ["Gagal memulihkan"],
     "uNGmQn": ["Pengujiannya tidak bisa dijalankan. Pastikan OpenKnowledge masih berjalan."],
+    "uNkJ8H": [
+      "Mode ini berasal dari Bawaan bersama proyek di bawah. Pilih mode untuk menentukan pilihan Anda sendiri di komputer ini."
+    ],
     "uO9WLl": ["Push"],
     "uOKoBM": [
       "Mengganti entri ",
@@ -5384,6 +5522,9 @@
     "uQNW00": ["HEAD terlepas — ambil sebuah cabang untuk melanjutkan"],
     "uQewpR": [
       "Server tidak bisa dimulai ulang — ia berjalan di bawah akun lain. Mulai ulang komputer Anda untuk membersihkannya, lalu buka lagi proyek ini."
+    ],
+    "uQhfwT": [
+      "Gagal menonaktifkan pemeliharaan indeks karena pengaturan proyek tidak dapat disimpan. Periksa izin file proyek, lalu coba lagi."
     ],
     "uUCrBv": ["symlink"],
     "uVbUP8": ["Pengaturan…"],
@@ -5417,6 +5558,7 @@
     "uoJF_D": ["Terlalu sulit disiapkan atau dimulai"],
     "uqs8Gd": [["others", "plural", { "other": ["#", " lainnya"] }]],
     "ur2XSb": ["Penyunting visual"],
+    "uraHF0": ["GitLab"],
     "uuoHOU": ["Perintah gagal."],
     "uwzRx4": [
       "Sesuaikan ukuran dan batas waktu permintaan pengindeksan untuk server embedding yang lambat atau terbatas memori. Sebagian besar penyiapan sebaiknya mempertahankan nilai bawaan."
@@ -5432,6 +5574,7 @@
     "v2ZW0K": ["Aktifkan terminal"],
     "v2a04T": ["Aturan markdownlint"],
     "v41fCm": ["Berkas tidak ditemukan"],
+    "v6Glry": ["Matikan sinkronisasi otomatis"],
     "v75Em9": [["uploadedCount", "plural", { "other": [["uploadedCount"], " berkas diunggah"] }]],
     "v77jrg": ["Pilihan penyunting visual"],
     "v7lbnC": ["Cari kecocokan berikutnya"],
@@ -5515,6 +5658,9 @@
     "vy_VIN": [
       "Dilacak di git — pembaruan mengalir lewat repo Anda (pull atau CI), bukan pembaruan otomatis"
     ],
+    "w-Wt3H": [
+      "Perlu menyambung ulang untuk melanjutkan sinkronisasi. Periksa kunci SSH atau kredensial tersimpan yang dipakai git untuk host ini."
+    ],
     "w0YVAE": ["Tampilkan simpul keterampilan"],
     "w3tVpc": [
       "Belum ada tautan. Tambahkan tautan wiki atau tautan markdown untuk membangun sebuah graf."
@@ -5552,6 +5698,9 @@
     "wJijgU": ["Lokasi"],
     "wJo9oS": ["Tutup pencarian"],
     "wKJo7h": ["Proyek OpenKnowledge tidak ada di jalur checkout ini."],
+    "wLRCZ8": [
+      "Server tidak dapat membaca status sinkronisasi proyek ini, jadi opsi sinkronisasi disembunyikan. Opsi akan muncul di sini begitu status sinkronisasi dimuat; menutup lalu membuka kembali Pengaturan juga akan mencoba lagi."
+    ],
     "wQp1V3": ["Cermin dari <0>", ["src"], "</0>"],
     "wQvvZY": ["Berkas keterampilan baru"],
     "wRni1Z": ["Nonaktifkan Slidev"],
@@ -5630,7 +5779,6 @@
     "x57cJf": ["Buka tautan"],
     "xAlHfe": [["basename"], " — penyunting teks"],
     "xBFg6z": ["Dari plugin ", ["0"]],
-    "xBjIs7": ["Masuk ke GitHub tidak tersedia untuk proyek ini"],
     "xCJdfg": ["Bersihkan"],
     "xCdTnb": ["Tutup tab baru"],
     "xD4Xm2": ["Ambil"],
@@ -5642,6 +5790,9 @@
     "xG4tb6": ["Koneksi ke \"", ["docName"], "\" terputus."],
     "xG8Ish": ["Tidak direncanakan"],
     "xHGM4U": ["Sembunyikan pratinjau HTML"],
+    "xJ7qrb": [
+      "Tidak ada kredensial yang tersimpan untuk host git ini. Tambahkan token di Pengaturan, atau biarkan git memakai kredensial yang sudah dimilikinya."
+    ],
     "xK291b": ["Dua halaman (ganjil)"],
     "xKDsGS": ["Ke baris ", ["0"], " di ", ["1"]],
     "xKcXG6": [["addingCount", "plural", { "other": ["#", " ditambahkan"] }]],
@@ -5684,6 +5835,13 @@
     "xnWySt": ["Pembersihan mungkin masih berlangsung."],
     "xrVr_k": ["Keterampilan tidak bisa dibuat: ", ["0"]],
     "xsZhu-": ["Nomor halaman"],
+    "xsqOtX": [
+      "OpenKnowledge di komputer ini sekarang v",
+      ["serverVersion"],
+      ", tetapi tab ini masih menjalankan v",
+      ["tabVersion"],
+      "."
+    ],
     "xtJgSe": ["Sumber ini memuat beberapa keterampilan — pilih yang akan diimpor."],
     "xvv5gL": ["Pratinjau tangkapan layar"],
     "xxRpzT": ["Slidev ditemukan di sistem Anda."],
@@ -5723,7 +5881,17 @@
     "yLwx9e": [
       "Direktori di atasnya yang merupakan symlink — lepaskan tautan folder itu untuk mengambil kembali yang ini."
     ],
+    "yLyiQV": [
+      "Token yang tersimpan tidak memiliki izin yang dibutuhkan host ini untuk melakukan push."
+    ],
     "yMgL_E": ["Navigasi bidang pencarian"],
+    "yNpyg4": [
+      "Versi ",
+      ["label"],
+      ", v",
+      ["version"],
+      ". Pengaturan dan datanya disimpan terpisah dari aplikasi OpenKnowledge lainnya."
+    ],
     "yOjRUV": ["Tidak ada alat AI yang terdeteksi. Pasang satu untuk memakai keterampilan ini."],
     "yQE2r9": ["Memuat"],
     "yQyglE": ["Tidak ada dokumen yang cocok"],
@@ -5819,13 +5987,18 @@
     "zLGXna": ["Tidak ada paket awal yang tersedia."],
     "zLak8b": ["Aktifkan tab baru"],
     "zMmwh4": ["Pilih tema atau buat tema Anda sendiri."],
+    "zP6U1P": ["Belum ditambahkan ke alat AI mana pun."],
     "zWZBPx": ["Tipe berubah"],
+    "zXZJoN": ["Tambah token"],
     "zXj1rA": ["Cari berdasarkan makna"],
     "zYp8Sr": [
       "Lencana <0>Diubah</0> menandai aturan yang disetel konfigurasi Anda secara eksplisit — langsung, atau diwarisi lewat <1>extends</1>. Aturan tanpa lencana tetap pada keadaan bawaannya."
     ],
     "zZ_I5K": ["Buka menu proyek"],
     "z_4xza": ["Gagal memuat dokumen. Tekan <0>Esc</0> lalu buka lagi untuk mencoba ulang."],
+    "z_wa6u": [
+      ["count", "plural", { "other": ["Ditemukan ", ["formattedCount"], " berkas markdown"] }]
+    ],
     "zaXlhf": [
       "Blok properti di bagian atas dokumen ini punya galat format. Beralihlah ke mode sumber untuk memperbaikinya."
     ],
@@ -5835,6 +6008,9 @@
     "zkkEFa": ["Masukkan bilangan bulat antara ", ["minimum"], " dan ", ["maximum"], "."],
     "zkz0Fg": ["Siapkan sinkronisasi"],
     "zlErBl": ["Respons galat judul halaman tidak sesuai RFC 9457"],
+    "zmQdP2": [
+      "Tab ini tidak dapat memastikan suntingan Anda sudah tersimpan, jadi tidak dimuat ulang. Suntingan Anda masih ada di sini."
+    ],
     "zo3Dl7": ["Tampilkan atau sembunyikan gambar mini"],
     "zpfN9p": ["Belum ada komentar. Pilih teks di dokumen untuk menambahkan satu."],
     "zq2eBA": ["Lihat di sumber"],

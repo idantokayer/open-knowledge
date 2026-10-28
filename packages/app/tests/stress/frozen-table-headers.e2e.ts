@@ -84,6 +84,24 @@ ${Array.from({ length: 28 }, (_, i) => `Appendix paragraph ${i + 1} below the ta
 const SCROLL_SELECTOR = '[data-testid="editor-scroll-container"]';
 const TOOLBAR_HEIGHT = 56;
 
+async function hoverHeaderBorder(
+  page: Parameters<typeof test>[1]['page'],
+  colIndex: number,
+): Promise<{ x: number; y: number }> {
+  const border = await page.evaluate((idx) => {
+    const row = document
+      .querySelector('.ProseMirror .tableWrapper > table > tbody')
+      ?.querySelector('tr') as HTMLTableRowElement | null;
+    const r = row?.cells[idx]?.getBoundingClientRect();
+    return r ? { x: r.right - 1, y: r.top + r.height / 2 } : null;
+  }, colIndex);
+  if (!border) throw new Error(`no header cell at index ${colIndex}`);
+  await page.mouse.move(border.x, border.y);
+  await page.mouse.move(border.x, border.y);
+  await page.locator('.column-resize-handle').first().waitFor({ state: 'attached' });
+  return border;
+}
+
 async function scanSlotPixels(page: Parameters<typeof test>[1]['page']): Promise<number> {
   const band = await page.evaluate(() => {
     const table = document.querySelector('.ProseMirror .tableWrapper > table') as HTMLElement;
@@ -296,6 +314,65 @@ test('no freeze before the table reaches the toolbar', async ({
     return cell ? getComputedStyle(cell, '::before').opacity : '';
   });
   expect(occluderOpacity).toBe('0');
+  const unfrozenStacking = await page.evaluate(() => {
+    const row = document.querySelector(
+      '.ProseMirror .tableWrapper > table > tbody > tr',
+    ) as HTMLTableRowElement | null;
+    if (!row) return null;
+    return {
+      cornerZ: getComputedStyle(row.cells[0]).zIndex,
+      headerZ: getComputedStyle(row.cells[1]).zIndex,
+    };
+  });
+  expect(unfrozenStacking).toEqual({ cornerZ: '4', headerZ: '2' });
+  await hoverHeaderBorder(page, 1);
+  const resizeStacking = await page.evaluate(() => {
+    const row = document.querySelector(
+      '.ProseMirror .tableWrapper > table > tbody > tr',
+    ) as HTMLTableRowElement;
+    return {
+      handleInHovered: row.cells[1].querySelector(':scope > .column-resize-handle') !== null,
+      hoveredZ: getComputedStyle(row.cells[1]).zIndex,
+      nextZ: getComputedStyle(row.cells[2]).zIndex,
+    };
+  });
+  expect(resizeStacking).toEqual({ handleInHovered: true, hoveredZ: '3', nextZ: '2' });
+  const mixedRowStacking = await page.evaluate(() => {
+    const host = document.createElement('div');
+    host.className = 'ProseMirror';
+    host.innerHTML =
+      '<div class="tableWrapper"><table><tbody>' +
+      '<tr><th>a</th><td>b<div class="column-resize-handle"></div></td><td>c</td></tr>' +
+      '<tr><th>d</th><td>e</td><td>f</td></tr>' +
+      '</tbody></table></div>' +
+      '<div class="tableWrapper"><table><tbody>' +
+      '<tr><td>g</td><td>h</td></tr><tr><td>i</td><td>j</td></tr>' +
+      '</tbody></table></div>';
+    document.body.append(host);
+    const z = (el: Element | null | undefined) => (el ? getComputedStyle(el).zIndex : 'missing');
+    const [mixed, plain] = Array.from(host.querySelectorAll('table'));
+    const result = {
+      mixedCorner: z(mixed.rows[0].cells[0]),
+      mixedHandleCell: z(mixed.rows[0].cells[1]),
+      mixedFrozenTd: z(mixed.rows[0].cells[2]),
+      mixedBodyTd: z(mixed.rows[1].cells[2]),
+      mixedFrozenTdOccluder: getComputedStyle(mixed.rows[0].cells[2], '::before').content,
+      mixedFrozenTdBackground: getComputedStyle(mixed.rows[0].cells[2]).backgroundColor,
+      plainFirstRowTd: z(plain.rows[0].cells[1]),
+    };
+    host.remove();
+    return result;
+  });
+  const { mixedFrozenTdBackground, ...mixedStacking } = mixedRowStacking;
+  expect(mixedStacking).toEqual({
+    mixedCorner: '4',
+    mixedHandleCell: '3',
+    mixedFrozenTd: '2',
+    mixedBodyTd: 'auto',
+    mixedFrozenTdOccluder: '""',
+    plainFirstRowTd: 'auto',
+  });
+  expect(mixedFrozenTdBackground).not.toBe('rgba(0, 0, 0, 0)');
   await page.screenshot({ path: testInfo.outputPath('unscrolled.png') });
 });
 
@@ -323,7 +400,109 @@ test('header row pins below the toolbar on mid-table scroll', async ({
   expect(occluder.opacity).toBe('1');
   expect(occluder.height).toBeGreaterThanOrEqual(56);
   expect(await scanSlotPixels(page)).toBeLessThan(10);
+  await page.emulateMedia({ media: 'print' });
+  const printed = await page.evaluate(() => {
+    const cell = (
+      document.querySelector('.ProseMirror .tableWrapper > table > tbody tr') as HTMLTableRowElement
+    ).cells[0];
+    return {
+      transform: getComputedStyle(cell).transform,
+      occluderOpacity: getComputedStyle(cell, '::before').opacity,
+    };
+  });
+  await page.emulateMedia({ media: 'screen' });
+  expect(printed).toEqual({ transform: 'none', occluderOpacity: '0' });
   await page.screenshot({ path: testInfo.outputPath('frozen-mid.png') });
+});
+
+test('a document height change keeps the frozen header on its existing animations', async ({
+  page,
+  api,
+  workerServer,
+}) => {
+  await api.seedDocs([{ name: 'frozen-hdr-long-grow', markdown: LONG_TABLE_MARKDOWN }]);
+  await page.goto(`${workerServer.baseURL}/#/frozen-hdr-long-grow`);
+  await waitForActiveProviderSynced(page);
+  await page.locator('table').first().waitFor({ state: 'visible' });
+  await waitForQuiescence(page, SCROLL_SELECTOR);
+  const before = await scrollAndReadFreeze(page, 260);
+  expect(before.frozen).toBe(true);
+
+  const scrollHeightGrowth = await page.evaluate(async (sel) => {
+    const scrollEl = document.querySelector(sel) as HTMLElement;
+    const cells = Array.from(
+      (
+        document.querySelector(
+          '.ProseMirror .tableWrapper > table > tbody tr',
+        ) as HTMLTableRowElement
+      ).cells,
+    );
+    (window as unknown as { __okHeaderAnimations?: Animation[][] }).__okHeaderAnimations =
+      cells.map((cell) => cell.getAnimations({ subtree: true }));
+    const heightBefore = scrollEl.scrollHeight;
+    const spacer = document.createElement('div');
+    spacer.style.height = '600px';
+    document.querySelector('.ProseMirror')?.parentElement?.append(spacer);
+    await new Promise((r) => setTimeout(r, 250));
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    return scrollEl.scrollHeight - heightBefore;
+  }, SCROLL_SELECTOR);
+  expect(scrollHeightGrowth).toBeGreaterThanOrEqual(600);
+
+  const after = await scrollAndReadFreeze(page, 300);
+  expect(after.frozen).toBe(true);
+  expect(after.pinErrorPx).toBeLessThan(2);
+  const sameAnimations = await page.evaluate(() => {
+    const saved = (window as unknown as { __okHeaderAnimations: Animation[][] })
+      .__okHeaderAnimations;
+    const cells = Array.from(
+      (
+        document.querySelector(
+          '.ProseMirror .tableWrapper > table > tbody tr',
+        ) as HTMLTableRowElement
+      ).cells,
+    );
+    return cells.every((cell, i) => {
+      const current = cell.getAnimations({ subtree: true });
+      const prior = saved[i] ?? [];
+      return (
+        current.length > 0 &&
+        current.length === prior.length &&
+        current.every((animation) => prior.includes(animation))
+      );
+    });
+  });
+  expect(sameAnimations).toBe(true);
+});
+
+test('a browser that rejects ViewTimeline construction still pins the header', async ({
+  page,
+  api,
+  workerServer,
+}) => {
+  await page.addInitScript(() => {
+    const w = window as unknown as { ViewTimeline?: unknown; __okViewTimelineThrows: number };
+    w.__okViewTimelineThrows = 0;
+    w.ViewTimeline = class {
+      constructor() {
+        w.__okViewTimelineThrows++;
+        throw new TypeError('ViewTimeline is not supported');
+      }
+    };
+  });
+  await api.seedDocs([{ name: 'frozen-hdr-long-vt-reject', markdown: LONG_TABLE_MARKDOWN }]);
+  await page.goto(`${workerServer.baseURL}/#/frozen-hdr-long-vt-reject`);
+  await waitForActiveProviderSynced(page);
+  await page.locator('table').first().waitFor({ state: 'visible' });
+  await waitForQuiescence(page, SCROLL_SELECTOR);
+  const state = await scrollAndReadFreeze(page, 260);
+  expect(state.frozen).toBe(true);
+  expect(state.pinErrorPx).toBeLessThan(2);
+  if (state.syncShiftErrorPx !== null) expect(state.syncShiftErrorPx).toBeLessThan(1.5);
+  const throws = await page.evaluate(
+    () => (window as unknown as { __okViewTimelineThrows: number }).__okViewTimelineThrows,
+  );
+  expect(throws).toBe(1);
 });
 
 test('header row stays pinned on deep scroll and releases past the table', async ({
@@ -375,19 +554,7 @@ test('first column stays pinned during horizontal scroll after column resize', a
   await waitForQuiescence(page, SCROLL_SELECTOR);
 
   for (const colIndex of [5, 4, 3, 2, 1, 0]) {
-    const border = await page.evaluate((idx) => {
-      const row = document
-        .querySelector('.ProseMirror .tableWrapper > table > tbody')
-        ?.querySelector('tr') as HTMLTableRowElement | null;
-      const cell = row?.cells[idx];
-      if (!cell) return null;
-      const r = cell.getBoundingClientRect();
-      return { x: r.right - 1, y: r.top + r.height / 2 };
-    }, colIndex);
-    if (!border) throw new Error(`no header cell at index ${colIndex}`);
-    await page.mouse.move(border.x, border.y);
-    await page.mouse.move(border.x, border.y);
-    await page.locator('.column-resize-handle').first().waitFor({ state: 'attached' });
+    const border = await hoverHeaderBorder(page, colIndex);
     await page.mouse.down();
     await page.mouse.move(border.x + 70, border.y, { steps: 6 });
     await page.mouse.up();
@@ -469,19 +636,7 @@ test('virtualized long doc: both freezes hold on a 200-row table', async ({
   await twoFrames(page);
   await twoFrames(page);
   for (const colIndex of [4, 3, 2, 1, 0]) {
-    const border = await page.evaluate((idx) => {
-      const row = document
-        .querySelector('.ProseMirror .tableWrapper > table > tbody')
-        ?.querySelector('tr') as HTMLTableRowElement | null;
-      const cell = row?.cells[idx];
-      if (!cell) return null;
-      const r = cell.getBoundingClientRect();
-      return { x: r.right - 1, y: r.top + r.height / 2 };
-    }, colIndex);
-    if (!border) throw new Error(`no header cell at index ${colIndex}`);
-    await page.mouse.move(border.x, border.y);
-    await page.mouse.move(border.x, border.y);
-    await page.locator('.column-resize-handle').first().waitFor({ state: 'attached' });
+    const border = await hoverHeaderBorder(page, colIndex);
     await page.mouse.down();
     await page.mouse.move(border.x + 80, border.y, { steps: 6 });
     await page.mouse.up();
@@ -516,7 +671,7 @@ test('virtualized long doc: both freezes hold on a 200-row table', async ({
   expect(combined?.overflow ?? 0).toBeGreaterThan(100);
   expect(combined?.stickyDriftPx ?? 99).toBeLessThan(2);
   expect(combined?.neighborShiftPx ?? 0).toBeGreaterThan(100);
-  expect(combined?.cornerZ).toBe('3');
+  expect(combined?.cornerZ).toBe('4');
   expect(combined?.headerZ).toBe('2');
   await twoFrames(page);
   await page.screenshot({ path: testInfo.outputPath('virtualized-combined.png') });
@@ -549,4 +704,163 @@ test('slot above pinned header stays clean in a prose-heavy doc (pixel-verified)
     expect(maxStd, `slot band not flat at delta ${delta}`).toBeLessThan(10);
   }
   await page.screenshot({ path: testInfo.outputPath('prose-above-frozen.png') });
+});
+
+const MANY_TABLES_MARKDOWN = `# Quarterly Review
+
+${Array.from(
+  { length: 15 },
+  (_, t) => `## Region ${t + 1}
+
+${Array.from({ length: 3 }, (_, p) => `Region ${t + 1} summary paragraph ${p + 1}, long enough to wrap at a narrower editor width and push the next table down.`).join('\n\n')}
+
+| Metric | One | Two | Three | Four |
+|--------|-----|-----|-------|------|
+${Array.from({ length: 10 }, (_, r) => `| Row-${t + 1}-${r + 1} | ${r} | ${r * 2} | ${r * 3} | ${r * 4} |`).join('\n')}`,
+).join('\n\n')}
+`;
+
+test('an editor width change lays out once, not once per table in a skipped chunk', async ({
+  page,
+  api,
+  workerServer,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await api.seedDocs([{ name: 'frozen-hdr-many', markdown: MANY_TABLES_MARKDOWN }]);
+  await page.goto(`${workerServer.baseURL}/#/frozen-hdr-many`);
+  await waitForActiveProviderSynced(page);
+  await page.locator('table').first().waitFor({ state: 'attached' });
+  await waitForQuiescence(page, SCROLL_SELECTOR);
+  await twoFrames(page);
+
+  const skippedTables = await page.evaluate(
+    () =>
+      Array.from(
+        document.querySelectorAll<HTMLElement>('.ProseMirror .tableWrapper > table'),
+      ).filter((table) => !table.checkVisibility({ contentVisibilityAuto: true })).length,
+  );
+  expect(skippedTables).toBeGreaterThanOrEqual(10);
+
+  await page.evaluate(() => {
+    const editor = window.__activeEditor;
+    if (!editor) throw new Error('window.__activeEditor not set');
+    const PluginCtor = editor.state.plugins[0].constructor as new (spec: object) => never;
+    editor.registerPlugin(new PluginCtor({}));
+  });
+  await twoFrames(page);
+
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Performance.enable');
+  const layoutCount = async (): Promise<number> => {
+    const { metrics } = await cdp.send('Performance.getMetrics');
+    return metrics.find((m) => m.name === 'LayoutCount')?.value ?? Number.NaN;
+  };
+
+  const before = await layoutCount();
+  await page.evaluate(
+    (sel) =>
+      new Promise<void>((resolve) => {
+        const scrollEl = document.querySelector(sel) as HTMLElement;
+        scrollEl.style.width = `${scrollEl.clientWidth - 240}px`;
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        );
+      }),
+    SCROLL_SELECTOR,
+  );
+  const layouts = (await layoutCount()) - before;
+  await cdp.detach();
+  expect(layouts, `one width change ran ${layouts} layouts`).toBeLessThan(skippedTables / 2);
+
+  const misplacedBars = await page.evaluate(() =>
+    Array.from(document.querySelectorAll<HTMLElement>('.ProseMirror .tableWrapper')).flatMap(
+      (wrapper, index) => {
+        const controls = Array.from(
+          document.querySelectorAll<HTMLElement>('.ok-table-insert-controls'),
+        )[index];
+        const table = wrapper.getBoundingClientRect();
+        const column = controls?.querySelector('.ok-table-insert-column')?.getBoundingClientRect();
+        const row = controls?.querySelector('.ok-table-insert-row')?.getBoundingClientRect();
+        if (!column || !row) return [`table ${index}: no insert bars`];
+        const errors = {
+          columnLeft: column.left - table.right,
+          columnTop: column.top - table.top,
+          columnHeight: column.height - table.height,
+          rowLeft: row.left - table.left,
+          rowTop: row.top - table.bottom,
+          rowWidth: row.width - table.width,
+        };
+        return Object.entries(errors)
+          .filter(([, delta]) => Math.abs(delta) > 1)
+          .map(([edge, delta]) => `table ${index}: ${edge} off by ${delta}px`);
+      },
+    ),
+  );
+  expect(misplacedBars).toEqual([]);
+});
+
+const ACCORDION_TABLE_MARKDOWN = LONG_TABLE_MARKDOWN.replace(
+  '| Metric | Count |',
+  '<Accordion title="Metrics" defaultOpen>\n\n| Metric | Count |',
+).replace('\n\n## Notes', '\n\n</Accordion>\n\n## Notes');
+
+async function scrollIntoAccordionTable(
+  page: Parameters<typeof test>[1]['page'],
+): Promise<Awaited<ReturnType<typeof scrollAndReadFreeze>>> {
+  await page.locator('.accordion table').first().waitFor({ state: 'visible' });
+  await waitForQuiescence(page, SCROLL_SELECTOR);
+  const top = await page.evaluate((sel) => {
+    const scrollEl = document.querySelector(sel) as HTMLElement;
+    const table = document.querySelector('.ProseMirror .accordion .tableWrapper > table');
+    if (!table) return Number.NaN;
+    const offset = table.getBoundingClientRect().top - scrollEl.getBoundingClientRect().top;
+    return Math.round(scrollEl.scrollTop + offset + 200);
+  }, SCROLL_SELECTOR);
+  expect(top).not.toBeNaN();
+  return scrollAndReadFreeze(page, top);
+}
+
+const headerTimelineKinds = (page: Parameters<typeof test>[1]['page']) =>
+  page.evaluate(() => {
+    const cell = (
+      document.querySelector('.ProseMirror .tableWrapper > table > tbody tr') as HTMLTableRowElement
+    ).cells[0];
+    return cell.getAnimations().map((animation) => animation.timeline?.constructor.name ?? 'none');
+  });
+
+test('a table inside an accordion freezes on the compositor like any other', async ({
+  page,
+  api,
+  workerServer,
+}) => {
+  await api.seedDocs([{ name: 'frozen-hdr-accordion', markdown: ACCORDION_TABLE_MARKDOWN }]);
+  await page.goto(`${workerServer.baseURL}/#/frozen-hdr-accordion`);
+  await waitForActiveProviderSynced(page);
+  const state = await scrollIntoAccordionTable(page);
+  expect(state.frozen).toBe(true);
+  expect(state.pinErrorPx).toBeLessThan(2);
+  if (state.syncShiftErrorPx !== null) expect(state.syncShiftErrorPx).toBeLessThan(1.5);
+  expect(await headerTimelineKinds(page)).toEqual(['ViewTimeline', 'ViewTimeline']);
+});
+
+test('a table inside another scroll container still pins its header', async ({
+  page,
+  api,
+  workerServer,
+}) => {
+  await page.addInitScript(() => {
+    document.addEventListener('DOMContentLoaded', () => {
+      const style = document.createElement('style');
+      style.textContent = '.accordion { overflow: hidden !important; }';
+      document.head.append(style);
+    });
+  });
+  await api.seedDocs([{ name: 'frozen-hdr-nested-scroller', markdown: ACCORDION_TABLE_MARKDOWN }]);
+  await page.goto(`${workerServer.baseURL}/#/frozen-hdr-nested-scroller`);
+  await waitForActiveProviderSynced(page);
+  const state = await scrollIntoAccordionTable(page);
+  expect(state.frozen).toBe(true);
+  expect(state.pinErrorPx).toBeLessThan(2);
+  if (state.syncShiftErrorPx !== null) expect(state.syncShiftErrorPx).toBeLessThan(1.5);
+  expect(await headerTimelineKinds(page)).not.toContain('ViewTimeline');
 });

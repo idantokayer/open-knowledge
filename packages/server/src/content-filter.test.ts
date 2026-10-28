@@ -1,8 +1,8 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { context, metrics, trace } from '@opentelemetry/api';
 import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks';
 import {
@@ -13,6 +13,7 @@ import {
 } from '@opentelemetry/sdk-trace-base';
 import ignore from 'ignore';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { configureTestGitRepository } from '../../../test-support/configure-git-fixture.test-helper.ts';
 import {
   type ContentFilter,
   createContentFilter,
@@ -38,6 +39,31 @@ describe('ContentFilter', () => {
     await rm(projectDir, { recursive: true, force: true });
     await rm(xdgDir, { recursive: true, force: true });
   });
+
+  test.each([
+    ['sync', createContentFilter],
+    ['async', createContentFilterAsync],
+  ] as const)(
+    '%s filtering preserves captured exclusions after a nested marker is removed',
+    async (_name, create) => {
+      const child = join(projectDir, 'child');
+      mkdirSync(join(child, '.ok'), { recursive: true });
+      writeFileSync(join(child, '.ok', 'config.yml'), '');
+      writeFileSync(join(child, 'note.md'), '# Child\n');
+      const filter = await create({
+        projectDir,
+        contentDir: projectDir,
+        isContentScopeExcluded: (path) => path === child || path.startsWith(`${child}${sep}`),
+      });
+      unlinkSync(join(child, '.ok', 'config.yml'));
+      await filter.rebuildIgnorePatterns();
+      expect(filter.isExcluded('child/note.md')).toBe(true);
+      expect(filter.isDirExcluded('child')).toBe(true);
+      expect(filter.isExcluded('child/note.md', { bypassFilters: true, showOk: true })).toBe(true);
+      expect(filter.isDirExcluded('child', { syncScope: { pathBase: 'project' } })).toBe(true);
+      expect(filter.isExcluded('own.md')).toBe(false);
+    },
+  );
 
   describe('sync-popover open-target admission', () => {
     const openable = (filter: ContentFilter, relPath: string): boolean =>
@@ -214,6 +240,7 @@ describe('ContentFilter', () => {
   describe('git-extras ignore sources', () => {
     function initGitRepo(dir: string): void {
       execFileSync('git', ['init', '-q'], { cwd: dir });
+      configureTestGitRepository(dir);
     }
 
     test('excludes paths matched by .git/info/exclude (per-clone, untracked)', () => {
@@ -387,6 +414,7 @@ describe('ContentFilter', () => {
 
     test('drops blanket .ok globs so the OS watcher can reach .ok/skills (skills-as-content)', () => {
       execFileSync('git', ['init', '-q'], { cwd: projectDir });
+      configureTestGitRepository(projectDir);
       writeFileSync(join(projectDir, '.git', 'info', 'exclude'), '.ok/\n');
       writeFileSync(join(projectDir, '.gitignore'), 'dist/\n.ok\nnode_modules/\n');
 
@@ -410,6 +438,7 @@ describe('ContentFilter', () => {
 
     test('drops the children-exclude the skills-sharing carve writes (sync)', () => {
       execFileSync('git', ['init', '-q'], { cwd: projectDir });
+      configureTestGitRepository(projectDir);
       writeFileSync(join(projectDir, '.git', 'info', 'exclude'), '**/.ok/*\n!**/.ok/skills/\n');
       writeFileSync(join(projectDir, '.gitignore'), 'dist/\n');
       const filter = createContentFilter({ projectDir, contentDir: projectDir });
@@ -417,6 +446,7 @@ describe('ContentFilter', () => {
     });
     test('drops the children-exclude the skills-sharing carve writes (async)', async () => {
       execFileSync('git', ['init', '-q'], { cwd: projectDir });
+      configureTestGitRepository(projectDir);
       writeFileSync(join(projectDir, '.git', 'info', 'exclude'), '**/.ok/*\n!**/.ok/skills/\n');
       writeFileSync(join(projectDir, '.gitignore'), 'dist/\n');
       const filter = await createContentFilterAsync({ projectDir, contentDir: projectDir });
@@ -487,6 +517,7 @@ describe('ContentFilter', () => {
         'dist/\nnode_modules/**\ndocs/.ok/templates/\npackages/app/.ok/templates/\n.*\n.ok\n.ok/**\n.ok/**/*\n**/.ok\n**/.ok/**\n**/.ok/**/*\n.ok/*\n**/.ok/*\n.ok/templates/\n.ok/local\n.ok/local/**\n.ok/local/../templates\nnode_modules/../docs\n',
       );
       execFileSync('git', ['init', '-q'], { cwd: projectDir });
+      configureTestGitRepository(projectDir);
       writeFileSync(join(projectDir, '.git', 'info', 'exclude'), '.ok/\n');
       const filter = createContentFilter({ projectDir, contentDir: projectDir });
       assertShareableOkLeavesUnblocked(filter);
@@ -497,6 +528,7 @@ describe('ContentFilter', () => {
         'dist/\nnode_modules/**\ndocs/.ok/templates/\npackages/app/.ok/templates/\n.*\n.ok\n.ok/**\n.ok/**/*\n**/.ok\n**/.ok/**\n**/.ok/**/*\n.ok/*\n**/.ok/*\n.ok/templates/\n.ok/local\n.ok/local/**\n.ok/local/../templates\nnode_modules/../docs\n',
       );
       execFileSync('git', ['init', '-q'], { cwd: projectDir });
+      configureTestGitRepository(projectDir);
       writeFileSync(join(projectDir, '.git', 'info', 'exclude'), '.ok/\n');
       const filter = await createContentFilterAsync({ projectDir, contentDir: projectDir });
       assertShareableOkLeavesUnblocked(filter);

@@ -1,4 +1,4 @@
-import { MANUAL_CHECK_NOTICE_EXPIRY_MS } from '@inkeep/open-knowledge-core';
+import { MANUAL_CHECK_NOTICE_EXPIRY_MS } from '@inkeep/open-knowledge-core/constants/manual-update-check';
 import { t } from '@lingui/core/macro';
 import type { OkDesktopBridge } from '@/lib/desktop-bridge-types';
 
@@ -55,9 +55,12 @@ export interface UpdateNotice {
 const PRIORITY_SCHEMA_INCOMPATIBILITY = 0;
 const PRIORITY_STUCK_HINT = 0;
 const PRIORITY_RELAUNCH_ERROR = 1;
-const PRIORITY_UPDATE_DOWNLOADED = 2;
+const PRIORITY_RELAUNCH_IN_PROGRESS = 2;
 const PRIORITY_MANUAL_CHECK = 3;
-const PRIORITY_WHATS_NEW = 4;
+const PRIORITY_UPDATE_DOWNLOADED = 4;
+const PRIORITY_WHATS_NEW = 5;
+
+export const UPDATE_CHECKING_NOTICE_ID = 'update-checking';
 
 export const WHATS_NEW_AUTO_DISMISS_MS = 60_000;
 const MANUAL_CHECK_AUTO_DISMISS_MS = MANUAL_CHECK_NOTICE_EXPIRY_MS;
@@ -82,24 +85,35 @@ export function attachUpdateSubscribers(
   let manualCheckAutoDismissTimer: ReturnType<typeof setTimeout> | null = null;
 
   const downloadedNoticeId = 'update-downloaded';
-  const manualCheckNoticeId = 'update-checking';
+  const noLongerPendingNoticeId = 'update-no-longer-pending';
+  const manualCheckNoticeId = UPDATE_CHECKING_NOTICE_ID;
 
   unsubscribers.push(
     bridge.onUpdateDownloaded(({ version }) => {
       const noticeId = downloadedNoticeId;
+      if (version === null) {
+        dismissNotice(noticeId);
+        return;
+      }
+      dismissNotice(noLongerPendingNoticeId);
 
       const armReadyNotice = () => {
         addNotice({
           id: noticeId,
           body: toastABody(version),
           priority: PRIORITY_UPDATE_DOWNLOADED,
+          onDismiss: () => {
+            bridge.update.dismissDownloaded(version).catch((err: unknown) => {
+              console.warn('[update-notice] dismissing the ready-to-install card failed', err);
+            });
+          },
           action: {
             label: TOAST_A_ACTION,
             onClick: () => {
               addNotice({
                 id: noticeId,
                 body: TOAST_A_PROGRESS_BODY,
-                priority: PRIORITY_UPDATE_DOWNLOADED,
+                priority: PRIORITY_RELAUNCH_IN_PROGRESS,
                 dismissible: false,
               });
               bridge.update.relaunchNow().then(
@@ -130,7 +144,7 @@ export function attachUpdateSubscribers(
       addNotice({
         id: downloadedNoticeId,
         body: TOAST_A_PROGRESS_BODY,
-        priority: PRIORITY_UPDATE_DOWNLOADED,
+        priority: PRIORITY_RELAUNCH_IN_PROGRESS,
         dismissible: false,
       });
     }),
@@ -141,15 +155,35 @@ export function attachUpdateSubscribers(
       addNotice({
         id: downloadedNoticeId,
         body: TOAST_A_FETCHING_LATEST_BODY,
-        priority: PRIORITY_UPDATE_DOWNLOADED,
+        priority: PRIORITY_RELAUNCH_IN_PROGRESS,
         dismissible: false,
       });
     }),
   );
 
   unsubscribers.push(
-    bridge.onUpdateRelaunchFailed(({ version, message, downloadUrl, dismissPending }) => {
+    bridge.onUpdateRelaunchFailed(({ version, message, downloadUrl, dismissPending, reason }) => {
       if (dismissPending) dismissNotice(downloadedNoticeId);
+      if (reason === 'no-longer-pending') {
+        addNotice({
+          id: noLongerPendingNoticeId,
+          body: t`This update is no longer ready to install.`,
+          priority: PRIORITY_RELAUNCH_ERROR,
+          action: {
+            label: t`Check for updates`,
+            onClick: () => {
+              dismissNotice(noLongerPendingNoticeId);
+              bridge.update.checkNow().catch((err: unknown) => {
+                console.warn(
+                  '[update-notice] check-for-updates from no-longer-pending rejected',
+                  err,
+                );
+              });
+            },
+          },
+        });
+        return;
+      }
       if (downloadUrl) {
         const failedId = `install-failed-${version}`;
         const armFailedNotice = (): void => {

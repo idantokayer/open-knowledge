@@ -2,13 +2,14 @@
 
 // oxlint-disable ok/no-physical-direction-utility -- pre-rule backlog — physical margin/padding/inset utilities predate the rule; drain by swapping ml/mr → ms/me, pl/pr → ps/pe, left/right → start/end, then deleting this line. See https://github.com/inkeep/open-knowledge/blob/main/lint-plugins/ok-rules/README.md#no-physical-direction-utility
 
-import { SHOW_INSTALL_SKILL } from '@inkeep/open-knowledge-core';
+import { SHOW_INSTALL_SKILL } from '@inkeep/open-knowledge-core/constants/feature-flags';
 import { Plural, Trans, useLingui } from '@lingui/react/macro';
-import { ArrowUpRight } from 'lucide-react';
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { matchesCommandQuery, splitTextByQueryMatches } from '@/components/command-palette-search';
 import { SettingsDialogBodyLazy } from '@/components/settings/SettingsDialogBodyLazy';
 import { SettingsDialogErrorBoundary } from '@/components/settings/SettingsDialogErrorBoundary';
+import { UPDATE_CHECKING_NOTICE_ID } from '@/components/UpdateNotices.shared';
+import { Button } from '@/components/ui/button';
 import {
   Command,
   CommandEmpty,
@@ -20,10 +21,13 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { electronDragBandClearance } from '@/components/ui/electron-drag-strip';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useDocumentContext } from '@/editor/DocumentContext';
+import type { ConfigContextValue } from '@/lib/config-context';
 import { useConfigContext } from '@/lib/config-provider';
 import { isFileProtocolPage } from '@/lib/file-protocol-page';
 import { useClaudeDesktopIntegration } from '@/lib/handoff/use-claude-desktop-integration';
+import { getNoticesSnapshot, subscribeToNotices } from '@/lib/update-notices-store';
 import { subscribeToSettingsSection } from '@/lib/use-settings-route';
 import { cn } from '@/lib/utils';
 import { LINT_PLUGIN_META } from './lint-plugin-meta';
@@ -32,12 +36,14 @@ import {
   isSpellcheckLanguageSelectionAvailable,
   isTerminalSettingsAvailable,
 } from './settings-host-gates';
+import {
+  isSidebarItemSelectable,
+  type SettingsHost,
+  scopeSettingsGroupsForHost,
+} from './settings-host-scope';
 import { buildSettingsSearchIndex, type SettingsSearchEntry } from './settings-search-index';
+import { AGENT_CONNECTIONS_SECTION_LABEL } from './settings-section-labels';
 import type { SidebarGroup, SidebarItem, SidebarSubsection } from './settings-sidebar-types';
-
-function releaseNotesUrl(version: string): string {
-  return `https://github.com/inkeep/open-knowledge/releases/tag/v${encodeURIComponent(version)}`;
-}
 
 const LEGACY_SECTION_ALIASES: Record<string, { sectionId: string; anchor: string }> = {
   'ai-tools': { sectionId: 'agent-connections', anchor: 'section:agent-connections' },
@@ -61,18 +67,99 @@ interface SettingsDialogShellProps {
   open: boolean;
   initialSection?: string | null;
   onOpenChange: (open: boolean) => void;
+  host?: SettingsHost;
 }
 
-export function SettingsDialogShell({
+export function SettingsDialogShell({ host = 'project', ...props }: SettingsDialogShellProps) {
+  return host === 'navigator' ? (
+    <NavigatorSettingsDialogShell {...props} />
+  ) : (
+    <ProjectSettingsDialogShell {...props} />
+  );
+}
+
+type SettingsDialogHostProps = Omit<SettingsDialogShellProps, 'host'>;
+
+function ProjectSettingsDialogShell(props: SettingsDialogHostProps) {
+  const { collabUrl } = useDocumentContext();
+  const config = useConfigContext();
+  const { desktopPresent } = useClaudeDesktopIntegration();
+  return (
+    <SettingsDialogFrame
+      {...props}
+      host="project"
+      hasProject={collabUrl !== null}
+      config={config}
+      desktopPresent={desktopPresent}
+      integrationsMenuAvailable={false}
+    />
+  );
+}
+
+function NavigatorSettingsDialogShell(props: SettingsDialogHostProps) {
+  const config = useConfigContext();
+  const integrationsMenuAvailable = useIntegrationsMenuAvailable();
+  return (
+    <SettingsDialogFrame
+      {...props}
+      host="navigator"
+      hasProject={false}
+      config={config}
+      desktopPresent={false}
+      integrationsMenuAvailable={integrationsMenuAvailable}
+    />
+  );
+}
+
+function useIntegrationsMenuAvailable(): boolean {
+  const [available, setAvailable] = useState(false);
+  useEffect(() => {
+    const menu = window.okDesktop?.menu;
+    if (!menu) return;
+    let cancelled = false;
+    menu
+      .dispatch({ kind: 'query' })
+      .then((snapshot) => {
+        if (!cancelled) setAvailable(snapshot?.canReconfigureMcpWiring === true);
+      })
+      .catch((error: unknown) => {
+        console.warn('[SettingsDialogShell] Could not read the desktop menu state', error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return available;
+}
+
+interface SettingsDialogFrameProps extends SettingsDialogHostProps {
+  host: SettingsHost;
+  hasProject: boolean;
+  config: ConfigContextValue;
+  desktopPresent: boolean;
+  integrationsMenuAvailable: boolean;
+}
+
+function SettingsDialogFrame({
   open,
   initialSection = null,
   onOpenChange,
-}: SettingsDialogShellProps) {
+  host,
+  hasProject,
+  config,
+  desktopPresent,
+  integrationsMenuAvailable,
+}: SettingsDialogFrameProps) {
   const { t } = useLingui();
-  const { collabUrl } = useDocumentContext();
-  const { userBinding, userSynced, okignoreBinding, okignoreSynced, projectConfig, merged } =
-    useConfigContext();
-  const { desktopPresent } = useClaudeDesktopIntegration();
+  const {
+    userBinding,
+    userSynced,
+    userLoadFailed,
+    okignoreBinding,
+    okignoreSynced,
+    projectConfig,
+    merged,
+  } = config;
 
   const [activeId, setActiveId] = useState(resolveSectionId(initialSection ?? 'preferences'));
   const [searchQuery, setSearchQuery] = useState('');
@@ -155,8 +242,6 @@ export function SettingsDialogShell({
     };
   }, [fieldFlash]);
 
-  const hasProject = collabUrl !== null;
-
   const isOkDesktopHost = isOkDesktopHostGate();
   const terminalSettingsAvailable = isTerminalSettingsAvailable();
   const spellcheckLanguagesAvailable = isSpellcheckLanguageSelectionAvailable();
@@ -171,15 +256,20 @@ export function SettingsDialogShell({
 
   const isFileProtocolRenderer = isFileProtocolPage();
 
-  const groups: SidebarGroup[] = [
+  const declaredGroups: SidebarGroup[] = [
     {
       id: 'agents',
       label: t`Agents`,
       enabled: true,
+      ...(integrationsMenuAvailable
+        ? {
+            disabledHint: t`To connect AI tools without a project, use File > Set up OpenKnowledge integrations…`,
+          }
+        : {}),
       items: [
         {
           id: 'agent-connections',
-          label: t`Agent connections`,
+          label: t(AGENT_CONNECTIONS_SECTION_LABEL),
           keywords: [t`AI tools`, t`Configure agents`],
         },
       ],
@@ -192,6 +282,7 @@ export function SettingsDialogShell({
         {
           id: 'preferences',
           label: t`Preferences`,
+          userScope: true,
           subsections: [
             ...(isOkDesktopHost
               ? [
@@ -215,11 +306,20 @@ export function SettingsDialogShell({
               : []),
           ] satisfies SidebarSubsection[],
         },
-        { id: 'hotkeys', label: t`Hotkeys` },
+        { id: 'hotkeys', label: t`Hotkeys`, userScope: true },
         {
           id: 'account',
-          label: t`Account`,
+          label: t`Git`,
           subsections: [
+            {
+              id: 'github-account',
+              label: t`GitHub`,
+              anchor: 'section:github-account',
+              keywords: [
+                t({ message: 'gh', context: 'settings search keyword' }),
+                t({ message: 'GitHub CLI', context: 'settings search keyword' }),
+              ],
+            },
             {
               id: 'enterprise-hosts',
               label: t`GitHub Enterprise Server hosts`,
@@ -227,6 +327,17 @@ export function SettingsDialogShell({
               keywords: [
                 t({ message: 'GHES', context: 'settings search keyword' }),
                 t({ message: 'enterprise', context: 'settings search keyword' }),
+                t({ message: 'git host', context: 'settings search keyword' }),
+              ],
+            },
+            {
+              id: 'host-tokens',
+              label: t`Other Git hosts`,
+              anchor: 'section:host-tokens',
+              keywords: [
+                t({ message: 'token', context: 'settings search keyword' }),
+                t({ message: 'GitLab', context: 'settings search keyword' }),
+                t({ message: 'Bitbucket', context: 'settings search keyword' }),
                 t({ message: 'git host', context: 'settings search keyword' }),
               ],
             },
@@ -291,6 +402,7 @@ export function SettingsDialogShell({
       id: 'plugins',
       label: t`Plugins`,
       enabled: true,
+      hideOutsideProject: true,
       items: [
         ...(hasProject ? enabledPluginItems : []),
         ...(themeEnabled ? [{ id: 'plugin:theme', label: t`Themes` }] : []),
@@ -301,12 +413,46 @@ export function SettingsDialogShell({
       id: 'integrations',
       label: t`Integrations`,
       enabled: true,
+      hideOutsideProject: true,
       items:
         desktopPresent && SHOW_INSTALL_SKILL
           ? [{ id: 'claude-desktop', label: t`Claude Desktop` }]
           : [],
     },
+    ...(isOkDesktopHost
+      ? ([
+          {
+            id: 'app',
+            label: t`App`,
+            enabled: true,
+            items: [
+              {
+                id: 'about',
+                label: t`About & updates`,
+                userScope: true,
+                keywords: [
+                  t({ message: 'update', context: 'settings search keyword' }),
+                  t({ message: 'version', context: 'settings search keyword' }),
+                  t({ message: 'about', context: 'settings search keyword' }),
+                  t`Release notes`,
+                  t`Check for updates`,
+                  t`Automatic updates`,
+                ],
+              },
+            ],
+          },
+        ] satisfies SidebarGroup[])
+      : []),
   ];
+
+  const groups = scopeSettingsGroupsForHost(declaredGroups, host);
+  const shownId =
+    host === 'navigator' &&
+    !groups.some((group) =>
+      group.items.some((item) => item.id === activeId && isSidebarItemSelectable(group, item)),
+    )
+      ? 'preferences'
+      : activeId;
 
   const searchEntries = buildSettingsSearchIndex({ groups, translate: t });
 
@@ -347,7 +493,7 @@ export function SettingsDialogShell({
         </DialogDescription>
         <SettingsSidebar
           groups={groups}
-          activeId={activeId}
+          activeId={shownId}
           onSelect={setActiveId}
           entries={searchEntries}
           searchQuery={searchQuery}
@@ -361,11 +507,12 @@ export function SettingsDialogShell({
           // biome-ignore lint/a11y/noNoninteractiveTabindex: this scrollable content section must be focusable so keyboard users can scroll long settings pages.
           tabIndex={0}
         >
-          <SettingsDialogErrorBoundary>
+          <SettingsDialogErrorBoundary key={shownId}>
             <Suspense fallback={<SettingsContentSkeleton />}>
               <SettingsDialogBodyLazy
-                activeId={activeId}
+                activeId={shownId}
                 userBinding={userSynced ? userBinding : null}
+                userLoadFailed={userLoadFailed === true}
                 okignoreBinding={okignoreBinding}
                 okignoreSynced={okignoreSynced}
                 markdownlintRuleQuery={ruleQuery}
@@ -487,7 +634,7 @@ function SettingsSidebar({
               />
             ))
           : null}
-        <SettingsSidebarVersion />
+        <SettingsSidebarVersion onSelect={onSelect} />
       </div>
     </nav>
   );
@@ -530,34 +677,42 @@ function SettingsSearchResultItem({
   );
 }
 
-function SettingsSidebarVersion() {
-  const bridge = typeof window !== 'undefined' ? (window.okDesktop ?? null) : null;
-  const version = bridge?.appVersion;
-  if (!bridge || !version) return null;
+function SettingsSidebarVersion({ onSelect }: { onSelect: (id: string) => void }) {
+  const { t } = useLingui();
+  const notices = useSyncExternalStore(subscribeToNotices, getNoticesSnapshot, getNoticesSnapshot);
+  const version = typeof window !== 'undefined' ? window.okDesktop?.appVersion : undefined;
+  if (!version) return null;
+  const checkingForUpdates = notices.some((notice) => notice.id === UPDATE_CHECKING_NOTICE_ID);
 
-  const url = releaseNotesUrl(version);
   return (
     <div className="ml-auto shrink-0 px-2 sm:ml-0 sm:mt-auto sm:pt-3">
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="link"
+              onClick={() => onSelect('about')}
+              data-testid="settings-sidebar-version"
+              className="h-auto whitespace-nowrap p-0 font-mono text-xs font-normal text-muted-foreground/70 hover:text-foreground"
+            >
+              v{version}{' '}
+              <span className="sr-only">
+                <Trans>About & updates</Trans>
+              </span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <Trans>About & updates</Trans>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
       <p
-        className="whitespace-nowrap font-mono text-xs text-muted-foreground/70"
-        data-testid="settings-sidebar-version"
+        role="status"
+        className="whitespace-nowrap text-xs text-muted-foreground"
+        data-testid="settings-sidebar-update-checking"
       >
-        v{version}
+        {checkingForUpdates ? t`Checking for updates…` : null}
       </p>
-      <button
-        type="button"
-        onClick={() => {
-          void bridge.shell.openExternal(url);
-        }}
-        data-testid="settings-sidebar-release-notes"
-        className={cn(
-          'mt-0.5 inline-flex items-center gap-1 whitespace-nowrap rounded text-xs text-muted-foreground transition-colors hover:text-foreground',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        )}
-      >
-        <Trans>Release notes</Trans>
-        <ArrowUpRight className="size-3" aria-hidden="true" />
-      </button>
     </div>
   );
 }
@@ -574,11 +729,26 @@ function SettingsSidebarGroup({
   if (group.items.length === 0) return null;
   const headerId = `settings-group-${group.id}`;
   const captionId = `${headerId}-caption`;
+  const hintId = `${headerId}-hint`;
+  const describedById = group.disabledHint ? `${captionId} ${hintId}` : captionId;
+  const someItemsDisabled = group.enabled && group.items.some((item) => item.disabled === true);
+  const caption = (
+    <>
+      <p id={captionId} className="px-2 text-xs italic text-muted-foreground sm:mb-1">
+        <Trans>Open a project to edit.</Trans>
+      </p>
+      {group.disabledHint ? (
+        <p id={hintId} className="px-2 text-xs text-muted-foreground sm:mb-1">
+          {group.disabledHint}
+        </p>
+      ) : null}
+    </>
+  );
   return (
     <div className="flex shrink-0 items-center gap-2 sm:mb-4 sm:block">
       <h3
         id={headerId}
-        aria-describedby={group.enabled ? undefined : captionId}
+        aria-describedby={group.enabled ? undefined : describedById}
         className={cn(
           'shrink-0 whitespace-nowrap px-2 text-xs font-semibold uppercase tracking-wide font-mono sm:mb-1',
           group.enabled ? 'text-muted-foreground/80' : 'text-muted-foreground/50',
@@ -586,37 +756,37 @@ function SettingsSidebarGroup({
       >
         {group.label}
       </h3>
-      {!group.enabled ? (
-        <p id={captionId} className="px-2 text-xs italic text-muted-foreground/60 sm:mb-1">
-          <Trans>Open a project to edit.</Trans>
-        </p>
-      ) : null}
+      {!group.enabled ? caption : null}
       <ul aria-labelledby={headerId} className="flex gap-1 sm:block sm:space-y-0.5">
-        {group.items.map((item) => (
-          <li key={item.id}>
-            <button
-              type="button"
-              aria-current={activeId === item.id ? 'page' : undefined}
-              aria-disabled={group.enabled ? undefined : true}
-              aria-describedby={group.enabled ? undefined : captionId}
-              tabIndex={group.enabled ? 0 : -1}
-              disabled={!group.enabled}
-              onClick={() => group.enabled && onSelect(item.id)}
-              data-testid={`settings-sidebar-item-${item.id}`}
-              className={cn(
-                'w-auto whitespace-nowrap rounded px-2 py-1.5 text-left text-sm transition-colors sm:w-full',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                'disabled:cursor-not-allowed disabled:opacity-50',
-                activeId === item.id && group.enabled
-                  ? 'bg-accent text-accent-foreground'
-                  : 'hover:bg-accent/50',
-              )}
-            >
-              {item.label}
-            </button>
-          </li>
-        ))}
+        {group.items.map((item) => {
+          const selectable = isSidebarItemSelectable(group, item);
+          return (
+            <li key={item.id}>
+              <button
+                type="button"
+                aria-current={activeId === item.id ? 'page' : undefined}
+                aria-disabled={selectable ? undefined : true}
+                aria-describedby={selectable ? undefined : describedById}
+                tabIndex={selectable ? 0 : -1}
+                disabled={!selectable}
+                onClick={() => selectable && onSelect(item.id)}
+                data-testid={`settings-sidebar-item-${item.id}`}
+                className={cn(
+                  'w-auto whitespace-nowrap rounded px-2 py-1.5 text-left text-sm transition-colors sm:w-full',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  'disabled:cursor-not-allowed disabled:opacity-50',
+                  activeId === item.id && selectable
+                    ? 'bg-accent text-accent-foreground'
+                    : 'hover:bg-accent/50',
+                )}
+              >
+                {item.label}
+              </button>
+            </li>
+          );
+        })}
       </ul>
+      {someItemsDisabled ? caption : null}
     </div>
   );
 }

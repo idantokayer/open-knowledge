@@ -24,13 +24,18 @@ import {
   lintDocument,
   REMOVED_KEYS,
 } from '@inkeep/open-knowledge-core';
-import { readConfigSafely, resolveConfigPath } from '@inkeep/open-knowledge-core/server';
+import {
+  readConfigSafely,
+  resolveConfigPath,
+  writeConfigPatch,
+} from '@inkeep/open-knowledge-core/server';
 import { parseCheckpoint } from '@inkeep/open-knowledge-core/shadow-repo-layout';
 import simpleGit from 'simple-git';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { stringify as stringifyYaml } from 'yaml';
 import * as Y from 'yjs';
 import { runningAsRoot } from '../../../test-support/capabilities.test-helper.ts';
+import { configureTestGitRepository } from '../../../test-support/configure-git-fixture.test-helper.ts';
 import { MAX_AGENT_SESSIONS } from './agent-sessions.ts';
 import { BacklinkIndex } from './backlink-index.ts';
 import { getBootTimings, resetBootTimingsForTest, startBootTimings } from './boot-timings.ts';
@@ -291,6 +296,56 @@ describe('createServer() — agent-session cap passthrough', () => {
   });
 });
 
+describe('createServer() — wiki embed target resolution', () => {
+  let projectDir: string;
+  let server: ServerInstance | null;
+
+  beforeEach(() => {
+    projectDir = mkdtempSync(resolve(tmpdir(), 'ok-wiki-embed-'));
+    server = null;
+  });
+
+  afterEach(async () => {
+    await server?.destroy();
+    rmSync(projectDir, { recursive: true, force: true });
+  });
+
+  test('a path-form image embed renders the tracked file it resolves to by wiki rules', async () => {
+    const contentDir = mkdtempSync(resolve(projectDir, 'content-'));
+    mkdirSync(join(contentDir, 'Pics', 'Deep'), { recursive: true });
+    writeFileSync(join(contentDir, 'Pics', 'Deep', 'x.png'), 'png');
+    mkdirSync(join(contentDir, 'assets'), { recursive: true });
+    writeFileSync(join(contentDir, 'assets', 'Cre\u0300me.png'), 'png');
+    writeFileSync(join(contentDir, 'wiki.md'), '# Wiki\n\n![[pics/deep/x.png]]\n');
+    server = createServer({ contentDir, projectDir, quiet: true });
+    await server.ready;
+
+    expect(server.resolveEmbed('pics/deep/x.png', 'wiki.md')).toBe('Pics/Deep/x.png');
+    expect(server.resolveEmbed('PICS/Deep/X.PNG', 'wiki.md')).toBe('Pics/Deep/x.png');
+    expect(server.resolveEmbed('assets/CR\u00c8ME.PNG', 'wiki.md')).toBe('assets/Cre\u0300me.png');
+    expect(server.resolveEmbed('pics/deep/nope.png', 'wiki.md')).toBeNull();
+
+    const conn = await server.hocuspocus.openDirectConnection('wiki');
+    try {
+      const embedSrc = (): unknown => {
+        const fragment = server?.hocuspocus.documents.get('wiki')?.getXmlFragment('default');
+        for (const node of fragment?.toArray() ?? []) {
+          if (!(node instanceof Y.XmlElement) || node.nodeName !== 'jsxComponent') continue;
+          const props = node.getAttribute('props') as unknown as
+            | Record<string, unknown>
+            | undefined;
+          return props?.src;
+        }
+        return undefined;
+      };
+      await vi.waitFor(() => expect(embedSrc()).not.toBeUndefined(), { timeout: 5_000 });
+      expect(embedSrc()).toBe('/Pics/Deep/x.png');
+    } finally {
+      conn.disconnect();
+    }
+  });
+});
+
 describe('createServer() — derived-index branch lifecycle', () => {
   let projectDir: string;
   let git: ReturnType<typeof simpleGit>;
@@ -300,6 +355,10 @@ describe('createServer() — derived-index branch lifecycle', () => {
     projectDir = await mkdtemp(join(tmpdir(), 'ok-derived-branch-'));
     git = simpleGit(projectDir);
     await git.init(['--initial-branch=main']);
+    configureTestGitRepository(projectDir);
+    expect
+      .soft((await simpleGit(projectDir).listConfig('local')).all['maintenance.auto'])
+      .toBe('false');
     await git.raw('config', 'user.name', 'Test');
     await git.raw('config', 'user.email', 'test@example.com');
     writeFileSync(join(projectDir, 'main.md'), '# Main\n\n#main-branch\n', 'utf-8');
@@ -456,7 +515,7 @@ describe('createServer().destroy() — graceful shutdown flush', () => {
 
   afterEach(async () => {
     loggerFactory.reset();
-    await rm(tmpDir, { recursive: true, force: true });
+    await rm(tmpDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   });
 
   test('flushes L1 markdown writes before destroy() resolves + emits shutdown log', async () => {
@@ -499,6 +558,10 @@ describe('createServer().destroy() — graceful shutdown flush', () => {
     const contentDir = join(tmpDir, 'content');
     mkdirSync(contentDir, { recursive: true });
     await ensureProjectGit(projectDir);
+    configureTestGitRepository(projectDir);
+    expect
+      .soft((await simpleGit(projectDir).listConfig('local')).all['maintenance.auto'])
+      .toBe('false');
     const shadowHandle = await initShadowRepo(projectDir);
 
     const server = createServer({
@@ -587,6 +650,10 @@ describe('createServer().destroy() — graceful shutdown flush', () => {
     const contentDir = join(tmpDir, 'content');
     mkdirSync(contentDir, { recursive: true });
     await ensureProjectGit(projectDir);
+    configureTestGitRepository(projectDir);
+    expect
+      .soft((await simpleGit(projectDir).listConfig('local')).all['maintenance.auto'])
+      .toBe('false');
     const shadowHandle = await initShadowRepo(projectDir);
 
     const server = createServer({
@@ -655,6 +722,10 @@ describe('createServer().destroy() — graceful shutdown flush', () => {
     const contentDir = join(tmpDir, 'content');
     mkdirSync(contentDir, { recursive: true });
     await ensureProjectGit(projectDir);
+    configureTestGitRepository(projectDir);
+    expect
+      .soft((await simpleGit(projectDir).listConfig('local')).all['maintenance.auto'])
+      .toBe('false');
     const shadowHandle = await initShadowRepo(projectDir);
 
     const docName = 'refused-store-doc';
@@ -737,6 +808,10 @@ describe('createServer().destroy() — graceful shutdown flush', () => {
     const contentDir = join(tmpDir, 'content');
     mkdirSync(contentDir, { recursive: true });
     await ensureProjectGit(projectDir);
+    configureTestGitRepository(projectDir);
+    expect
+      .soft((await simpleGit(projectDir).listConfig('local')).all['maintenance.auto'])
+      .toBe('false');
     const shadowHandle = await initShadowRepo(projectDir);
 
     const docName = 'runtime-refused-doc';
@@ -855,6 +930,10 @@ describe('createServer().destroy() — graceful shutdown flush', () => {
     const contentDir = join(tmpDir, 'content');
     mkdirSync(contentDir, { recursive: true });
     await ensureProjectGit(projectDir);
+    configureTestGitRepository(projectDir);
+    expect
+      .soft((await simpleGit(projectDir).listConfig('local')).all['maintenance.auto'])
+      .toBe('false');
     const shadowHandle = await initShadowRepo(projectDir);
 
     const docName = 'runtime-refused-refresh';
@@ -934,6 +1013,10 @@ describe('createServer().destroy() — graceful shutdown flush', () => {
     const contentDir = join(tmpDir, 'content');
     mkdirSync(contentDir, { recursive: true });
     await ensureProjectGit(projectDir);
+    configureTestGitRepository(projectDir);
+    expect
+      .soft((await simpleGit(projectDir).listConfig('local')).all['maintenance.auto'])
+      .toBe('false');
     const shadowHandle = await initShadowRepo(projectDir);
 
     const docName = 'refused-rescue-lost-doc';
@@ -1040,6 +1123,10 @@ describe('createServer().destroy() — graceful shutdown flush', () => {
     const contentDir = join(tmpDir, 'content');
     mkdirSync(contentDir, { recursive: true });
     await ensureProjectGit(projectDir);
+    configureTestGitRepository(projectDir);
+    expect
+      .soft((await simpleGit(projectDir).listConfig('local')).all['maintenance.auto'])
+      .toBe('false');
     const shadowHandle = await initShadowRepo(projectDir);
 
     const docName = 'refused-unload-hangs-doc';
@@ -1136,6 +1223,10 @@ describe('createServer().destroy() — graceful shutdown flush', () => {
     const contentDir = join(tmpDir, 'content');
     mkdirSync(contentDir, { recursive: true });
     await ensureProjectGit(projectDir);
+    configureTestGitRepository(projectDir);
+    expect
+      .soft((await simpleGit(projectDir).listConfig('local')).all['maintenance.auto'])
+      .toBe('false');
     const shadowHandle = await initShadowRepo(projectDir);
 
     const firstDoc = 'refused-budget-hog-doc';
@@ -1225,6 +1316,10 @@ describe('createServer().destroy() — graceful shutdown flush', () => {
     const contentDir = join(tmpDir, 'content');
     mkdirSync(contentDir, { recursive: true });
     await ensureProjectGit(projectDir);
+    configureTestGitRepository(projectDir);
+    expect
+      .soft((await simpleGit(projectDir).listConfig('local')).all['maintenance.auto'])
+      .toBe('false');
     const shadowGitDir = join(projectDir, '.git');
     chmodSync(shadowGitDir, 0o500);
     writeFileSync(join(projectDir, '.okignore'), 'content/shadowless-flush-doc.md\n', 'utf-8');
@@ -1792,6 +1887,38 @@ describe('createServer() — config file watcher (US-007)', () => {
     writeFileSync(configPath, newContent, 'utf-8');
 
     const fired = await waitFor(() => ytext.toString() === newContent);
+    expect(fired).toBe(true);
+
+    await srv.destroy();
+  });
+
+  test('a key-level patch to the user config from outside the server reaches __user__/config.yml', async () => {
+    const contentDir = mkdtempSync(resolve(testProjectDir, 'content-'));
+    const srv = createServer({
+      contentDir,
+      projectDir: testProjectDir,
+      quiet: true,
+      configHomedirOverride: testHomedir,
+    });
+    await srv.ready;
+
+    const userDoc = srv.hocuspocus.documents.get('__user__/config.yml');
+    expect(userDoc).toBeDefined();
+    if (!userDoc) {
+      await srv.destroy();
+      return;
+    }
+    const ytext = userDoc.getText('source');
+
+    const written = await writeConfigPatch({
+      cwd: testHomedir,
+      scope: 'user',
+      patch: { editor: { wordWrap: false } },
+      homedirOverride: testHomedir,
+    });
+    expect(written.ok).toBe(true);
+
+    const fired = await waitFor(() => ytext.toString().includes('wordWrap: false'));
     expect(fired).toBe(true);
 
     await srv.destroy();
@@ -2391,7 +2518,7 @@ describe('createServer() server-lock integration (V0-1)', () => {
     );
 
     expect(() => createServer({ contentDir: tmpDir, projectDir: tmpDir, quiet: true })).toThrow(
-      /already running at port 9999/,
+      /content ownership is already held/,
     );
 
     writeFileSync(
@@ -2812,6 +2939,10 @@ describe('createServer() — onAuthenticate branch gate parks on readiness', () 
   test('a claim matching the real HEAD branch survives the boot window', async () => {
     const git = simpleGit(tmpDir);
     await git.init(['--initial-branch=master']);
+    configureTestGitRepository(tmpDir);
+    expect
+      .soft((await simpleGit(tmpDir).listConfig('local')).all['maintenance.auto'])
+      .toBe('false');
     await git.addConfig('user.email', 'test@example.com');
     await git.addConfig('user.name', 'Test');
     writeFileSync(join(tmpDir, 'seed.md'), '# Seed\n');
@@ -2845,6 +2976,10 @@ describe('createServer() — onAuthenticate branch gate parks on readiness', () 
   test('a genuinely stale claim is still rejected after the branch resolves', async () => {
     const git = simpleGit(tmpDir);
     await git.init(['--initial-branch=master']);
+    configureTestGitRepository(tmpDir);
+    expect
+      .soft((await simpleGit(tmpDir).listConfig('local')).all['maintenance.auto'])
+      .toBe('false');
     await git.addConfig('user.email', 'test@example.com');
     await git.addConfig('user.name', 'Test');
     writeFileSync(join(tmpDir, 'seed.md'), '# Seed\n');
@@ -2878,6 +3013,10 @@ describe('createServer() — onAuthenticate branch gate parks on readiness', () 
   test('admission settles before the rest of boot does', async () => {
     const git = simpleGit(tmpDir);
     await git.init(['--initial-branch=master']);
+    configureTestGitRepository(tmpDir);
+    expect
+      .soft((await simpleGit(tmpDir).listConfig('local')).all['maintenance.auto'])
+      .toBe('false');
     await git.addConfig('user.email', 'test@example.com');
     await git.addConfig('user.name', 'Test');
     const noteCount = 120;
@@ -3953,6 +4092,10 @@ describe('createServer() — push-permission auth wiring', () => {
     tmpDir = await mkdtemp(join(tmpdir(), 'ok-auth-wiring-'));
     const git = simpleGit(tmpDir);
     await git.init(['--initial-branch=main']);
+    configureTestGitRepository(tmpDir);
+    expect
+      .soft((await simpleGit(tmpDir).listConfig('local')).all['maintenance.auto'])
+      .toBe('false');
     await git.raw('config', 'user.name', 'Test');
     await git.raw('config', 'user.email', 'test@test.com');
     writeFileSync(join(tmpDir, 'README.md'), 'seed\n', 'utf-8');
@@ -4088,6 +4231,10 @@ describe('createServer() — generated index wiring', () => {
 
   async function bootServer(): Promise<ServerInstance> {
     await ensureProjectGit(projectDir);
+    configureTestGitRepository(projectDir);
+    expect
+      .soft((await simpleGit(projectDir).listConfig('local')).all['maintenance.auto'])
+      .toBe('false');
     await prepareGeneratedIndexGitAttributes();
     shadowHandle = await initShadowRepo(projectDir);
     server = createServer({
@@ -4109,6 +4256,10 @@ describe('createServer() — generated index wiring', () => {
     >,
   ): Promise<ServerInstance> {
     await ensureProjectGit(projectDir);
+    configureTestGitRepository(projectDir);
+    expect
+      .soft((await simpleGit(projectDir).listConfig('local')).all['maintenance.auto'])
+      .toBe('false');
     await prepareGeneratedIndexGitAttributes();
     shadowHandle = await initShadowRepo(projectDir);
     server = createServer({
@@ -5312,6 +5463,10 @@ describe('createServer() — generated index wiring', () => {
 
   async function commitOldShapeAncestorUnderUnionMerge(): Promise<string> {
     fixtureGit('init', '-q', '--template=');
+    configureTestGitRepository(projectDir);
+    expect
+      .soft((await simpleGit(projectDir).listConfig('local')).all['maintenance.auto'])
+      .toBe('false');
 
     const installed = await updateGeneratedIndexGitAttributes({
       projectDir,
@@ -5427,6 +5582,8 @@ async function setupReconcileRig(prefix: string): Promise<ReconcileRig> {
   const tmpDir = await realpath(mkdtempSync(join(tmpdir(), prefix)));
   const git = simpleGit({ baseDir: tmpDir });
   await git.init();
+  configureTestGitRepository(tmpDir);
+  expect.soft((await simpleGit(tmpDir).listConfig('local')).all['maintenance.auto']).toBe('false');
   await git.raw('symbolic-ref', 'HEAD', 'refs/heads/main');
   await git.addConfig('user.name', 'Test User');
   await git.addConfig('user.email', 'test@example.com');
@@ -6100,6 +6257,10 @@ describe('createServer() — disk-event reconcile with an absent reconciled base
     const projectDir = await realpath(mkdtempSync(join(tmpdir(), 'ok-reconcile-park-')));
     const git = simpleGit(projectDir);
     await git.init(['--initial-branch=main']);
+    configureTestGitRepository(projectDir);
+    expect
+      .soft((await simpleGit(projectDir).listConfig('local')).all['maintenance.auto'])
+      .toBe('false');
     await git.raw('config', 'user.name', 'Test');
     await git.raw('config', 'user.email', 'test@example.com');
     const docName = 'park-roundtrip-target';
@@ -6168,6 +6329,10 @@ describe('createServer() — disk-event reconcile with an absent reconciled base
     const projectDir = await realpath(mkdtempSync(join(tmpdir(), 'ok-reconcile-bs-rescue-')));
     const git = simpleGit(projectDir);
     await git.init(['--initial-branch=main']);
+    configureTestGitRepository(projectDir);
+    expect
+      .soft((await simpleGit(projectDir).listConfig('local')).all['maintenance.auto'])
+      .toBe('false');
     await git.raw('config', 'user.name', 'Test');
     await git.raw('config', 'user.email', 'test@example.com');
     const docName = 'branch-switch-rescue-target';
@@ -6270,6 +6435,10 @@ describe('createServer() — disk-event reconcile with an absent reconciled base
     const projectDir = await realpath(mkdtempSync(join(tmpdir(), 'ok-reconcile-firstvisit-')));
     const git = simpleGit(projectDir);
     await git.init(['--initial-branch=main']);
+    configureTestGitRepository(projectDir);
+    expect
+      .soft((await simpleGit(projectDir).listConfig('local')).all['maintenance.auto'])
+      .toBe('false');
     await git.raw('config', 'user.name', 'Test');
     await git.raw('config', 'user.email', 'test@example.com');
     const docName = 'first-visit-settled';

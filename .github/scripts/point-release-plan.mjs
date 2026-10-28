@@ -5,9 +5,13 @@ import { pathToFileURL } from 'node:url';
 import {
   computePointReleaseVersion,
   evaluateAnchorGuard,
+  parseBumpVerdicts,
   readAnchorVersion,
   realGit,
+  recordBumpVerdicts,
   runGit,
+  serializeBumpVerdicts,
+  withBumpVerdicts,
 } from '../../scripts/compute-stable-version.mjs';
 import {
   describeNoSelection,
@@ -16,6 +20,12 @@ import {
   makeTreeAt,
   selectPrebuildRun,
 } from './select-native-config-prebuild.mjs';
+import {
+  createShippedFixCheck,
+  describeVerdict,
+  refusalHeadline,
+  unpublishedBaseReason,
+} from './shipped-fix-containment.mjs';
 import { parseChangeset } from './write-back.mjs';
 
 function refuse(code, message) {
@@ -299,6 +309,24 @@ export function verifyWorkspaceMatchesLockfile({ resolved, readWorktreeFile }) {
   return `agrees with the lockfile on ${notes.join(' and ')}.`;
 }
 
+export function guardBasePublished({ latestStableTag, publishedTags }) {
+  const reason = unpublishedBaseReason({ latestStableTag, publishedTags });
+  if (reason !== null) return refuse('base-unpublished', reason);
+  return pass(`The newest stable tag ${latestStableTag} is published, so the point release builds on it.`);
+}
+
+export function guardShipsPublishedFixes({ verdict, latestStableTag }) {
+  const label = `${latestStableTag} plus the applied fixes`;
+  if (verdict.ok) return pass(describeVerdict(verdict, label)[0]);
+  return refuse(
+    'drops-shipped-fix',
+    [
+      `${refusalHeadline(verdict, label)} Add those fixes to fix_refs, or ship through a promotion whose beta contains them.`,
+      ...describeVerdict(verdict, label).slice(1),
+    ].join('\n'),
+  );
+}
+
 export function guardRefsOnMain({ fixRefs, isOnMain }) {
   const offenders = fixRefs.filter((ref) => !isOnMain(ref));
   if (offenders.length > 0) {
@@ -396,6 +424,33 @@ export function guardMainResetDeltaIds({ deltaIds }) {
 
 const MAIN_RESET_REPO = 'inkeep/agents-private';
 
+export const APP_CREDENTIAL_HELPER =
+  '!f() { test "$1" = get || return 0; echo username=x-access-token; echo "password=$GH_TOKEN"; }; f';
+
+export const pushTagArgs = (tag) => [
+  '-c',
+  'credential.helper=',
+  '-c',
+  `credential.helper=${APP_CREDENTIAL_HELPER}`,
+  'push',
+  'origin',
+  tag,
+];
+
+export function readFixBumps({ mode, fixRefs }, git) {
+  const verdicts = new Map();
+  if (mode === 'revert') return verdicts;
+  const reading = recordBumpVerdicts(git, verdicts);
+  for (const ref of fixRefs) {
+    const sha = git.revParse(ref);
+    const before = git.changesetBlobs(`${sha}^`);
+    for (const [id, blob] of git.changesetBlobs(sha)) {
+      if (before.get(id) !== blob) reading.bumpTypeOf(sha, id);
+    }
+  }
+  return verdicts;
+}
+
 export class PointReleaseRefusal extends Error {
   constructor(code, message) {
     super(message);
@@ -438,6 +493,10 @@ export function runPointRelease(opts, io) {
   }
   const latestStableSha = io.git.revParse(latestStableTag);
 
+  checkGuard(
+    guards,
+    guardBasePublished({ latestStableTag, publishedTags: io.containment.publishedStableTags() }),
+  );
   checkGuard(guards, guardAnchor({ anchorVersion: io.readAnchorVersion(), latestStableTag }));
   checkGuard(guards, guardRefsOnMain({ fixRefs, isOnMain: io.git.isOnMain }));
   checkGuard(guards, guardResolvePathsAllowlisted({ resolvePaths }));
@@ -480,6 +539,12 @@ export function runPointRelease(opts, io) {
       selection: io.gh.selectNativeConfigPrebuild(syntheticSha),
     }),
   );
+  checkGuard(
+    guards,
+    guardShipsPublishedFixes({ verdict: io.containment.evaluate(syntheticSha), latestStableTag }),
+  );
+
+  if (mode === 'revert') warnings.push(revertFollowUpWarning(version.removedIds));
 
   const mainReset = decideMainReset({ anchorDeltaIds, addedIds: version.addedIds, bridgeConfigured, guards, warnings });
 
@@ -635,6 +700,24 @@ function changesetsIntroducedBy(resolvedRefs, io) {
   return introduced;
 }
 
+function revertFollowUpWarning(removedIds) {
+  if (removedIds.length > 0) {
+    return (
+      `This revert deletes ${removedIds.map((id) => `.changeset/${id}.md`).join(', ')}. ` +
+      'If main-reset has already consumed these files on main, an ordinary code-only revert there cannot ' +
+      'reproduce the shipped patch. The shipped-fix check will refuse that later main promotion even when ' +
+      'the rollback code is correct; putting its changeset in a separate PR does not resolve this mismatch. ' +
+      'Unless the revert cannot wait for main, land it on main and ship it in cherry-pick mode instead, ' +
+      'provided it picks cleanly; otherwise use the normal promotion path.'
+    );
+  }
+  return (
+    'A revert has no PR number of its own, so the shipped-fix check will refuse every later promotion until ' +
+    'main holds a commit with exactly the patch this release ships. Land the revert on main in a PR that ' +
+    'changes nothing else, and put its changeset in a separate PR.'
+  );
+}
+
 function decideMainReset({ anchorDeltaIds, addedIds, bridgeConfigured, guards, warnings }) {
   const named = String(anchorDeltaIds ?? '').trim() !== '';
   const deltaIds = named ? parseDeltaIds(anchorDeltaIds) : addedIds;
@@ -685,9 +768,10 @@ export function formatReleaseNotes(plan) {
   return `${lines.join('\n')}\n`;
 }
 
-function realIo() {
+export function realIo() {
   return {
     readAnchorVersion,
+    containment: createShippedFixCheck(),
     fs: {
       readWorktreeFile: (path) => readFileSync(path, 'utf8'),
       writeWorktreeFile: (path, content) => writeFileSync(path, content),
@@ -718,7 +802,7 @@ function realIo() {
         void runGit(['-c', 'core.editor=true', mode === 'revert' ? 'revert' : 'cherry-pick', '--continue']),
       headSha: () => runGit(['rev-parse', 'HEAD']).trim(),
       tag: (tag, sha) => void runGit(['tag', tag, sha]),
-      pushTag: (tag) => void runGit(['push', 'origin', tag]),
+      pushTag: (tag) => void runGit(pushTagArgs(tag)),
     },
     gh: {
       selectNativeConfigPrebuild: (syntheticSha) => {
@@ -773,11 +857,34 @@ function log(...args) {
   process.stderr.write(`${args.join(' ')}\n`);
 }
 
+function readBumpsMain() {
+  let verdicts;
+  try {
+    verdicts = readFixBumps({ mode: process.env.MODE, fixRefs: parseFixRefs(process.env.FIX_REFS) }, realGit);
+  } catch (err) {
+    console.error(`::error::point-release-plan --read-bumps: ${messageOf(err)}`);
+    process.exit(1);
+  }
+  log(`Read the bump of ${verdicts.size} changeset(s) written by ${process.env.MODE} refs ${process.env.FIX_REFS}.`);
+  if (process.env.GITHUB_OUTPUT) {
+    appendFileSync(process.env.GITHUB_OUTPUT, `bump_verdicts=${serializeBumpVerdicts(verdicts)}\n`);
+  }
+}
+
 function main() {
+  if (process.argv[2] === '--read-bumps') {
+    readBumpsMain();
+    return;
+  }
+
   const dryRun = process.env.DRY_RUN !== 'false';
 
   let plan;
   try {
+    const io = realIo();
+    if (process.env.BUMP_VERDICTS !== undefined) {
+      io.git = withBumpVerdicts(io.git, parseBumpVerdicts(process.env.BUMP_VERDICTS));
+    }
     plan = runPointRelease(
       {
         mode: process.env.MODE,
@@ -789,7 +896,7 @@ function main() {
         selfRepo: process.env.GITHUB_REPOSITORY || '',
         bridgeConfigured: process.env.BRIDGE_CONFIGURED === 'true',
       },
-      realIo(),
+      io,
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

@@ -1,14 +1,15 @@
 // oxlint-disable ok/no-raw-html-interactive-element -- pre-rule backlog — file uses raw <button>/<input>/<textarea> awaiting shadcn migration; tracked at https://github.com/inkeep/open-knowledge/blob/main/lint-plugins/ok-rules/README.md#no-raw-html-interactive-element
 // oxlint-disable ok/no-physical-direction-utility -- pre-rule backlog — physical margin/padding/inset utilities predate the rule; drain by swapping ml/mr → ms/me, pl/pr → ps/pe, left/right → start/end, then deleting this line. See https://github.com/inkeep/open-knowledge/blob/main/lint-plugins/ok-rules/README.md#no-physical-direction-utility
+
 import {
-  type HeadingEntry,
   PageHeadingsSuccessSchema,
   ProblemDetailsSchema,
-} from '@inkeep/open-knowledge-core';
+} from '@inkeep/open-knowledge-core/schemas/api';
+import type { HeadingEntry } from '@inkeep/open-knowledge-core/utils/slug';
 import { t } from '@lingui/core/macro';
 import { Trans, useLingui } from '@lingui/react/macro';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import { usePageList } from '@/components/PageListContext';
 import { isKnownPageDocName } from '@/components/page-membership';
 import {
@@ -109,8 +110,12 @@ function OutlinePanelInner({
   const queryClient = useQueryClient();
   const { activeProvider, activeDocName } = useDocumentContext();
   const isKnownPage = isKnownPageDocName(pages, docName);
-  const hadResult = queryClient.getQueryState(['page-headings', docName]) !== undefined;
-  const isUnresolvable = !loading && pageListError === null && !isKnownPage && hadResult;
+  const queryCache = queryClient.getQueryCache();
+  const hasHeadingsQuery = useSyncExternalStore(
+    queryCache.subscribe,
+    () => queryClient.getQueryState(['page-headings', docName]) !== undefined,
+  );
+  const isUnresolvable = !loading && pageListError === null && !isKnownPage && hasHeadingsQuery;
   const {
     data: headings = [],
     isLoading,
@@ -139,6 +144,7 @@ function OutlinePanelInner({
       }, OUTLINE_INVALIDATE_DEBOUNCE_MS);
     };
     doc.on('update', onUpdate);
+    void queryClient.invalidateQueries({ queryKey: ['page-headings', docName] });
     return () => {
       doc.off('update', onUpdate);
       if (debounceTimer !== null) clearTimeout(debounceTimer);

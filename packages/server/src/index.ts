@@ -1,4 +1,5 @@
 export type { Principal } from '@inkeep/open-knowledge-core';
+export { TEST_LOOP_CORE_MARKER } from '@inkeep/open-knowledge-core';
 export {
   GitDirAccessError,
   MalformedGitPointerError,
@@ -260,9 +261,11 @@ export {
 } from './handoff-api.ts';
 export { type ProjectHeadState, readProjectHeadState } from './head-watcher.ts';
 export {
-  assertNotHomeProjectRoot,
+  assertSafeProjectRoot,
   canonicalizeForCompare,
+  FilesystemRootProjectError,
   HomeProjectRootError,
+  isFilesystemRoot,
   isHomeDir,
 } from './home-project-root.ts';
 export {
@@ -508,6 +511,7 @@ export {
   type StarterPackInfo,
 } from './seed/index.ts';
 export { serializeError } from './serialize-error.ts';
+export { ServerAuthorityCollisionError, ServerAuthorityRegistryError } from './server-authority.ts';
 export { createServer, type ServerInstance, type ServerOptions } from './server-factory.ts';
 export {
   acquireServerLock,
@@ -569,6 +573,7 @@ export {
   type GitHubAuthHostResult,
   loginShapedUserinfoUser,
   readDeclaredGitHubHosts,
+  readOriginCredentialHost,
   readOriginGitHubRepo,
   resolveGitHubAuthHost,
   sameGitHubLogin,
@@ -637,7 +642,11 @@ export {
   writeBundleDecision,
   writeTargetVersion,
 } from './skill-state.ts';
-export { reportSkillInstall, type SkillInstallReport } from './skills-sh-install-report.ts';
+export {
+  isSkillInstallReportEnvOptOut,
+  reportSkillInstall,
+  type SkillInstallReport,
+} from './skills-sh-install-report.ts';
 export {
   CURSOR_BUNDLE_PATHS_BY_PLATFORM,
   type HandleSpawnCursorDeps,
@@ -676,6 +685,7 @@ export {
   spansCurrentPath,
   spansPreviousPath,
 } from './telemetry-file-sink.ts';
+export { TEST_LOOP_SERVER_MARKER } from './test-loop-marker.ts';
 export {
   initToleranceTelemetryWriter,
   isToleranceTelemetryEnabled,

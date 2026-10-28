@@ -4,6 +4,8 @@ import {
   cpSync,
   existsSync,
   mkdirSync,
+  mkdtempSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   rmSync,
@@ -135,15 +137,8 @@ function ndjsonEvents(stdout: string) {
   });
 }
 
-function pnpmStartedFetching(output: string) {
-  return ndjsonEvents(output).some(
-    (event) => event.name === 'pnpm:fetching-progress' && event.status === 'started',
-  );
-}
-
-function pnpmIncompleteFetches(output: string) {
-  const events = ndjsonEvents(output);
-  const started = new Set(
+function pnpmStartedFetches(events: Record<string, unknown>[]) {
+  return new Set(
     events
       .filter(
         (event) =>
@@ -153,10 +148,47 @@ function pnpmIncompleteFetches(output: string) {
       )
       .map((event) => String(event.packageId)),
   );
+}
+
+function pnpmRecordedAcquisition(output: string) {
+  const events = ndjsonEvents(output);
+  const started = pnpmStartedFetches(events);
+  return (
+    events.some((event) => event.name === 'pnpm:stage' && event.stage === 'importing_done') &&
+    events.some(
+      (event) =>
+        event.name === 'pnpm:progress' &&
+        (event.status === 'fetched' || event.status === 'found_in_store'),
+    ) &&
+    events.every(
+      (event) =>
+        event.name !== 'pnpm:progress' ||
+        event.status !== 'fetched' ||
+        started.has(String(event.packageId)),
+    )
+  );
+}
+
+function pnpmIncompleteFetches(output: string) {
+  const events = ndjsonEvents(output);
+  const started = pnpmStartedFetches(events);
   for (const event of events)
     if (event.name === 'pnpm:progress' && event.status === 'fetched')
       started.delete(String(event.packageId));
   return [...started];
+}
+
+function pnpmAcquisition(output: string) {
+  const events = ndjsonEvents(output);
+  const progress = new Map<string, Set<string>>();
+  for (const event of events)
+    if (
+      event.name === 'pnpm:progress' &&
+      typeof event.status === 'string' &&
+      typeof event.packageId === 'string'
+    )
+      progress.set(event.status, (progress.get(event.status) ?? new Set()).add(event.packageId));
+  return { fetchStarts: pnpmStartedFetches(events), progress };
 }
 
 function pnpmReportedErrors(output: string) {
@@ -204,6 +236,54 @@ interface InstallRuntime {
     args: string[],
     options: ExecFileOptionsWithStringEncoding,
   ) => Promise<{ stdout: string; stderr: string }>;
+}
+
+interface NpmContext {
+  cacheDir: string;
+  logsDir: string;
+}
+
+function createNpmContext(packDest: string): NpmContext {
+  const root = realpathSync(mkdtempSync(join(packDest, 'npm-')));
+  const cacheDir = join(root, 'cache');
+  const logsDir = join(root, 'logs');
+  mkdirSync(cacheDir);
+  mkdirSync(logsDir);
+  return {
+    cacheDir,
+    logsDir,
+  };
+}
+
+function npmDebugEvidence({ logsDir }: NpmContext): string {
+  let files: string[];
+  try {
+    files = readdirSync(logsDir)
+      .filter((name) => /-debug-\d+\.log$/.test(name))
+      .sort();
+  } catch (error) {
+    return `\nNpm debug logs unavailable at ${logsDir}: ${String(error)}\n`;
+  }
+  if (!files.length) return `\nNo npm debug logs available at ${logsDir}.\n`;
+  return files
+    .map((name) => {
+      const path = join(logsDir, name);
+      try {
+        return `\nNpm debug log ${path}:\n${readFileSync(path, 'utf8')}`;
+      } catch (error) {
+        return `\nNpm debug log unreadable at ${path}: ${String(error)}\n`;
+      }
+    })
+    .join('');
+}
+
+function attachNpmDebugEvidence(error: unknown, evidence: string): unknown {
+  if (error instanceof Error) {
+    try {
+      error.message += evidence;
+    } catch {}
+  }
+  return error;
 }
 
 async function prepareLockedConsumer(
@@ -288,17 +368,24 @@ export async function installPackedCli(
   { now, executeInstall }: InstallRuntime = { now: Date.now, executeInstall: execute },
 ) {
   const installPrefix = realpathSync(options.installPrefix);
-  const env = options.env ?? process.env;
+  const env = { ...(options.env ?? process.env) };
   const mode =
     options.mode ?? z.enum(['locked', 'fresh']).parse(env.OK_CLI_E2E_INSTALL_MODE ?? 'locked');
   const graphDir = join(options.packageDir, 'test-results');
   const graphPath = join(graphDir, 'cli-e2e-fresh-graph.json');
   if (mode === 'fresh') rmSync(graphPath, { force: true });
-  const packed = await execute('npm', ['pack', '--json', '--pack-destination', options.packDest], {
-    cwd: options.packageDir,
-    encoding: 'utf8',
-    env,
-  });
+  const npm = createNpmContext(options.packDest);
+  const npmArgs = ['--cache', npm.cacheDir, '--logs-dir', npm.logsDir];
+  let packed: { stdout: string; stderr: string };
+  try {
+    packed = await execute(
+      'npm',
+      ['pack', '--json', '--pack-destination', options.packDest, ...npmArgs],
+      { cwd: options.packageDir, encoding: 'utf8', env },
+    );
+  } catch (error) {
+    throw attachNpmDebugEvidence(error, npmDebugEvidence(npm));
+  }
   const [archive] = z
     .array(z.object({ filename: z.string(), integrity: z.string() }))
     .nonempty()
@@ -319,6 +406,7 @@ export async function installPackedCli(
           '--prefix',
           installPrefix,
           tarball,
+          ...npmArgs,
         ];
   const configuredFetchTimeout = z.coerce
     .number()
@@ -328,6 +416,7 @@ export async function installPackedCli(
   const deadline = now() + INSTALL_TIMEOUT_MS;
   let unavailable: CliInstallUnavailableError | undefined;
   let outputBytes = 0;
+  let acceptedOutput = '';
   for (let attempt = 1; attempt <= INSTALL_ATTEMPTS; attempt++) {
     const timeout = deadline - now();
     if (timeout <= 0)
@@ -340,6 +429,7 @@ export async function installPackedCli(
     let stderr: string;
     let failed = false;
     let deadlineError: unknown;
+    let diagnostics = '';
     try {
       ({ stdout, stderr } = await executeInstall(
         command,
@@ -352,6 +442,7 @@ export async function installPackedCli(
         },
       ));
     } catch (error) {
+      if (mode === 'fresh') diagnostics = npmDebugEvidence(npm);
       const failure = z
         .object({
           stdout: z.string(),
@@ -361,7 +452,7 @@ export async function installPackedCli(
           code: z.union([z.string(), z.number(), z.null()]).optional(),
         })
         .safeParse(error);
-      if (!failure.success) throw error;
+      if (!failure.success) throw attachNpmDebugEvidence(error, diagnostics);
       ({ stdout, stderr } = failure.data);
       const ownDeadline =
         failure.data.killed === true &&
@@ -370,7 +461,7 @@ export async function installPackedCli(
         now() >= deadline;
       if (typeof failure.data.code === 'string' || (failure.data.signal && !ownDeadline)) {
         process.stderr.write(stdout + stderr);
-        throw error;
+        throw attachNpmDebugEvidence(error, diagnostics);
       }
       if (ownDeadline) deadlineError = error;
       failed = true;
@@ -422,8 +513,12 @@ export async function installPackedCli(
         refetched.push({ packageId, verdict });
         failures.push(verdict);
       }
-    const observed = mode !== 'locked' || pnpmStartedFetching(`${stdout}\n${stderr}`);
-    if (!failed && !failures.length && observed) break;
+    const unobserved =
+      mode === 'locked' && !failed && !pnpmRecordedAcquisition(`${stdout}\n${stderr}`);
+    if (!failed && !failures.length && !unobserved) {
+      acceptedOutput = `${stdout}\n${stderr}`;
+      break;
+    }
     process.stderr.write(stdout + stderr);
     const retryable =
       failures.length > 0 &&
@@ -433,14 +528,14 @@ export async function installPackedCli(
           TRANSPORT_CODES.has(failure.code) ||
           /^(?:E|ERR_PNPM_FETCH_)(?:408|429|5\d\d)$/.test(failure.code),
       );
-    const message = `Packed CLI ${command} installation failed.\n${refetched.map(({ packageId, verdict }) => `pnpm started fetching ${packageId} but never finished, and pnpm 12 skips a failed optional dependency without reporting why. Fetched again by the harness: ${verdict.code.startsWith('INCOMPLETE_FETCH') ? '' : `${verdict.code}: `}${verdict.reason}.\n`).join('')}${stdout}${stderr}`;
+    const message = `Packed CLI ${command} installation failed.\n${refetched.map(({ packageId, verdict }) => `pnpm started fetching ${packageId} but never finished, and pnpm 12 skips a failed optional dependency without reporting why. Fetched again by the harness: ${verdict.code.startsWith('INCOMPLETE_FETCH') ? '' : `${verdict.code}: `}${verdict.reason}.\n`).join('')}${stdout}${stderr}${diagnostics}`;
     if (!retryable) {
       if (deadlineError)
         throw new Error(
-          `Packed CLI ${command} acquisition deadline elapsed on attempt ${attempt} of ${INSTALL_ATTEMPTS}.`,
+          `Packed CLI ${command} acquisition deadline elapsed on attempt ${attempt} of ${INSTALL_ATTEMPTS}.${diagnostics}`,
           { cause: deadlineError },
         );
-      throw new Error(observed ? message : `CLI fetch observer did not run.\n${message}`);
+      throw new Error(unobserved ? `CLI fetch observer did not run.\n${message}` : message);
     }
     unavailable = new CliInstallUnavailableError(
       `Packed CLI acquisition did-not-run after ${attempt} of ${INSTALL_ATTEMPTS} attempts.\n${message}`,
@@ -464,5 +559,6 @@ export async function installPackedCli(
   return {
     cliPath: join(installed, 'dist', 'cli.mjs'),
     binShim,
+    acquisition: mode === 'locked' ? pnpmAcquisition(acceptedOutput) : null,
   };
 }

@@ -1,10 +1,10 @@
-import { sharedExtensions as coreExtensions } from '@inkeep/open-knowledge-core';
-import { Extension } from '@tiptap/core';
+import { sharedExtensions as coreExtensions } from '@inkeep/open-knowledge-core/extensions/shared';
+import { type AnyExtension, Extension } from '@tiptap/core';
 import FileHandler from '@tiptap/extension-file-handler';
 import { KeyboardNav } from '../block-ux/keyboard-nav';
 import { TiptapFindReplace } from '../find-replace/tiptap-find-replace-extension';
 import { GfmAutolink } from '../gfm-autolink-plugin';
-import { uploadAndInsert } from '../image-upload/index.ts';
+import { admitAssetUpload, uploadAndInsert } from '../image-upload/index.ts';
 import { InlineLinkInputRule } from '../inline-link-input-rule';
 import { MathInputRule } from '../math-input-rule';
 import { LandingFlash } from '../plugins/landing-flash-wysiwyg';
@@ -82,11 +82,13 @@ export const sharedExtensions = [
   TabFocusTrap,
   FileHandler.configure({
     onDrop(editor, files, pos) {
+      if (!admitAssetUpload(editor)) return;
       for (const file of files) {
         uploadAndInsert(file, editor, pos);
       }
     },
     onPaste(editor, files, _html) {
+      if (!admitAssetUpload(editor)) return;
       for (const file of files) {
         uploadAndInsert(file, editor, editor.state.selection.from);
       }
@@ -116,3 +118,20 @@ export const sharedExtensions = [
     },
   }),
 ];
+
+const DOCUMENT_SCOPED_EXTENSION_NAMES: ReadonlySet<string> = new Set([
+  'link',
+  'wikiLink',
+  'jsxComponent',
+  'jsxInline',
+  'imageReference',
+]);
+
+export function scopeExtensionsToDocument(
+  extensions: readonly AnyExtension[],
+  docName: string,
+): AnyExtension[] {
+  return extensions.map((ext) =>
+    DOCUMENT_SCOPED_EXTENSION_NAMES.has(ext.name) ? ext.configure({ docName }) : ext,
+  );
+}

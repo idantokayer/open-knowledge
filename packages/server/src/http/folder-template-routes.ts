@@ -32,6 +32,7 @@ import { composeAndWriteRawBody } from '../bridge-intake.ts';
 import { isConfigDoc, isSystemDoc } from '../cc1-broadcast.ts';
 import type { ConflictAuthority } from '../conflict-authority.ts';
 import { DocInConflictError, respondDocInConflict } from '../conflict-errors.ts';
+import type { RemovalLifecycleStatus } from '../conflict-kinds.ts';
 import { enrichDirectory } from '../content/enrichment.ts';
 import {
   applyFolderFrontmatterPatch,
@@ -115,8 +116,9 @@ export interface FolderTemplateRouteDeps {
   registerWrittenDocInFileIndex: (docName: string, content: string) => void;
   captureAndCloseDocuments: (
     docNames: string[],
-    lifecycleStatus: 'deleted-upstream' | 'renamed',
+    lifecycleStatus: RemovalLifecycleStatus,
   ) => Promise<Map<string, string>>;
+  captureNamespaceMove?: (docName: string) => () => void;
   renameTrackedPathInGit: (
     projectDir: string | undefined,
     sourcePath: string,
@@ -161,6 +163,7 @@ export function createFolderTemplateRoutes(deps: FolderTemplateRouteDeps): ApiRo
     respondStaleExternalWrite,
     registerWrittenDocInFileIndex,
     captureAndCloseDocuments,
+    captureNamespaceMove,
     renameTrackedPathInGit,
     renamePathOnDisk,
     splitContentPath,
@@ -871,6 +874,9 @@ export function createFolderTemplateRoutes(deps: FolderTemplateRouteDeps): ApiRo
           'renamed',
         );
 
+        const acceptMove = captureNamespaceMove?.(
+          templateDocNameFor(toValidated.folderRel, body.toName),
+        );
         const result = await applyTemplateMove({
           projectDir: fromValidated.resolvedContentDir,
           fromFolder: fromValidated.folderRel,
@@ -950,6 +956,7 @@ export function createFolderTemplateRoutes(deps: FolderTemplateRouteDeps): ApiRo
           return;
         }
 
+        acceptMove?.();
         recentlyRemovedDocs?.setDeleted(templateDocNameFor(fromValidated.folderRel, body.fromName));
 
         const movedAbs = resolve(toValidated.resolvedContentDir, result.toPath);

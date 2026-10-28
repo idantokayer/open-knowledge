@@ -1559,6 +1559,11 @@ Homepage: https://github.com/jridgewell/sourcemaps/tree/main/packages/sourcemap-
 
 Copyright 2024 Justin Ridgewell <justin@ridgewell.name>
 
+### `@jridgewell/sourcemap-codec@1.6.0`
+Homepage: https://github.com/jridgewell/sourcemaps/tree/main/packages/sourcemap-codec
+
+Copyright 2024 Justin Ridgewell <justin@ridgewell.name>
+
 ### `@jridgewell/trace-mapping@0.3.31`
 Homepage: https://github.com/jridgewell/sourcemaps/tree/main/packages/trace-mapping
 
@@ -4868,6 +4873,11 @@ Copyright (c) 2021 Stephen Ruiz Ltd
 Homepage: https://github.com/nodeca/pica
 
 Copyright (C) 2014-2017 by Vitaly Puzrin
+
+### `picomatch@4.0.7`
+Homepage: https://github.com/micromatch/picomatch
+
+Copyright (c) 2017-present, Jon Schlinkert.
 
 ### `picomatch@4.0.5`
 Homepage: https://github.com/micromatch/picomatch

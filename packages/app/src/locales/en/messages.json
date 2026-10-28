@@ -31,6 +31,9 @@
     ],
     "-bFGPF": ["Next change"],
     "-dNlfM": ["Undid the last edit on ", ["docName"]],
+    "-eFr9g": [
+      "OpenKnowledge on this computer changed to a different build, but this tab is still running the old one."
+    ],
     "-g6KIS": ["Unrecognized link"],
     "-kKdCC": ["Installed ", ["imported"], " skills from ", ["0"]],
     "-kbIAr": ["Links & images"],
@@ -41,6 +44,9 @@
     ],
     "-l6jM7": ["Start a chat with the ＋ button, or launch an agent from a page."],
     "-lCAuQ": ["Loading graph"],
+    "-nA68n": [
+      "Add an access token for a GitLab, Gitea, Bitbucket, Azure DevOps or self-hosted git server. Without one, git uses the credentials it already has saved for that host; with one, OpenKnowledge uses the token instead."
+    ],
     "-o5XAG": [
       "Sent privately to the OpenKnowledge team, along with your note and app version. Never posted publicly."
     ],
@@ -57,6 +63,7 @@
     ],
     "-rMxuf": ["The agent ran out of memory."],
     "-slrNR": ["Toggle a task list."],
+    "-u0gMq": ["That doesn’t parse as YAML or JSON — check line ", ["0"], "."],
     "-uaQnI": ["No matching worktrees or branches."],
     "-yOx8u": ["Saving changes…"],
     "-yPBXI": ["Choose file"],
@@ -232,8 +239,10 @@
     "1njn7W": ["Light"],
     "1nke1r": ["Open ", ["0"], " on GitHub (opens in a new tab)"],
     "1oSHI0": ["Couldn't install ", ["skillName"], ": ", ["0"]],
+    "1ouiTz": ["Excluded image ", ["identity"], ". Go to reference."],
     "1pdLQw": ["Image not found"],
     "1qpGKz": ["Couldn’t save changes. Try editing a color again."],
+    "1rsUiG": ["The crash dump couldn't be added to this report."],
     "1ruosn": ["OpenKnowledge"],
     "1t_NnN": ["Reject"],
     "1u-mAI": ["Couldn't start the sync. Check your connection, then retry."],
@@ -241,6 +250,7 @@
     "1vczDE": ["Open ", ["displayName"], " Desktop"],
     "1vn0CI": ["Invalid server response"],
     "1xui0Q": ["Failed to load local files"],
+    "1yHVE-": ["Adding"],
     "2-3Mlu": ["Couldn't unpin ", ["name"]],
     "20LVKb": [
       "The agent process was told to stop (",
@@ -415,6 +425,9 @@
     "3zDeFb": ["Ruminating…"],
     "3zyg_A": ["Ignore patterns"],
     "4-Phgi": ["Show or hide agents"],
+    "40dUmM": [
+      "Turning off index maintenance failed because the Open Knowledge section of .gitattributes was edited or is incomplete. Remove that section, then try again."
+    ],
     "42QMZH": ["requests"],
     "438Fca": ["Cloned successfully, but could not open the project."],
     "43qzxu": ["DevOps"],
@@ -474,6 +487,15 @@
     "4mp6Tv": ["OpenKnowledge listed the installed skills"],
     "4niEzY": ["Sandboxed HTML embed — write HTML, see the rendered preview live."],
     "4nj6n8": ["/api/config returned HTTP ", ["code"]],
+    "4p8Baj": [
+      "Token stored for ",
+      ["login"],
+      " on ",
+      ["host"],
+      ". To remove it, run <0>ok auth signout --host ",
+      ["host"],
+      "</0>."
+    ],
     "4pDZ2N": ["Removed \"", ["0"], "\" from every other location — its source folder still loads"],
     "4r6p_B": [
       "This command contains hidden characters that can make it look different from what runs. They are shown here as ⟨U+…⟩."
@@ -490,6 +512,9 @@
     "5-FeN2": ["Share URL"],
     "5-o4kO": ["Only markdown files"],
     "50ORFs": ["Reset ", ["0"], " to default"],
+    "50gx7V": [
+      "Choose whether this project's OpenKnowledge setup, including its AI-tool connections and the Shared default sync mode, is saved with the project so teammates get it too, or kept only on your computer."
+    ],
     "54Y6Fg": ["Could not load templates. Try again later."],
     "56WWtu": ["Couldn't load starter packs: ", ["error"]],
     "56xUL1": ["Property name"],
@@ -542,6 +567,7 @@
     "5ZbJFS": ["Your current version is saved first, so this is reversible."],
     "5_j-DA": ["Kill Terminal"],
     "5aahsI": ["nothing (", ["0"], " is not a valid pattern)"],
+    "5afD3A": ["About & updates"],
     "5b3WD-": ["OpenKnowledge saved a checkpoint"],
     "5e1Dri": ["The menu label agents pick this template by (required)."],
     "5ecEGe": [
@@ -694,6 +720,9 @@
     "7C9JcA": [
       "The OpenKnowledge project path on this branch leaves the worktree. The worktree was created but not opened."
     ],
+    "7Crqsa": [
+      "OpenKnowledge doesn't check for or download updates on its own. Check for updates still works when you want a newer version."
+    ],
     "7FA2iI": ["Couldn't read the comments waiting to send — nothing was sent."],
     "7FamGZ": ["Go to line"],
     "7Fkcej": ["+ Add ", ["addChildName"]],
@@ -727,13 +756,7 @@
     "7YRrJ9": [
       "Available in the OpenKnowledge desktop app. From a terminal, use<0> ok config-sharing status</0> / <1>share</1> / <2>unshare</2>."
     ],
-    "7_I248": [
-      "This project's git remote is on ",
-      ["host"],
-      ", which OpenKnowledge doesn't recognize as a GitHub host. If ",
-      ["host"],
-      " runs GitHub Enterprise Server, add it to GitHub Enterprise Server hosts below, then restart OpenKnowledge."
-    ],
+    "7ZpNC-": ["gh"],
     "7_bFEL": ["Drag ", ["patternText"], " to reorder"],
     "7a0YcF": ["Press <0>Space</0> or tap the blob to start"],
     "7aNk5D": ["OpenKnowledge edited ", ["subject"]],
@@ -765,7 +788,9 @@
     "7l15X4": ["failed"],
     "7lFX_h": ["Steer now"],
     "7m3Ade": ["installs:"],
+    "7mxVbK": ["Download and install updates automatically"],
     "7qRHf0": ["Install for Claude Chat & Cowork"],
+    "7sNhEz": ["Username"],
     "7uBlRT": ["Copy the focused file-tree item so Paste can duplicate it."],
     "7vxWET": ["Pack preview unavailable."],
     "7wogIQ": [["0", "plural", { "one": ["Plugin"], "other": ["Plugins"] }]],
@@ -774,7 +799,6 @@
     ],
     "80c4-P": ["Code copied to clipboard"],
     "81H_23": ["Add properties"],
-    "851WA-": ["This can be configured in Settings > AI tools & CLI"],
     "87GMKe": ["Expose this project to the network?"],
     "881Uwh": ["Delete selected table"],
     "89SLQ-": ["External link previews and GitHub reference cards"],
@@ -795,6 +819,7 @@
       " — that folder is not this skill. Rename or delete one of the two to resolve."
     ],
     "8HxtjY": ["That language isn't available for spell checking."],
+    "8I3MkQ": ["version"],
     "8Jm2EP": ["Toggle heading levels 1 through 6."],
     "8L0EPw": ["or paste a token"],
     "8OGgNM": ["Open or close visual-editor find."],
@@ -889,6 +914,9 @@
     "9OPs7U": ["This agent hasn't announced its commands yet"],
     "9PQysm": ["Hide advanced"],
     "9R7pRC": ["No tags match \"", ["trimmed"], "\". Continue typing to create one."],
+    "9U-7Xv": [
+      "Auto-sync is on, but there's no remote to sync with yet. It starts as soon as a remote is connected."
+    ],
     "9UQ730": ["Clone"],
     "9V0W-R": [
       "Adds the OpenKnowledge skill to the <0>Claude Desktop App</0> so it's available in Chat and Cowork sessions."
@@ -911,6 +939,8 @@
     "9bCiQ8": ["No pages are missing incoming graph links."],
     "9bG48P": ["Sending"],
     "9clcD5": ["Open documents tagged #", ["chip"]],
+    "9djC8C": ["Connect a GitHub account to browse and publish GitHub repositories."],
+    "9eQiRf": ["GitHub CLI"],
     "9euN0m": [
       [
         "count",
@@ -949,6 +979,7 @@
     "9x-lMu": ["In this repo — collaborators get copies via git."],
     "9xCnv8": ["Hide Terminal"],
     "9zb2WA": ["Connecting"],
+    "A1JMsI": ["Reload this tab to bring it up to date. Your edits are saved before it reloads."],
     "A1taO8": ["Search"],
     "A50vr3": ["Use lowercase letters, digits, and <0>-</0> only."],
     "A5CYnd": ["Broken link"],
@@ -1011,7 +1042,6 @@
       " in ",
       ["parentLabel"]
     ],
-    "AeXO77": ["Account"],
     "AgoIW4": [
       ["source"],
       ": ",
@@ -1024,6 +1054,7 @@
       ["detail"]
     ],
     "AhoGwP": ["Set up OpenKnowledge integrations"],
+    "Ai2U7L": ["Host"],
     "AiNMQ7": [
       "This project lives only on this computer. Connect it to GitHub to back it up and share it with other people."
     ],
@@ -1083,6 +1114,9 @@
     ],
     "BQKHuL": ["Restart terminal"],
     "BQu9Pg": ["Symlink"],
+    "BRtKwG": [
+      "To connect AI tools without a project, use File > Set up OpenKnowledge integrations…"
+    ],
     "BUyQnq": ["Couldn't restart the server. Try `ok start` in this folder."],
     "BVkqD9": [
       "Index maintenance is paused because another Git attribute controls index.md. Update .gitattributes so the scoped index.md paths use merge=union, then try again."
@@ -1104,6 +1138,9 @@
       "Undo, redo, or step through selection changes in the Edit source pane or a code-shaped property field."
     ],
     "BlLxpG": ["Search skills"],
+    "BmHzMW": [
+      "Some templates may not be listed because this knowledge base has too many folders to scan. To see a folder's templates, open its menu in the file tree and choose New from template."
+    ],
     "BowKyI": ["Show details"],
     "Bv5a9_": ["Selection statistics"],
     "BwKH4d": ["External apps"],
@@ -1233,6 +1270,9 @@
     "DLIljL": ["Some saved themes aren’t shown because the theme folder exceeds the scan limit."],
     "DMLE5q": ["MCP auto-repair failed"],
     "DMeaxi": ["Downloading ", ["0"], " ", ["1"], "…"],
+    "DMwy6X": [
+      "It also adds the out-of-memory kills of OpenKnowledge that the system journal recorded in the past week, without the machine name, account id, or folder paths."
+    ],
     "DNkveC": ["Column options"],
     "DPfwMq": ["Done"],
     "DTI-fp": [
@@ -1271,6 +1311,7 @@
     "DqyItq": [
       "OpenKnowledge logs across projects. No project is open, so project server logs are not included."
     ],
+    "DrKYv7": ["Project folder: <0>", ["projectDir"], "</0>"],
     "DsDwR-": [["0", "plural", { "one": ["#", " error"], "other": ["#", " errors"] }]],
     "DskIkK": ["Sign-in stream ended without confirmation — please try again"],
     "DuCPiG": [
@@ -1306,9 +1347,6 @@
     "E2Mv-X": ["Copy source"],
     "E4XYYH": ["Enable terminal for this project"],
     "E5WeIy": ["Reopen the most recently closed editor tab."],
-    "E6lrpp": [
-      "Manage the GitHub account OpenKnowledge uses to browse and sync your repositories."
-    ],
     "E7BhZn": ["Blank note"],
     "E8NbNG": ["Couldn't load worktrees."],
     "E91VZY": ["Open in New Window"],
@@ -1322,7 +1360,6 @@
     "EEYbdt": ["Publish"],
     "EFfGAv": ["That message already went out — your edit wasn't applied."],
     "EHu0x2": ["Syncing"],
-    "EJuO7B": ["Connect a GitHub account to browse and sync your repositories."],
     "EKwNEe": [
       "Cached embeddings belong to the endpoint and model that produced them, so this rebuilds the index from scratch."
     ],
@@ -1473,6 +1510,9 @@
     "FgRAvd": ["Logs & system info"],
     "Fhp4Gn": ["View plugin"],
     "Fim5F3": ["embeddings"],
+    "FioJgb": [
+      "Reconnect required to keep syncing. Add a token for this host in Settings, or replace the one stored."
+    ],
     "FiyNln": ["Jump to selected text in property"],
     "FjkaiT": ["Zoom out"],
     "Fjz6aJ": ["Send to a new chat"],
@@ -1569,9 +1609,6 @@
     "GesfyX": [["shown"], " and ", ["more"], " more"],
     "Gfr4fu": ["Server can't open documents"],
     "GhjUB_": ["Reconnected"],
-    "Gi8Akx": [
-      "No agents are set up yet — add an in-app agent in Agent connections to attach files."
-    ],
     "GidGkh": ["Update from source"],
     "GifIjR": [
       "Skill \"",
@@ -1624,6 +1661,9 @@
       "This setup is shared with ",
       ["peers"],
       ", and OpenKnowledge cannot change it from here. Unlink the folder in Skills Studio first."
+    ],
+    "HADdBA": [
+      "Sync keeps this computer's copy up to date with your Git remote. The shared settings below decide what teammates get when they open the project."
     ],
     "HAkEqR": ["Recent files"],
     "HAvHev": ["Auto-update off for \"", ["name"], "\""],
@@ -1693,6 +1733,7 @@
     "I5AfhE": ["Sync status unavailable — server unreachable."],
     "I6gXOa": ["Path"],
     "I7Exsw": ["Follow us on X"],
+    "I7F-p1": ["Missing ", ["0"], " slot(s): ", ["1"]],
     "I7y_vn": ["Re-run the project audit"],
     "IA1wNb": ["The Claude Desktop App didn't open the file. Is it installed? (", ["msg"], ")"],
     "IA6JW2": ["Detecting"],
@@ -1836,6 +1877,7 @@
     "KIIamL": [
       "OpenKnowledge will create commits and push them to your remote automatically. If you do not want automatic commits in your git history, you should not enable auto-sync."
     ],
+    "KJ_eAL": ["Excluded"],
     "KOZud0": [
       "Build a competitor research knowledge base. Start with an overview page, then add cross-linked pages for each competitor, their products and pricing, and the sources behind every claim."
     ],
@@ -1889,6 +1931,9 @@
     "KvwJv8": ["Some files are not listed — the working tree has too many changes."],
     "Kx881F": ["Restored ", ["0"], "."],
     "KziH2K": ["Fast"],
+    "L-crEu": [
+      "Git couldn't authenticate with this host. Check the SSH key or saved credentials git uses for it."
+    ],
     "L-rMC9": ["Reset to default"],
     "L1BQTH": [["0"], " isn't installed yet — opening its download page."],
     "L1ZE3M": ["Document statistics"],
@@ -1903,6 +1948,9 @@
       "Present a document as a slide deck in its own window. Add <0>slides: true</0> to a document's frontmatter, then open it with the Slidev action. Rendering is handled by the Slidev CLI, which OpenKnowledge does not bundle."
     ],
     "L4Cdd9": ["or create a new file <0/>"],
+    "L5wak0": [
+      "It also adds the crash and hang records Windows logged for OpenKnowledge in the past week, without file paths, and the times of every shutdown, restart, power loss, and low-memory warning on this computer in that week, whatever caused them."
+    ],
     "L6Hhh6": ["(root)"],
     "L6Ud-t": ["Couldn't load conflicts — reload to retry."],
     "L7NFTZ": ["Enter a number of seconds between ", ["minimum"], " and ", ["maximum"], "."],
@@ -1935,6 +1983,7 @@
       ]
     ],
     "LKOLNn": ["No AI agents installed"],
+    "LMUw1U": ["App"],
     "LMVNT6": [["agentName"], " needs you to sign in."],
     "LPAv9E": [["days"], "d ago"],
     "LPLWpO": ["The board's content is not a valid Excalidraw scene."],
@@ -1944,6 +1993,9 @@
     "LRgZAt": [["owner"], "/", ["name"], " already exists"],
     "LSuMte": [["0"], " of ", ["totalCount"]],
     "LTeJuX": ["Toggle Full Screen"],
+    "LVWA9A": [
+      "Authentication failed for this git host. Add a token for it in Settings, or replace the one stored."
+    ],
     "LXIm4m": ["Context window"],
     "LXdWeS": ["Medium section heading."],
     "LXfNU-": ["Navigation and suggestions"],
@@ -2003,9 +2055,6 @@
     "LzM_ga": ["Filter skills"],
     "M0jOcG": ["View in source markdown"],
     "M1OfV9": ["Next source diagnostic"],
-    "M3ytY_": [
-      "This looks like a drive root (e.g., C:\\). Scaffolding here will scan an entire drive."
-    ],
     "M5_9s2": ["Sending report"],
     "M5mfAe": ["Add tag"],
     "M6mvVi": ["Copy relative path"],
@@ -2076,6 +2125,7 @@
     "Mj8R8K": ["Couldn't install skill: ", ["0"]],
     "MmDDWK": ["Recently opened"],
     "Mnavhe": [["propPanelDescriptorLabel"], " Properties"],
+    "MpZRQy": ["Git"],
     "MqQoV-": ["Describe what you want to build, start a blank file, or scaffold from a template."],
     "MqsbfN": ["Turn on external link previews?"],
     "MrUmCD": ["unknown build failure"],
@@ -2102,9 +2152,6 @@
     "N2eHWq": ["Code Block"],
     "N3_ozB": ["Hubs"],
     "N40H-G": ["All"],
-    "N55YNr": [
-      "Choose whether this project's OpenKnowledge setup, including its AI-tool connections, is saved with the project so teammates get it too, or kept only on your computer."
-    ],
     "N5rzKJ": ["Delete ", ["0"], " skills"],
     "N6j2JH": ["Edit ", ["0"]],
     "N7Lau6": ["Commit and sync"],
@@ -2187,6 +2234,11 @@
     "NuH1jp": ["Public repository"],
     "Nv3mUj": ["Show advanced"],
     "NvOvTi": ["Create in <0>", ["dirDisplay"], "</0>"],
+    "NwHa_3": [
+      "No agents are set up yet — add an in-app agent in ",
+      ["agentConnectionsLabel"],
+      " to attach files."
+    ],
     "Nwbs0q": ["Don't show"],
     "NxW-md": ["Resize ", ["handleKey"]],
     "NzFvyK": ["Session ended — undo unavailable"],
@@ -2245,8 +2297,14 @@
     "OOIVJo": ["Uninstalled \"", ["0"], "\" from ", ["1"]],
     "OOLsBh": [["0"], " share this folder."],
     "OPOiKn": ["Content rules"],
+    "OP_8go": [
+      "Turning off index maintenance failed because Open Knowledge could not reach the project server. Try again when the project reconnects."
+    ],
     "OTF92M": ["Label <0>(optional display text)</0>"],
     "OVjNeX": ["Terminal ", ["0"]],
+    "OWs-8P": [
+      "A token added here only applies to HTTPS remotes, and this project's remote doesn't use HTTPS."
+    ],
     "OX2Neh": ["Inline code"],
     "OXb_Df": ["Settings content"],
     "OXdGnd": ["Problems"],
@@ -2255,6 +2313,7 @@
     "OdmsFg": ["Failed to delete item"],
     "OeAl1e": ["e.g. assets/uploads"],
     "OfhWJH": ["Reset"],
+    "OgvwrM": ["Loading sync status"],
     "Ohpzub": ["Comment or ask AI about this code block"],
     "Oi56Cu": ["Cleanup log"],
     "OiHJdA": [
@@ -2326,6 +2385,7 @@
     "PWh9Ii": ["Apply changes"],
     "PWqtgd": ["Loading the chat"],
     "PXaT32": ["Server returned an incomplete skill-targets response."],
+    "PXg8xK": ["Your user settings could not be read"],
     "PYmp-0": ["Import as template"],
     "PZKdTd": ["Untitled report"],
     "PZn2LP": ["Keep source"],
@@ -2364,6 +2424,7 @@
       ["filePath"],
       ". Explain what I should compare in the OpenKnowledge Conflict view; I will choose and apply the resolution there."
     ],
+    "Q14Keq": ["Bitbucket"],
     "Q1mtyd": ["Hide sidebar"],
     "Q5fqMz": ["Connection error — try again"],
     "Q6hhn8": ["Preferences"],
@@ -2421,6 +2482,7 @@
       " with ",
       ["childCount", "plural", { "one": ["#", " item"], "other": ["#", " items"] }]
     ],
+    "Qe6_xF": ["about"],
     "QeREu8": ["Renamed"],
     "QfFBdJ": ["The template's filename (without `.md`)."],
     "Qft6eW": ["Move ", ["0"], " to Global"],
@@ -2529,6 +2591,7 @@
     "RXYvxn": ["This option cannot be changed automatically."],
     "RY6Bq1": ["Open shared ", ["targetNoun"]],
     "RZXTlY": ["Auto-fix (", ["count"], ")"],
+    "R_U8x8": ["\"", ["name"], "\""],
     "R_U_A4": ["Add file or folder pattern, e.g. guides/**/*"],
     "RaPMZv": ["Keyboard shortcuts available in the editor and workspace."],
     "RaUKLu": ["Remote control"],
@@ -2553,6 +2616,7 @@
       "</0> to embed your content. Stored on this machine only (in <1>~/.ok/secrets.yml</1>), never in the project."
     ],
     "Rj01Fz": ["Links"],
+    "RkXlPZ": ["GitHub"],
     "RlCInP": ["Slash commands"],
     "RmBY0A": ["No git remote"],
     "RnrnTe": ["Already set up — ok is available in your terminal"],
@@ -2576,6 +2640,7 @@
       " has been moved, renamed, or deleted in your local copy, and that change hasn't synced yet."
     ],
     "S-7ej_": ["Couldn't mark that comment to send."],
+    "S1sFIQ": ["That doesn’t parse as YAML or JSON."],
     "S33tz3": ["Not connected"],
     "S3qu11": ["It was a trial or one-off project"],
     "S48xcO": ["pending"],
@@ -2632,6 +2697,7 @@
     "SiUUCS": ["Next match"],
     "SkMZlS": ["Couldn't remove <0>", ["targetGitPath"], "</0>: ", ["removeGitError"]],
     "SkTkKV": ["The agent isn't stopping. Force stop closes this chat and quits the agent."],
+    "SkUcEr": ["Access token"],
     "Ske_wc": [
       "User plugins are personal to this device — turn them on or off here. Each enabled plugin gets its own page under Plugins in the settings sidebar."
     ],
@@ -2750,6 +2816,9 @@
       ["shareBranch"],
       "</0> recently. Switch and update to open it."
     ],
+    "UcTm1A": [
+      "Provided by the GitHub CLI (<0>gh</0>) on this computer. To switch accounts or sign out, run <1>gh auth</1> in a terminal."
+    ],
     "UceXfW": [
       ["boldName"],
       " is part of the <0>",
@@ -2809,6 +2878,9 @@
     ],
     "VFQXPl": [
       "External link previews show a card with the site name, page title, and description when you hover a link."
+    ],
+    "VIrNh0": [
+      "Some edits haven't reached the server yet, so the tab didn't reload. Your edits are still here."
     ],
     "VJaBca": ["Choose a skill folder"],
     "VL6VsE": ["Accept current"],
@@ -2940,16 +3012,13 @@
     "X3MMeA": ["None of these problems have an automatic fix."],
     "X59Fx2": ["Couldn't open this document in Slidev."],
     "X7ShnN": ["Open agents panel"],
-    "X7u0xR": [["0"], " templates available"],
     "X8kjQX": ["Re-authenticate with GitHub"],
     "X9VpsP": ["Loading folder contents"],
+    "XA9uvc": ["OpenKnowledge checks for and downloads updates in the background."],
     "XAnapw": ["Git merge rule"],
     "XAyxsa": ["Check out remote branch"],
     "XBBZnv": ["Link target \"", ["shown"], "\" does not resolve to an existing document."],
     "XBgr2S": ["Copy in"],
-    "XBpH6-": [
-      "OpenKnowledge couldn't find a host name in this project's git remote, so it can't tell which GitHub server to sign in to."
-    ],
     "XDzAnp": ["Opens in a new tab"],
     "XF1kgP": ["Everything from ", ["source"], " is already up to date"],
     "XGKy1z": ["Image couldn't be displayed"],
@@ -2958,6 +3027,7 @@
     "XJOV1Y": ["Activity"],
     "XK5cbh": ["Traverse OpenKnowledge navigation history forward."],
     "XNBGZw": ["Message not sent: ", ["0"]],
+    "XN_sSd": ["Automatic updates"],
     "XNdXMR": [
       ["dependent"],
       " needs ",
@@ -3057,6 +3127,7 @@
     "Y5la_5": ["Install into"],
     "Y6PKd1": ["Remove ", ["name"], " from recent projects"],
     "Y6SK9K": ["Show source"],
+    "Y7DcwM": ["This can be configured in Settings > ", ["agentConnectionsLabel"]],
     "Y8ViJx": ["A newer version may have been deployed since this tab opened."],
     "Y9c_nf": ["0/0"],
     "YBt9YP": ["Beta"],
@@ -3154,6 +3225,9 @@
     "Z8KDox": ["Enter a folder name (e.g. brain)."],
     "Z8lGw6": ["Share"],
     "Z8nach": ["Upload failed: ", ["0"]],
+    "Z9s6k8": [
+      "This tab is still reconnecting to OpenKnowledge, so it didn't reload. Try again in a moment."
+    ],
     "ZBF9fn": ["Manage skill folders"],
     "ZBZEkP": ["Captured before this dialog, with the pointer marked."],
     "ZBxvV3": ["New Terminal"],
@@ -3175,9 +3249,6 @@
     "ZW2yR_": ["Add custom path"],
     "ZW3mlR": ["Diff render mode"],
     "ZWgr0b": ["In a subfolder"],
-    "ZWolSV": [
-      "You picked the filesystem root (/). Scaffolding here will scan every file on this machine — make sure that's what you want."
-    ],
     "ZWwYwM": ["Base branch"],
     "ZWxfrc": ["cleared folder properties"],
     "ZWyHmq": ["This project"],
@@ -3217,6 +3288,9 @@
     "Zue_jx": ["Your GitHub token is missing required scopes. Try signing in again."],
     "ZvzbDF": ["Add it directly to this project."],
     "ZwpggY": ["OpenKnowledge read the project settings"],
+    "Zysl7r": [
+      "The sync mode teammates start with the first time they open this project. It's saved in the project's OpenKnowledge settings, so it only reaches them when Config sharing below is set to Shared."
+    ],
     "_0JUKX": ["Bug reporting needs the OpenKnowledge desktop app."],
     "_2cM9E": ["recent"],
     "_3S4Ql": [
@@ -3249,6 +3323,10 @@
       "</1>."
     ],
     "_9rYSZ": ["repaired MCP integration for ", ["names"]],
+    "_BOsQt": [
+      ["label"],
+      " build. Its settings and data are kept separate from other OpenKnowledge apps."
+    ],
     "_Bix3-": ["Occurrences of ", ["localizedFirstMessage"]],
     "_CWM2I": ["Select list item"],
     "_DwR-n": ["Creating…"],
@@ -3277,9 +3355,6 @@
     "_Pmhxt": ["… earlier output trimmed"],
     "_PnPuw": ["Picked up ", ["0"], " from ", ["1"], "."],
     "_QwkMu": ["No matching paths"],
-    "_RcqUM": [
-      "You picked your home directory. OpenKnowledge will index everything in your home tree — large and may surface personal files."
-    ],
     "_SDGzH": ["Continue in browser"],
     "_SkqfM": ["Accept incoming"],
     "_TDESN": ["Network error - ", ["kind"], " \"", ["createdPath"], "\" still exists on disk"],
@@ -3388,6 +3463,9 @@
     "arUUsK": ["Product updates"],
     "ax9kie": ["Link preview settings not yet loaded — try again in a moment"],
     "axQ1h6": ["Anything you'd like to add? (optional)"],
+    "azrR7I": [
+      "The username git sends with the token. Some hosts expect a fixed value: type <0>x-bitbucket-api-token-auth</0> for a Bitbucket API token, <1>x-token-auth</1> for a Bitbucket repository or workspace access token, or <2>oauth2</2> for GitLab. For Gitea, use your Gitea username. Azure DevOps accepts any value."
+    ],
     "b18t0_": ["Close diff"],
     "b1FDss": ["Scroll to start"],
     "b2ezG_": ["Kept both — \"", ["0"], "\" is its own skill now"],
@@ -3423,6 +3501,7 @@
     "bZinKv": ["Start a new chat (", ["0"], ")"],
     "ba3vIW": [["templateCount", "plural", { "one": ["template"], "other": ["templates"] }]],
     "bbJ-VR": ["Zoom Out"],
+    "bc7aCh": ["Connected to ", ["host"], " as @", ["login"]],
     "bcDHUM": [["descriptorLabel"], " — render error, source editable below"],
     "bcjYUA": ["Fold or unfold source"],
     "bcm0pR": ["the open agent"],
@@ -3469,6 +3548,11 @@
     "bwil08": ["Building <0>openknowledge.skill</0> and opening the Claude Desktop App"],
     "bwoxGI": ["Needs you to sign in"],
     "bwy8Y7": ["On <0>", ["address"], "</0>"],
+    "bzjcwc": [
+      "No AI tools detected yet. Once you install one, connect it from Settings > ",
+      ["agentConnectionsLabel"],
+      "."
+    ],
     "bzsK8N": ["Reads the authoring palette so new documents match the project's style"],
     "c0dKr4": [
       "In an agent chat, hovering a link to a GitHub pull request or issue asks GitHub for its status, signed in as you when OpenKnowledge can use your GitHub sign-in."
@@ -3492,6 +3576,7 @@
       " will load every extension in it, not only Open Knowledge's — and both stay until you remove Open Knowledge from this project."
     ],
     "c9-Pi9": [["source"], " · skills.sh source"],
+    "c9C7DQ": ["Couldn't save this setting. Try again."],
     "cCd8Bs": ["Cut"],
     "cD3aew": ["Re-embedding happens as searches run, so coverage restarts at zero and refills."],
     "cEoyWz": ["Add item to ", ["keyName"]],
@@ -3707,6 +3792,16 @@
     "dw_dUJ": ["Failed to duplicate path"],
     "dx-TwN": ["Running project audit"],
     "dyfMJN": ["Code copied"],
+    "e-SEoZ": [
+      [
+        "0",
+        "plural",
+        {
+          "one": ["At least ", "#", " template found"],
+          "other": ["At least ", "#", " templates found"]
+        }
+      ]
+    ],
     "e-pP6g": ["This list may be out of date — last read ", ["staleRelative"], "."],
     "e0NrBM": ["Project"],
     "e1Rn_k": ["Open containing folder"],
@@ -3722,6 +3817,7 @@
     "e8zRrb": ["Show Files"],
     "e8zYa8": ["Could not open ", ["shareBranch"], " in a worktree. Try again."],
     "e9sHSO": ["Pick up where you left off"],
+    "eAYJMv": ["token"],
     "eBGWcy": [
       "Open Knowledge tools are unavailable because the project folder is missing, inaccessible, or has changed. Check its location and permissions, then retry."
     ],
@@ -3738,6 +3834,7 @@
       ["names"],
       ". Each original was verified unchanged, so remove those copies and retry the move."
     ],
+    "eJR1Ns": ["Saving your edits before reloading…"],
     "eJitUk": ["Upload from computer"],
     "eKGK4A": ["Search chat history"],
     "eKThTQ": ["Failed to reorder"],
@@ -3780,6 +3877,9 @@
     "emgiet": ["Authoritative content; mirrored verbatim everywhere it's referenced."],
     "enPTnx": ["line ", ["displayLine"]],
     "eolhcI": ["Reading working tree"],
+    "epGMvx": [
+      "Couldn't reach the OpenKnowledge server, so sync options are hidden. They appear here as soon as the sync status loads; closing and reopening Settings also retries."
+    ],
     "eps54V": ["Removed"],
     "epuNYK": [
       "Mark a block as the source of truth. Mirrors elsewhere update live as you edit it."
@@ -3900,6 +4000,14 @@
         }
       ]
     ],
+    "g2E_It": ["Already connected to ", ["replacingToolList"]],
+    "g3ouZB": [
+      [
+        "0",
+        "plural",
+        { "one": ["#", " template available"], "other": ["#", " templates available"] }
+      ]
+    ],
     "g4XBm0": ["Small section heading."],
     "g4e0hS": ["Ask ", ["agentName"]],
     "g58Kwy": [
@@ -3991,7 +4099,13 @@
     "gp3I7-": ["Before syncing, set your identity for git commits:"],
     "gpbKxw": ["Link validation is unavailable."],
     "gqk-3R": ["Moved ", ["0"], " to ", ["destination"], "."],
+    "gssxm9": [
+      "Link target \"",
+      ["shown"],
+      "\" exists but is excluded by .gitignore or .okignore. Re-include it, or its folder, with a \"!\" rule in .okignore."
+    ],
     "gtEbeW": ["Highlight"],
+    "gtuaAV": ["That parsed, but it isn’t a base16 theme."],
     "guidance.mcp.managed-file": [
       "Writes a small bridge file ",
       ["agent"],
@@ -4072,7 +4186,6 @@
     "hFmYGU": ["Linked theme files aren’t supported"],
     "hGmuTc": ["Docs tagged #", ["tagDocsName"]],
     "hHMv6l": ["Delete block"],
-    "hHQHPX": [["label"], " uses isolated app data"],
     "hIQkLb": ["New chat"],
     "hItdtk": ["Browse folder"],
     "hLKfZe": ["Use a token instead"],
@@ -4191,6 +4304,7 @@
     "iTylMl": ["Templates"],
     "iUwpZI": ["No spaces — use <0>-</0> instead."],
     "iXTp5j": ["Scope: "],
+    "iXYzwf": ["App instance: ", ["label"], ", v", ["version"]],
     "iXs0kt": ["The skills list did not match its schema."],
     "iYUTsI": ["This source bundles several skills — choose one, then Import."],
     "iZCZmF": [
@@ -4295,12 +4409,14 @@
     "jSg1tA": ["More actions (", ["syncAttentionLabel"], ")"],
     "jTLWxh": ["Embed an external page in an inline iframe (docs, demos, Figma, CodeSandbox)."],
     "jTUxaN": ["Enable Auto (Pull only)"],
+    "jTVuAv": ["Close this preview, then open the folder to upload files"],
     "jVe0gf": ["Attach comments: ", ["count"]],
     "jWwQo6": ["batch"],
     "jWzDfC": ["Checking which AI tools you have"],
     "jZ_E5M": ["Fetch failed — check the server logs for details."],
     "j_Z6g7": ["Shared default"],
     "jbSG8V": ["Show Files (", ["sidebarShortcutLabel"], ")"],
+    "jbhCDS": ["Other Git hosts"],
     "jcEoUi": ["Move to right panel"],
     "jdGUeI": ["Couldn't create template: ", ["error"]],
     "jeCFV7": ["Move to new pane right"],
@@ -4416,6 +4532,9 @@
     "kj9pAE": ["Creating page"],
     "kjlQ9D": ["becomes a symlink"],
     "kjrq_8": ["More information"],
+    "kkd4bu": [
+      "Turning off index maintenance failed because Open Knowledge could not update the Git merge rule. Check Git and .gitattributes, then try again."
+    ],
     "kknhfj": ["No changes"],
     "kkux8f": ["Couldn’t delete ", ["0"], ". Try again."],
     "klPS-L": ["Original file — before this agent's edits."],
@@ -4452,6 +4571,11 @@
     "l3zD7w": ["Starting the agent…"],
     "l46MqT": ["Next tab"],
     "l5J_HM": ["Type a query, then press <0>↵</0> to search your pages by meaning."],
+    "l60gJd": [
+      "Some edits haven't reached the server yet, so the tab didn't reload. Open ",
+      ["docs"],
+      " to save them, then reload."
+    ],
     "l6GfXr": ["Starting"],
     "l6kpzR": [
       "This ",
@@ -4532,6 +4656,9 @@
     "lond3p": ["Shows above the code body. Round-trips as `title=\"...\"` in markdown."],
     "lrhetp": ["+ ", ["overflow"], " more"],
     "lwCV5v": ["Couldn't open ", ["0"], " for editing: ", ["1"]],
+    "lwvkBP": [
+      "It also adds any display-connection errors OpenKnowledge wrote to your user journal in the past week, each message cut to 200 characters."
+    ],
     "lyWa43": ["Project-level disconnected pages"],
     "lzmtKp": ["Failed to load folder properties: ", ["message"]],
     "lzsa2d": ["Copy error"],
@@ -4547,6 +4674,7 @@
     "m2T1Xj": ["Tag #", ["tagValue"], ", ", ["uses"]],
     "m3ocfn": ["Writes an entry to"],
     "m6YGpY": ["Active panel content for the selected tab shows here."],
+    "m6znp-": ["update"],
     "mAzs2H": ["Disable ", ["file"]],
     "mBK8zm": ["/", ["0"], " isn't a command this agent offers — it will be sent as plain text"],
     "mBltnd": ["Path suggestions"],
@@ -4638,9 +4766,6 @@
       "Repositories you've already cloned may keep syncing through git's own saved credentials, even after you disconnect."
     ],
     "msqUNq": ["Ready-made folders and templates to get you started quickly."],
-    "msuDyW": [
-      "Set the sync default for users opening this project for the first time. This setting is committed to your repository."
-    ],
     "mwMF9u": ["Open CodeMirror search in source editor mode."],
     "mxGJVE": ["Switch worktree…"],
     "mxY24F": ["Duplicate the focused file-tree item when focus is in the Files sidebar."],
@@ -4715,6 +4840,7 @@
     "ni5Vqi": ["(a bare folder name needs /** after it to match what's inside)"],
     "njBeMm": ["Both"],
     "njU86j": ["Property \"", ["trimmed"], "\" already exists"],
+    "nlVYlU": ["Not a hex color: ", ["0"]],
     "nmwqWS": ["Not answered"],
     "nnhrHd": [
       "Leave the broken links written inside a log.md or log.mdx at any folder depth out of Problems, file explorer indicators, editor diagnostics, audits, and agent write advisories. What counts is the file a link is written in, not the file it points at, and LOG.md is an ordinary document. The Links panel and the editor still show them."
@@ -4740,9 +4866,6 @@
     ],
     "nwtY4N": ["Something went wrong"],
     "nxlOpL": ["OpenKnowledge is using this GitHub account."],
-    "ny6vNn": [
-      "OpenKnowledge is using a GitHub account provided by the gh CLI. There's no separate OpenKnowledge credential to disconnect."
-    ],
     "nzHlj8": ["Close ", ["0"]],
     "nzaV6Q": ["Page thumbnails"],
     "o-XJ9D": ["Change"],
@@ -4823,6 +4946,7 @@
       ["0"],
       " — something outside OK changed it since. The state shown is what's on disk now; your next Symlink/Unlink wins."
     ],
+    "p5kgYT": ["Automatic updates are not available right now."],
     "p7Utw8": ["Not a base16 theme"],
     "p98xmP": ["Applies to"],
     "p9sdCy": ["New ignore pattern"],
@@ -4842,6 +4966,7 @@
     "pI_bKs": ["<0>Space</0> to jump · <1>↓</1> to duck"],
     "pJ7XCo": ["This page references no local files or images."],
     "pMPnZv": ["Deleted ", ["deleted"], " skills"],
+    "pNy87H": ["This update is no longer ready to install."],
     "pOo4Aa": ["Plain text"],
     "pPiV8s": ["Enable Auto (Pull and Push)"],
     "pSF7TJ": ["This checkout path cannot be read."],
@@ -4874,6 +4999,9 @@
     "pckX1A": [["0", "plural", { "one": ["#", " use"], "other": ["#", " uses"] }]],
     "pcqlQu": [["0", "plural", { "one": ["Folder"], "other": ["Folders"] }]],
     "pd0UH2": ["Align right"],
+    "pd6t3G": [
+      "Manage the accounts and access tokens OpenKnowledge uses to connect to your git hosts."
+    ],
     "peq20S": [
       "The browser isn't available in this chat because it couldn't be set up. OpenKnowledge's log has the details."
     ],
@@ -4884,6 +5012,7 @@
     "phM8Kh": ["Found the repo but could not open the project. Please try again."],
     "pha01Y": ["Project-level pages with no incoming graph edges."],
     "pkAft1": ["Search failed."],
+    "pkC8Fi": ["Excluded file ", ["identity"], ". Go to reference."],
     "pkmXTp": [["agentName"], " is ready"],
     "pmUArF": ["Workspace"],
     "poAsUN": ["no agents — saved, not installed anywhere"],
@@ -4921,6 +5050,11 @@
     "q63KUv": ["Add MCP & skill"],
     "q7F5am": ["title"],
     "q8aCbb": ["Two versions of \"", ["0"], "\" — source vs ", ["editor"]],
+    "qAC6UE": [
+      "Image target \"",
+      ["shown"],
+      "\" exists but is excluded by .gitignore or .okignore. Re-include it, or its folder, with a \"!\" rule in .okignore."
+    ],
     "qAQVSD": ["Page headings response was not JSON"],
     "qAhFeg": [
       ["userName"],
@@ -4985,6 +5119,7 @@
     "qi17kj": ["Embed a live snapshot of an .excalidraw board from this workspace."],
     "qi1F96": ["Reveal in File Explorer"],
     "qiRoLb": ["Summarize everything I changed this week"],
+    "qimTXH": ["OpenKnowledge can't sign in to GitHub for this project."],
     "qioCwA": ["Jump to page ", ["pageNumber"]],
     "qjHMHf": ["Failed to disable sync — ", ["detail"]],
     "qkqG0b": ["Take upstream"],
@@ -5006,6 +5141,9 @@
     "r51jLC": ["File saved & Claude Desktop App opened"],
     "r57GiQ": [["agentName"], " stopped unexpectedly."],
     "r6ncaO": ["Close tab"],
+    "r6riWv": [
+      "It also adds the low-memory reports macOS wrote in the past week that list OpenKnowledge's processes, with each one's memory use and whether macOS ended it."
+    ],
     "r6y-jM": ["Warning"],
     "r7IaYp": ["Open Knowledge Format guidance"],
     "r7tQuq": ["Your report is saved on this computer, so nothing was lost."],
@@ -5021,6 +5159,7 @@
     "rENNI6": ["Invalid share URL."],
     "rFL-yb": ["Edit a copy"],
     "rFTdVq": ["Show in Explorer"],
+    "rFbQzX": ["OpenKnowledge keeps retrying and shows them as soon as the file can be read."],
     "rFmBG3": ["Color theme"],
     "rFskYz": [
       "Applies to all projects on this machine, in Claude Code and Codex chats in the Agents panel started after you turn it on. The agent can open pages, click, type, and take screenshots in its own Google Chrome window with a fresh profile. Needs Google Chrome and Node.js installed. Every browser action asks for your approval, with no option to always allow it, unless the agent's own mode or permission settings skip approvals."
@@ -5038,6 +5177,9 @@
     "rQAQus": ["Couldn't save template: ", ["error"]],
     "rQRrkB": ["yesterday"],
     "rSoi6g": [["displayName"], " (", ["bin"], ") isn't installed or on your PATH."],
+    "rSsp-5": [
+      "Open Knowledge could not reach the project server to check index maintenance. The status updates when the project reconnects."
+    ],
     "rUNOLA": [
       "Semantic search isn't available with the current embeddings provider setup. Check Settings → Search."
     ],
@@ -5045,6 +5187,9 @@
     "rVxu1k": ["No pages link here yet."],
     "rXz97P": ["Numbered list of items."],
     "rZ9HZq": ["To do"],
+    "rZFxkH": [
+      "Enter the host name git connects to, with an optional :port and no scheme or path, for example git.example.com."
+    ],
     "rZVMkf": ["Visual editor replace input focused"],
     "radOpL": ["Image ", ["identity"], ". Go to reference."],
     "rageVb": ["Custom HTML with a live preview pane (sandboxed iframe)."],
@@ -5215,9 +5360,6 @@
     "tHKQ6j": ["Renaming"],
     "tKlWWY": ["Emoji"],
     "tLX6LY": ["OpenKnowledge wrote a document"],
-    "tLd2qa": [
-      "No AI tools detected yet. Once you install one, connect it from Settings > AI tools & CLI."
-    ],
     "tM5uzl": [
       "The provenance, trust, and lifecycle families: sources, generated, verified, status, and stale_after. Every field is optional, and absence is never an error."
     ],
@@ -5256,6 +5398,9 @@
     "tlGXxX": ["Auto (Pull only)"],
     "tnG-m6": ["Auto-sync is paused — sign in to resume."],
     "toyw51": ["Mermaid diagram controls"],
+    "tpOnU9": [
+      "OpenKnowledge has no credential stored for this host. Add a token in Settings, or let git use the credentials it already has."
+    ],
     "tqQBwN": ["Any scripts are shown for review, never run."],
     "troubleshooting.claude-desktop.per-tool-approval": [
       ["agent"],
@@ -5362,6 +5507,9 @@
     "uL_Wx8": ["The terminal stopped unexpectedly."],
     "uM6jnS": ["Restore failed"],
     "uNGmQn": ["Couldn't run the test. Check that OpenKnowledge is still running."],
+    "uNkJ8H": [
+      "This mode comes from the project's Shared default below. Pick a mode to choose your own for this computer."
+    ],
     "uO9WLl": ["Push"],
     "uOKoBM": [
       "Replaces the existing ",
@@ -5372,6 +5520,9 @@
     "uQNW00": ["Detached HEAD — checkout a branch to resume"],
     "uQewpR": [
       "Couldn't restart the server — it's running under a different account. Restart your computer to clear it, then reopen this project."
+    ],
+    "uQhfwT": [
+      "Turning off index maintenance failed because the project setting could not be saved. Check the project file permissions, then try again."
     ],
     "uUCrBv": ["symlink"],
     "uVbUP8": ["Settings…"],
@@ -5416,6 +5567,7 @@
     "uoJF_D": ["It was too hard to set up or get started"],
     "uqs8Gd": [["others", "plural", { "one": ["#", " other"], "other": ["#", " others"] }]],
     "ur2XSb": ["Visual editor"],
+    "uraHF0": ["GitLab"],
     "uuoHOU": ["Command failed."],
     "uwzRx4": [
       "Adjust indexing request size and timeout for slow or memory-constrained embedding servers. Most setups should keep the defaults."
@@ -5431,6 +5583,7 @@
     "v2ZW0K": ["Enable terminal"],
     "v2a04T": ["markdownlint rules"],
     "v41fCm": ["File not found"],
+    "v6Glry": ["Turn off auto-sync"],
     "v75Em9": [
       [
         "uploadedCount",
@@ -5513,6 +5666,9 @@
     "vvWZnu": ["Diff unavailable"],
     "vwV-kH": ["Fixing files stopped unexpectedly."],
     "vy_VIN": ["Tracked in git — updates flow through your repo (pull or CI), not auto-update"],
+    "w-Wt3H": [
+      "Reconnect required to keep syncing. Check the SSH key or saved credentials git uses for this host."
+    ],
     "w0YVAE": ["Show skill nodes"],
     "w3tVpc": ["No links yet. Add wiki links or markdown links to build a graph."],
     "w3vFfL": ["Hide Files"],
@@ -5548,6 +5704,9 @@
     "wJijgU": ["Location"],
     "wJo9oS": ["Close find"],
     "wKJo7h": ["The OpenKnowledge project is missing at this checkout path."],
+    "wLRCZ8": [
+      "The server couldn't read this project's sync status, so sync options are hidden. They appear here as soon as the sync status loads; closing and reopening Settings also retries."
+    ],
     "wQp1V3": ["Mirror of <0>", ["src"], "</0>"],
     "wQvvZY": ["New skill file"],
     "wRni1Z": ["Disable Slidev"],
@@ -5632,7 +5791,6 @@
     "x57cJf": ["Open link"],
     "xAlHfe": [["basename"], " — text editor"],
     "xBFg6z": ["From the ", ["0"], " plugin"],
-    "xBjIs7": ["GitHub sign-in isn't available for this project"],
     "xCJdfg": ["Clear"],
     "xCdTnb": ["Close new tab"],
     "xD4Xm2": ["Fetch"],
@@ -5644,6 +5802,9 @@
     "xG4tb6": ["Lost connection to \"", ["docName"], "\"."],
     "xG8Ish": ["Not planned"],
     "xHGM4U": ["Hide HTML preview"],
+    "xJ7qrb": [
+      "No credential is stored for this git host. Add a token in Settings, or let git use the credentials it already has."
+    ],
     "xK291b": ["Two-page (odd)"],
     "xKDsGS": ["Go to line ", ["0"], " in ", ["1"]],
     "xKcXG6": [["addingCount", "plural", { "one": ["#", " added"], "other": ["#", " added"] }]],
@@ -5686,6 +5847,13 @@
     "xnWySt": ["Cleanup may still be running."],
     "xrVr_k": ["Couldn't create skill: ", ["0"]],
     "xsZhu-": ["Page number"],
+    "xsqOtX": [
+      "OpenKnowledge on this computer is now v",
+      ["serverVersion"],
+      ", but this tab is still running v",
+      ["tabVersion"],
+      "."
+    ],
     "xtJgSe": ["This source bundles several skills — choose the one to import."],
     "xvv5gL": ["Screenshot preview"],
     "xxRpzT": ["Slidev found on your system."],
@@ -5730,7 +5898,14 @@
     "yLwx9e": [
       "A parent directory is the symlink — unlink that folder itself to take this one back."
     ],
+    "yLyiQV": ["The stored token is missing the permissions this host needs to push."],
     "yMgL_E": ["Find field navigation"],
+    "yNpyg4": [
+      ["label"],
+      " build, v",
+      ["version"],
+      ". Its settings and data are kept separate from other OpenKnowledge apps."
+    ],
     "yOjRUV": ["No AI tools detected. Install one to use this skill."],
     "yQE2r9": ["Loading"],
     "yQyglE": ["No matching docs"],
@@ -5816,13 +5991,25 @@
     "zLGXna": ["No starter packs available."],
     "zLak8b": ["Activate new tab"],
     "zMmwh4": ["Pick a theme or create your own."],
+    "zP6U1P": ["Not added to any AI tool yet."],
     "zWZBPx": ["Type changed"],
+    "zXZJoN": ["Add token"],
     "zXj1rA": ["Search by meaning"],
     "zYp8Sr": [
       "A <0>Modified</0> badge marks rules your config sets explicitly — directly, or inherited through <1>extends</1>. Unmarked rules keep their default state."
     ],
     "zZ_I5K": ["Open project menu"],
     "z_4xza": ["Failed to load docs. Press <0>Esc</0> and re-open to retry."],
+    "z_wa6u": [
+      [
+        "count",
+        "plural",
+        {
+          "one": ["Found ", ["formattedCount"], " markdown file"],
+          "other": ["Found ", ["formattedCount"], " markdown files"]
+        }
+      ]
+    ],
     "zaXlhf": [
       "The properties block at the top of this doc has a formatting error. Switch to source mode to fix it."
     ],
@@ -5832,6 +6019,9 @@
     "zkkEFa": ["Enter a whole number between ", ["minimum"], " and ", ["maximum"], "."],
     "zkz0Fg": ["Set up syncing"],
     "zlErBl": ["Page headings error response did not match RFC 9457"],
+    "zmQdP2": [
+      "This tab couldn't confirm that your edits are saved, so it didn't reload. Your edits are still here."
+    ],
     "zo3Dl7": ["Toggle thumbnails"],
     "zpfN9p": ["No comments yet. Select text in the document to add one."],
     "zq2eBA": ["View in source"],

@@ -3,6 +3,7 @@ dist/
 packages/desktop/out/
 packages/desktop/dist-desktop/
 packages/desktop/dev-app-update.yml
+packages/desktop/electron.vite.config.*.mjs
 .turbo/
 turbo-cache-key.json
 tmp/
@@ -20,6 +21,7 @@ packages/app/test-results/
 playwright-report/
 playwright-report-json/
 blob-report/
+.vitest/
 .vscode/
 .mcp.json
 .cursor/mcp.json

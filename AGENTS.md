@@ -6,7 +6,7 @@ This is the public OpenKnowledge repository. Keep changes compatible with the pu
 
 - Read [README.md](./README.md) for the project overview.
 - Read [CONTRIBUTING.md](./CONTRIBUTING.md) before changing public PR flow, dependencies, or exported docs.
-- Use Node.js 24 or newer and pnpm 12 or newer.
+- Use pnpm 12 or newer. Corepack and npm need a Node.js to provide it, such as the `.node-version` release; the standalone installer needs none. pnpm commands run the Node.js version `package.json`'s `devEngines.runtime` pins, which equals `.node-version`; select `.node-version` yourself before running `node` directly.
 - This repo does not use code comments. Read [Comment policy](#comment-policy) before writing any.
 
 ## Commands
@@ -51,7 +51,7 @@ pnpm run dev
 
 ## Process safety
 
-Never signal a pid you did not spawn. Signal a held `ChildProcess` before it exits (its group only then); never a pid from a file, `ps` or stdout, a `?? <n>` fallback or literal `0`/`1`/`-1`. Gate: `ok/no-sentinel-signal-target`.
+Never signal a pid you did not spawn. Signal a held `ChildProcess` before it exits (its group only then); never a pid from a file, `ps` or stdout, a `?? <n>` fallback or literal `0`/`1`/`-1`. Two acts in the maintainers' gate tooling, which this repository does not carry, go further, and nothing else does: the lifeline watcher the guard of each gate step forks into the step's process group may run `kill -s KILL 0`, which ends the group it belongs to; and after the step's first process exits, its supervisor may still signal the step's group while that lifeline, a live member, holds the group. Gate: `ok/no-sentinel-signal-target`.
 
 ## Comment policy
 

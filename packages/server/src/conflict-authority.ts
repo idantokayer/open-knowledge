@@ -13,6 +13,7 @@ import {
   holdsMarkersOnDisk,
   isConflictKind,
   isReconcileReason,
+  isRemovalLifecycleStatus,
   type LifecycleView,
   type ReconcileReason,
   type ResolveStrategy,
@@ -74,6 +75,7 @@ export interface ConflictIo {
 export interface ConflictAuthorityOptions {
   projectDir: string;
   contentDir: string;
+  assertResolutionPath?: (path: string) => void;
   branch?: string;
   signal?: Pick<CC1Broadcaster, 'signal'> | null;
   io: ConflictIo;
@@ -225,6 +227,7 @@ function migrateLedgerEntry(raw: LegacyLedgerEntry, currentBranch: string): Conf
 }
 
 export class ConflictAuthority implements ConflictReader {
+  private readonly assertResolutionPath?: (path: string) => void;
   private readonly storePath: string;
   private readonly projectDir: string;
   private readonly contentDir: string;
@@ -236,6 +239,7 @@ export class ConflictAuthority implements ConflictReader {
   private branch: string;
 
   constructor(options: ConflictAuthorityOptions) {
+    this.assertResolutionPath = options.assertResolutionPath;
     this.projectDir = options.projectDir;
     this.contentDir = options.contentDir;
     this.io = options.io;
@@ -529,6 +533,7 @@ export class ConflictAuthority implements ConflictReader {
   async resolve(file: string, strategy: ResolveStrategy, content?: string): Promise<void> {
     const entry = this.byFile.get(file);
     if (entry === undefined) throw new NoConflictTrackedError({ file });
+    this.assertResolutionPath?.(resolve(this.projectDir, file));
 
     if (strategy === 'content') requireConflictResolutionContent(file, content);
 
@@ -663,10 +668,10 @@ export class ConflictAuthority implements ConflictReader {
   lifecycleOf(document: Y.Doc, docName: string): LifecycleView | null {
     const map = document.getMap('lifecycle');
     const status = map.get('status');
-    if (status === 'deleted-upstream') return { status: 'deleted-upstream' };
-    if (status === 'renamed') {
+    if (isRemovalLifecycleStatus(status)) {
+      if (status === 'deleted-upstream') return { status };
       const newPath = map.get('newPath');
-      return { status: 'renamed', newPath: typeof newPath === 'string' ? newPath : '' };
+      return { status, newPath: typeof newPath === 'string' ? newPath : '' };
     }
     const entry = this.byDocName.get(docName);
     if (entry === undefined) return null;

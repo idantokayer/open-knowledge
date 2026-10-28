@@ -1,9 +1,10 @@
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { createContext, type ReactNode, use, useState } from 'react';
 import { FormProvider } from 'react-hook-form';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { renderLinguiTemplate } from '@/test-utils/lingui-mock';
+import { renderSettingsBody } from '@/test-utils/render-settings-body.test-helper';
 
 type SyncStatus = {
   state: string;
@@ -52,14 +53,19 @@ let publishDialogProps: Array<{ open: boolean }> = [];
 let claudeRefreshCalls = 0;
 let claudeSkillInstalled = false;
 
-const actualCore = await import('@inkeep/open-knowledge-core');
+const actualFeatureFlags = await import('@inkeep/open-knowledge-core/constants/feature-flags');
 
 import * as actualLinguiMacro from '@lingui/react/macro';
+import { createServedBindingLog } from '@/test-utils/served-binding.test-helper';
 
-vi.doMock('@inkeep/open-knowledge-core', () => ({
-  ...actualCore,
-  SHOW_INSTALL_SKILL: true,
-}));
+const servedCore = createServedBindingLog();
+
+vi.doMock('@inkeep/open-knowledge-core/constants/feature-flags', () =>
+  servedCore.serve('@inkeep/open-knowledge-core/constants/feature-flags', {
+    ...actualFeatureFlags,
+    SHOW_INSTALL_SKILL: true,
+  }),
+);
 
 vi.doMock('@lingui/react/macro', () => ({
   ...actualLinguiMacro,
@@ -346,7 +352,7 @@ async function renderBody(
   } = { activeId: 'sync' },
 ) {
   const { SettingsDialogBody } = await import('./SettingsDialogBody');
-  render(
+  return renderSettingsBody(
     <TooltipProvider>
       <SettingsDialogBody
         activeId={props.activeId}
@@ -449,6 +455,21 @@ describe('SettingsDialogBody section runtime dispatch', () => {
     expect(screen.getByTestId('settings-scope-badge-user')).not.toBeNull();
   });
 
+  test('the About & updates page shows the installed version', async () => {
+    const w = window as unknown as { okDesktop?: unknown };
+    w.okDesktop = {
+      appVersion: '1.2.3',
+      state: { query: async () => ({ channel: 'latest', schemaIncompatibility: null }) },
+      onUpdateManualCheck: () => () => {},
+    };
+    try {
+      await renderBody({ activeId: 'about' });
+      expect((await screen.findByTestId('settings-about-version')).textContent).toBe('v1.2.3');
+    } finally {
+      w.okDesktop = undefined;
+    }
+  });
+
   test('the Account page mounts the Enterprise hosts card from the user binding', async () => {
     const { bindConfigDoc } = await import('@inkeep/open-knowledge-core');
     const { Doc } = await import('yjs');
@@ -547,6 +568,27 @@ describe('SettingsDialogBody section runtime dispatch', () => {
       'This machine',
     );
     expect(screen.getByTestId('settings-scope-badge-project').textContent).toBe('Project');
+  });
+
+  test('sync page says what stays on this computer and what teammates get', async () => {
+    syncStatus = {
+      state: 'idle',
+      hasRemote: true,
+      syncEnabled: false,
+      remote: {
+        label: 'inkeep/open-knowledge',
+        webUrl: 'https://github.com/inkeep/open-knowledge',
+      },
+    };
+
+    await renderBody({ activeId: 'sync' });
+
+    expect(screen.getByTestId('settings-sync-sharing').textContent ?? '').toContain(
+      'The shared settings below decide what teammates get when they open the project.',
+    );
+    expect(screen.getByTestId('settings-sync-default').textContent ?? '').toContain(
+      'it only reaches them when Config sharing below is set to Shared',
+    );
   });
 
   test('project preferences includes attachments controls mapped to content.attachmentFolderPath', async () => {
@@ -1009,6 +1051,21 @@ describe('SettingsDialogBody section runtime dispatch', () => {
     expect(screen.getByTestId('settings-install-claude-desktop').textContent).toBe('Reinstall');
     expect(screen.getByTestId('install-claude-dialog').getAttribute('data-reinstall')).toBe('true');
   });
+  test('the Integrations section renders because the feature-flag replacement serves the install-skill flag on', async () => {
+    claudeSkillInstalled = false;
+    const since = servedCore.mark();
+    await renderBody({ activeId: 'claude-desktop' });
+
+    expect(screen.getByText('Install in Claude Desktop')).not.toBeNull();
+    expect(
+      servedCore.readersOf(
+        '@inkeep/open-knowledge-core/constants/feature-flags',
+        'SHOW_INSTALL_SKILL',
+        since,
+      ),
+    ).toEqual(['components/settings/IntegrationsSection.tsx']);
+  });
+
   test('dispatches every lint plugin id built by pluginSettingsSectionId', async () => {
     const { pluginSettingsSectionId } = await import('@/lib/use-settings-route');
     const { LINT_PLUGIN_META } = await import('./lint-plugin-meta');

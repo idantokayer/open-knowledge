@@ -6,12 +6,16 @@ import {
   agentIdForHandoffTarget,
   agentIdForTerminalCli,
   CONNECTION_ROW_AGENT_IDS,
-  type HandoffTarget,
+  type HandoffHostPlatform,
   type HostSnapshot,
+  isHandoffTargetSupportedOn,
+} from '@inkeep/open-knowledge-core/agent-registry';
+import {
+  type HandoffTarget,
   TERMINAL_CLI_IDS,
   TERMINAL_CLIS,
   type TerminalCli,
-} from '@inkeep/open-knowledge-core';
+} from '@inkeep/open-knowledge-core/handoff';
 import { useLingui } from '@lingui/react/macro';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowUpRight, Check, Search, TriangleAlert, WifiOff } from 'lucide-react';
@@ -59,7 +63,7 @@ import {
   applyAgentConnectionIntents,
 } from '@/lib/agent-connections';
 import { followupHintText } from '@/lib/agent-followup-hint';
-import { VISIBLE_TARGETS } from '@/lib/handoff/targets';
+import { isTargetOfferedOnHost, VISIBLE_TARGETS } from '@/lib/handoff/targets';
 import { useWorkspace } from '@/lib/use-workspace';
 import {
   type ApplyConnections,
@@ -87,6 +91,7 @@ import {
 import { type RowAction, rowActionFor, rowHasResidualFiles } from './agent-row-action';
 import { groupHeadingFor } from './group-heading';
 import { SettingsSectionHeader } from './SettingsSectionHeader';
+import { AGENT_CONNECTIONS_SECTION_LABEL } from './settings-section-labels';
 
 function AgentRow({
   icon,
@@ -397,9 +402,14 @@ function InlineRemoveButton({
   );
 }
 
-function registryInstallUrl(agentId: AgentId | undefined): string | null {
+function registryInstallUrl(
+  agentId: AgentId | undefined,
+  hostPlatform: HandoffHostPlatform | undefined,
+): string | null {
   if (agentId === undefined) return null;
-  return AGENT_REGISTRY[agentId].external?.installUrl ?? null;
+  const external = AGENT_REGISTRY[agentId].external;
+  if (external === undefined) return null;
+  return isHandoffTargetSupportedOn(external, hostPlatform) ? external.installUrl : null;
 }
 
 function readProducedFacts(snapshot: HostSnapshot | null): boolean {
@@ -764,9 +774,16 @@ export function AgentConnectionsSection({
   );
   const desktopPresence = (id: HandoffTarget) =>
     rowPresence(agentIdForHandoffTarget(id), states[id]?.installed ?? null);
+  const hostPlatform = typeof window === 'undefined' ? undefined : window.okDesktop?.platform;
   const desktopTargets = VISIBLE_TARGETS.filter((target) => {
     const { displayName } = target;
-    return matches(t`${displayName} Desktop`) || matches(target.id);
+    return (
+      isTargetOfferedOnHost(target, {
+        platform: hostPlatform,
+        installed: states[target.id]?.installed,
+      }) &&
+      (matches(t`${displayName} Desktop`) || matches(target.id))
+    );
   }).sort(
     (a, b) =>
       Number(desktopPresence(a.id) === 'absent') - Number(desktopPresence(b.id) === 'absent'),
@@ -790,7 +807,7 @@ export function AgentConnectionsSection({
     unlaunchableIds.length === 0;
   const showInApp = !searching || catalog.isLoading || catalog.isError || inAppAgents.length > 0;
   const showTerminal = !searching || terminalClis.length > 0;
-  const showDesktop = !searching || desktopTargets.length > 0 || unlaunchableIds.length > 0;
+  const showDesktop = desktopTargets.length > 0 || unlaunchableIds.length > 0;
 
   const inAppChecked = (agent: CatalogAgent): boolean => {
     return isInAppAgentChecked(overrides, registeredKeys, agent);
@@ -926,7 +943,8 @@ export function AgentConnectionsSection({
           enabled,
           detected,
           presence,
-          registryInstallUrl(agentIdForTerminalCli(cli)) ?? TERMINAL_CLIS[cli].docsUrl,
+          registryInstallUrl(agentIdForTerminalCli(cli), hostPlatform) ??
+            TERMINAL_CLIS[cli].docsUrl,
         );
         return (
           <AgentRow
@@ -1099,7 +1117,7 @@ export function AgentConnectionsSection({
       data-field="section:agent-connections"
       data-testid="settings-configure-agents"
     >
-      <SettingsSectionHeader titleId={titleId} title={t`Agent connections`}>
+      <SettingsSectionHeader titleId={titleId} title={t(AGENT_CONNECTIONS_SECTION_LABEL)}>
         {t`Choose which agents appear in agent menus across the app, and set them up to read and update your documents.`}
       </SettingsSectionHeader>
 

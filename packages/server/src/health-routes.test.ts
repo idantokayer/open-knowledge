@@ -6,7 +6,12 @@ import { resolve } from 'node:path';
 import type { Hocuspocus } from '@hocuspocus/server';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import type { BootedServer } from './boot.ts';
-import { bootCompositionRig, parseProblem, rawRequest } from './composition-rig.test-helper.ts';
+import {
+  bootCompositionRig,
+  parseProblem,
+  type RawResponse,
+  rawRequest,
+} from './composition-rig.test-helper.ts';
 import { getFreeLoopbackPort } from './loopback-rig-test-helpers.ts';
 import { mountMcpAndApi } from './mcp-mount.ts';
 
@@ -91,41 +96,44 @@ describe('/readyz', () => {
     }
   }, 30_000);
 
+  test('destroy() flips readiness to draining before the listener closes', async () => {
+    const tmp = await mkdtemp(resolve(tmpdir(), 'ok-readyz-drain-'));
+    try {
+      const draining = await bootCompositionRig(tmp);
+      try {
+        await draining.ready;
+        const { httpServer } = draining;
+        const closeListener = httpServer.close.bind(httpServer);
+        let probeBeforeClose: Promise<RawResponse> | undefined;
+        httpServer.close = ((callback?: (err?: Error) => void) => {
+          probeBeforeClose = rawRequest(draining.port, '/readyz');
+          const close = () => {
+            closeListener(callback);
+          };
+          void probeBeforeClose.then(close, close);
+          return httpServer;
+        }) as typeof httpServer.close;
+
+        await draining.destroy();
+
+        expect(probeBeforeClose).toBeDefined();
+        const probe = await probeBeforeClose;
+        expect(probe?.status).toBe(503);
+        expect(JSON.parse(probe?.body ?? '')).toMatchObject({ ready: false, status: 'draining' });
+      } finally {
+        await draining.destroy();
+      }
+    } finally {
+      await rm(tmp, { recursive: true, force: true });
+    }
+  }, 30_000);
+
   test('is exempt from the Host gate like /healthz', async () => {
     const res = await rawRequest(booted.port, '/readyz', {
       headers: { Host: 'kb.internal:8080' },
     });
     expect(res.status).toBe(200);
   });
-
-  test('destroy() flips readiness to draining before the listener closes', async (ctx) => {
-    const tmp = await mkdtemp(resolve(tmpdir(), 'ok-readyz-drain-'));
-    try {
-      const draining = await bootCompositionRig(tmp);
-      await draining.ready;
-
-      const destroyed = draining.destroy();
-      let probe: { status: number; body?: { ready: boolean; status: string } } | 'refused';
-      try {
-        const res = await fetch(`http://127.0.0.1:${draining.port}/readyz`);
-        probe = {
-          status: res.status,
-          body: (await res.json()) as { ready: boolean; status: string },
-        };
-      } catch {
-        probe = 'refused';
-      }
-      await destroyed;
-
-      ctx.skip(
-        probe === 'refused',
-        'the listener closed before the probe connected, so this run could not observe the draining window',
-      );
-      expect(probe).toMatchObject({ status: 503, body: { ready: false, status: 'draining' } });
-    } finally {
-      await rm(tmp, { recursive: true, force: true });
-    }
-  }, 30_000);
 });
 
 describe('/readyz provider states (mounted harness)', () => {

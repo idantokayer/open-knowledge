@@ -9,14 +9,16 @@ import {
   readFileSync,
   realpathSync,
   rmSync,
+  statSync,
   symlinkSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { resolveBundleEnabled } from '@inkeep/open-knowledge-core';
-import { readBundleDecision } from '@inkeep/open-knowledge-server';
+import { resolveBundleEnabled, SKILL_STATE_FILENAME } from '@inkeep/open-knowledge-core';
+import { okUserHomeDir, resolveConfigPath } from '@inkeep/open-knowledge-core/server';
+import { readBundleDecision, writeBundleDecision } from '@inkeep/open-knowledge-server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 import { loadConfig } from '../config/loader.ts';
@@ -38,6 +40,7 @@ import {
 
 const PUBLISHED_CHAIN_ENTRY = { command: '/bin/sh', args: ['-l', '-c', CHAIN_V2] } as const;
 
+import { configureTestGitRepository } from '../../../../test-support/configure-git-fixture.test-helper.ts';
 import {
   createTomlConfigEngine,
   setTomlConfigEngineForTesting,
@@ -59,12 +62,25 @@ import {
   resolveMcpScope,
   resolveRequestedContentDir,
   resolveSharingMode,
-  runInit,
+  runInit as runInitProduct,
   writeEditorMcpConfig,
   writeUserMcpConfigs,
 } from './init.ts';
 
+vi.mock('@inkeep/open-knowledge-server', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@inkeep/open-knowledge-server')>();
+  return { ...actual, readBundleDecision: vi.fn(actual.readBundleDecision) };
+});
+
 const NATIVE_TOML_AVAILABLE = createTomlConfigEngine().backend === 'native';
+
+async function runInit(...args: Parameters<typeof runInitProduct>) {
+  const result = await runInitProduct(...args);
+  if (result.didGitInit || existsSync(join(result.projectRoot, '.git', 'config'))) {
+    configureTestGitRepository(result.projectRoot);
+  }
+  return result;
+}
 
 describe('runInit', () => {
   let testDir: string;
@@ -946,9 +962,59 @@ describe('runInit', () => {
       });
       expect(result.skillInstall).toBe('installed');
       const output = formatInitResult(result, testDir);
-      expect(output).toContain('User-global skill:');
+      expect(output).toContain('User-global skills:');
+      expect(output).toContain('open-knowledge-discovery');
       expect(output).toContain('installed for');
       expect(output).not.toContain('detected agent hosts');
+    });
+
+    it('does not claim a skills.sh count when install counting was never turned on', async () => {
+      vi.stubEnv('DO_NOT_TRACK', '');
+      vi.stubEnv('DISABLE_TELEMETRY', '');
+      try {
+        const result = await runInitForTest({ installUserSkill: async () => 'installed' });
+        const output = formatInitResult(result, testDir);
+        expect(output).toContain('installed for');
+        expect(output).not.toContain('Counted on skills.sh');
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+
+    it('says the install is counted on skills.sh when the user opted in', async () => {
+      const configPath = resolveConfigPath('user', fakeHome, fakeHome);
+      mkdirSync(dirname(configPath), { recursive: true });
+      writeFileSync(configPath, 'telemetry:\n  skillInstallReports:\n    enabled: true\n', 'utf-8');
+      vi.stubEnv('DO_NOT_TRACK', '');
+      vi.stubEnv('DISABLE_TELEMETRY', '');
+      const reportFetch = vi.fn(async (_url: string | URL | Request) => new Response(null));
+      vi.stubGlobal('fetch', reportFetch);
+      try {
+        const result = await runInitForTest({ installUserSkill: async () => 'installed' });
+        expect(formatInitResult(result, testDir)).toContain('Counted on skills.sh');
+        await vi.waitFor(() => expect(reportFetch).toHaveBeenCalled());
+        expect(new URL(String(reportFetch.mock.calls[0]?.[0])).hostname).toBe(
+          'add-skill.vercel.sh',
+        );
+      } finally {
+        vi.unstubAllGlobals();
+        vi.unstubAllEnvs();
+      }
+    });
+
+    it('does not claim a skills.sh count when DO_NOT_TRACK overrides an opt-in', async () => {
+      const configPath = resolveConfigPath('user', fakeHome, fakeHome);
+      mkdirSync(dirname(configPath), { recursive: true });
+      writeFileSync(configPath, 'telemetry:\n  skillInstallReports:\n    enabled: true\n', 'utf-8');
+      vi.stubEnv('DO_NOT_TRACK', '1');
+      try {
+        const result = await runInitForTest({ installUserSkill: async () => 'installed' });
+        const output = formatInitResult(result, testDir);
+        expect(output).toContain('installed for');
+        expect(output).not.toContain('Counted on skills.sh');
+      } finally {
+        vi.unstubAllEnvs();
+      }
     });
 
     it('reports the hosts actually written, never an unverified claim (issue #820)', async () => {
@@ -976,7 +1042,7 @@ describe('runInit', () => {
       });
       expect(result.skillInstall).toBe('skip-current');
       const output = formatInitResult(result, testDir);
-      expect(output).toContain('User-global skill:');
+      expect(output).toContain('User-global skills:');
       expect(output).toContain('already installed at current version');
     });
 
@@ -1064,6 +1130,79 @@ describe('runInit', () => {
       expect(await readBundleDecision(fakeHome, 'open-knowledge-write-skill')).toBeNull();
     });
 
+    it('a default run honors a recorded machine-wide opt-out instead of overwriting it', async () => {
+      await writeBundleDecision(fakeHome, 'open-knowledge-discovery', false);
+      const installed: (string | undefined)[] = [];
+      const result = await runInitForTest({
+        skills: undefined,
+        installUserSkill: async (opts) => {
+          installed.push(opts?.bundleId);
+          return 'installed';
+        },
+      });
+      expect(installed).toEqual([]);
+      expect(await readBundleDecision(fakeHome, 'open-knowledge-discovery')).toBe(false);
+      expect(result.skillInstall).toBe('opted-out');
+      const section = userGlobalSection(formatInitResult(result, testDir));
+      expect(section).toContain('open-knowledge-discovery');
+      expect(section).toContain('turned off on this machine');
+      expect(section).toContain('ok init --skills discovery');
+      expect(section).not.toContain('--no-skills');
+    });
+
+    it('a default run that cannot read the recorded decision installs nothing and reports the failed read', async () => {
+      const statePath = join(okUserHomeDir(fakeHome), SKILL_STATE_FILENAME);
+      mkdirSync(statePath, { recursive: true });
+      const installed: (string | undefined)[] = [];
+      const result = await runInitForTest({
+        skills: undefined,
+        installUserSkill: async (opts) => {
+          installed.push(opts?.bundleId);
+          return 'installed';
+        },
+      });
+      expect(installed).toEqual([]);
+      expect(statSync(statePath).isDirectory()).toBe(true);
+      expect(result.skillInstall).toBe('decision-read-failed');
+      expect(result.skillBundles).toEqual([
+        { bundleId: 'discovery', result: 'decision-read-failed' },
+      ]);
+      const section = userGlobalSection(formatInitResult(result, testDir));
+      expect(section).toContain('open-knowledge-discovery');
+      expect(section).toContain('could not read whether it is turned off');
+      expect(section).not.toContain('installed for');
+    });
+
+    it('a default run whose decision read fails leaves a recorded opt-out unchanged', async () => {
+      await writeBundleDecision(fakeHome, 'open-knowledge-discovery', false);
+      vi.mocked(readBundleDecision).mockRejectedValueOnce(new Error('EIO: decision read failed'));
+      const installed: (string | undefined)[] = [];
+      const result = await runInitForTest({
+        skills: undefined,
+        installUserSkill: async (opts) => {
+          installed.push(opts?.bundleId);
+          return 'installed';
+        },
+      });
+      expect(result.skillInstall).toBe('decision-read-failed');
+      expect(installed).toEqual([]);
+      expect(await readBundleDecision(fakeHome, 'open-knowledge-discovery')).toBe(false);
+    });
+
+    it('naming a bundle with --skills installs it over a recorded opt-out', async () => {
+      await writeBundleDecision(fakeHome, 'open-knowledge-discovery', false);
+      const installed: (string | undefined)[] = [];
+      await runInitForTest({
+        skills: 'discovery',
+        installUserSkill: async (opts) => {
+          installed.push(opts?.bundleId);
+          return 'installed';
+        },
+      });
+      expect(installed).toEqual(['discovery']);
+      expect(await readBundleDecision(fakeHome, 'open-knowledge-discovery')).toBe(true);
+    });
+
     it('installs every enabled bundle with force so the shared cli-hosts version key cannot skip the second', async () => {
       const forced: (boolean | undefined)[] = [];
       await runInitForTest({
@@ -1099,6 +1238,70 @@ describe('runInit', () => {
       expect(result.skillInstall).toBe('failed');
       const output = formatInitResult(result, testDir);
       expect(output).toContain('install failed');
+    });
+
+    const userGlobalSection = (output: string): string => {
+      const start = output.indexOf('User-global skills:');
+      expect(start).toBeGreaterThanOrEqual(0);
+      const rest = output.slice(start);
+      const end = rest.indexOf('\n\n');
+      return end === -1 ? rest : rest.slice(0, end);
+    };
+
+    it('--no-skills never names the project skill as the user-global skill it skipped', async () => {
+      const result = await runInitForTest({
+        skills: false,
+        editors: ['cursor'],
+        installUserSkill: async () => 'installed',
+      });
+      const output = formatInitResult(result, testDir);
+      expect(output).toContain('.cursor/skills/open-knowledge/SKILL.md');
+      const section = userGlobalSection(output);
+      expect(section).toContain('--no-skills');
+      expect(section).not.toMatch(/\bopen-knowledge\b(?!-)/);
+      expect(section).toContain('project-local');
+    });
+
+    it('an unrecognized --skills id is reported as such, not as --no-skills', async () => {
+      const result = await runInitForTest({
+        skills: 'discovry',
+        installUserSkill: async () => 'installed',
+      });
+      expect(result.skillInstall).toBe('declined');
+      const section = userGlobalSection(formatInitResult(result, testDir));
+      expect(section).not.toContain('--no-skills');
+      expect(section).toContain('discovry');
+      expect(section).toContain('discovery, write-skill');
+    });
+
+    it('reports each bundle by its own name and outcome when outcomes differ', async () => {
+      const result = await runInitForTest({
+        skills: 'discovery,write-skill',
+        installUserSkill: async (opts) =>
+          opts?.bundleId === 'discovery' ? 'skip-current' : 'installed',
+      });
+      const section = userGlobalSection(formatInitResult(result, testDir));
+      const lines = section.split('\n');
+      const discovery = lines.find((l) => l.includes('open-knowledge-discovery'));
+      const writeSkill = lines.find((l) => l.includes('open-knowledge-write-skill'));
+      expect(discovery).toContain('already installed at current version');
+      expect(discovery).not.toContain('installed for');
+      expect(writeSkill).toContain('installed for');
+      expect(discovery?.indexOf('already installed')).toBe(writeSkill?.indexOf('installed for'));
+      expect(section).not.toMatch(/\bopen-knowledge\b(?!-)/);
+    });
+
+    it('names only the failing bundle as failed', async () => {
+      const result = await runInitForTest({
+        skills: 'discovery,write-skill',
+        installUserSkill: async (opts) =>
+          opts?.bundleId === 'write-skill' ? 'failed' : 'installed',
+      });
+      const lines = userGlobalSection(formatInitResult(result, testDir)).split('\n');
+      expect(lines.find((l) => l.includes('open-knowledge-discovery'))).not.toContain('failed');
+      expect(lines.find((l) => l.includes('open-knowledge-write-skill'))).toContain(
+        'install failed',
+      );
     });
   });
 
@@ -1559,6 +1762,34 @@ describe('runInit', () => {
       expect(matches).toHaveLength(1);
     });
 
+    it('--no-mcp still shows how to add starter content, without the editor steps', async () => {
+      const result = await runInitForTest({ mcp: false });
+      const output = formatInitResult(result, testDir);
+      expect(output).toContain('ok seed --list-packs');
+      expect(output).toContain('scaffold an empty repo');
+      expect(output).not.toContain('Open your editor');
+      expect(output).not.toContain('Approve the MCP server');
+    });
+
+    it('does not suggest ok seed when content scaffolding failed', async () => {
+      writeFileSync(join(testDir, '.ok'), 'not a directory\n', 'utf-8');
+      const result = await runInitForTest({ editors: ['claude'] });
+      expect(result.contentScaffoldFailed).toBe(true);
+      const output = formatInitResult(result, testDir);
+      expect(output).toContain('Content scaffolding failed');
+      expect(output).not.toContain('ok seed');
+      expect(output).not.toMatch(/\n\n$/);
+    });
+
+    it('keeps the editor next steps when content scaffolding failed', async () => {
+      const result = await runInitForTest({ editors: ['claude'] });
+      const output = formatInitResult({ ...result, contentScaffoldFailed: true }, testDir);
+      expect(output).toContain('Open your editor');
+      expect(output).toContain('Approve the MCP server');
+      expect(output).toContain('  3. Ask your agent');
+      expect(output).not.toContain('ok seed');
+    });
+
     const allocOutsideTestDir = (suffix: string): string =>
       resolve(
         tmpdir(),
@@ -1672,6 +1903,7 @@ describe('runInit — projectRoot threading', () => {
     const sub = join(repo, 'sub');
     mkdirSync(sub, { recursive: true });
     Bun.spawnSync({ cmd: ['git', 'init', '-q', repo], stdout: 'ignore', stderr: 'ignore' });
+    configureTestGitRepository(repo);
     expect(existsSync(join(repo, '.git'))).toBe(true);
 
     const result = await runInit({
@@ -1695,6 +1927,7 @@ describe('runInit — projectRoot threading', () => {
     const repo = join(fakeHome, 'flat-repo');
     mkdirSync(repo, { recursive: true });
     Bun.spawnSync({ cmd: ['git', 'init', '-q', repo], stdout: 'ignore', stderr: 'ignore' });
+    configureTestGitRepository(repo);
 
     const result = await runInit({
       cwd: repo,
@@ -1716,6 +1949,7 @@ describe('runInit — projectRoot threading', () => {
     const sub = join(repo, 'subdir');
     mkdirSync(sub, { recursive: true });
     Bun.spawnSync({ cmd: ['git', 'init', '-q', repo], stdout: 'ignore', stderr: 'ignore' });
+    configureTestGitRepository(repo);
 
     const result = await runInit({
       cwd: sub,
@@ -1736,6 +1970,7 @@ describe('runInit — projectRoot threading', () => {
     const sub = join(repo, 'notes');
     mkdirSync(sub, { recursive: true });
     Bun.spawnSync({ cmd: ['git', 'init', '-q', repo], stdout: 'ignore', stderr: 'ignore' });
+    configureTestGitRepository(repo);
 
     const result = await runInit({
       cwd: sub,
@@ -1761,6 +1996,7 @@ describe('runInit — projectRoot threading', () => {
     const nested = join(repo, 'docs', 'guides');
     mkdirSync(nested, { recursive: true });
     Bun.spawnSync({ cmd: ['git', 'init', '-q', repo], stdout: 'ignore', stderr: 'ignore' });
+    configureTestGitRepository(repo);
 
     const result = await runInit({
       cwd: repo,
@@ -1780,6 +2016,7 @@ describe('runInit — projectRoot threading', () => {
     const repo = join(fakeHome, 'repo-cd-escape');
     mkdirSync(repo, { recursive: true });
     Bun.spawnSync({ cmd: ['git', 'init', '-q', repo], stdout: 'ignore', stderr: 'ignore' });
+    configureTestGitRepository(repo);
 
     await expect(
       runInit({
@@ -1798,6 +2035,7 @@ describe('runInit — projectRoot threading', () => {
     const sub = join(repo, 'notes');
     mkdirSync(sub, { recursive: true });
     Bun.spawnSync({ cmd: ['git', 'init', '-q', repo], stdout: 'ignore', stderr: 'ignore' });
+    configureTestGitRepository(repo);
 
     await runInit({
       cwd: repo,
@@ -1829,6 +2067,7 @@ describe('runInit — projectRoot threading', () => {
     const repo = join(fakeHome, 'repo-scaffold-fail');
     mkdirSync(repo, { recursive: true });
     Bun.spawnSync({ cmd: ['git', 'init', '-q', repo], stdout: 'ignore', stderr: 'ignore' });
+    configureTestGitRepository(repo);
     const base = await runInit({
       cwd: repo,
       home: fakeHome,
@@ -1858,6 +2097,7 @@ describe('runInit — projectRoot threading', () => {
     const sub = join(repo, 'notes');
     mkdirSync(sub, { recursive: true });
     Bun.spawnSync({ cmd: ['git', 'init', '-q', repo], stdout: 'ignore', stderr: 'ignore' });
+    configureTestGitRepository(repo);
 
     const result = await runInit({
       cwd: sub,
@@ -1883,6 +2123,7 @@ describe('runInit — projectRoot threading', () => {
     const repo = join(fakeHome, 'repo-json-previewerr');
     mkdirSync(repo, { recursive: true });
     Bun.spawnSync({ cmd: ['git', 'init', '-q', repo], stdout: 'ignore', stderr: 'ignore' });
+    configureTestGitRepository(repo);
     const base = await runInit({
       cwd: repo,
       home: fakeHome,
@@ -1902,6 +2143,7 @@ describe('runInit — projectRoot threading', () => {
     const repo = join(fakeHome, 'repo-json-flat');
     mkdirSync(repo, { recursive: true });
     Bun.spawnSync({ cmd: ['git', 'init', '-q', repo], stdout: 'ignore', stderr: 'ignore' });
+    configureTestGitRepository(repo);
 
     const result = await runInit({
       cwd: repo,

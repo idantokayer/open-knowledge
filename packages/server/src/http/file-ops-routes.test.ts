@@ -1,14 +1,17 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { Readable } from 'node:stream';
-import { describe, expect, test } from 'vitest';
+import { afterAll, describe, expect, test } from 'vitest';
+import { createTempDirFactory } from '../../../../test-support/temp-dir.test-helper.ts';
 import { SymlinkEscapeError } from '../apply-managed-rename.ts';
-import { createTestConflictAuthorityInTmpDir } from '../conflict-authority.test-helper.ts';
+import { createTestConflictAuthority } from '../conflict-authority.test-helper.ts';
 import { DocInConflictError } from '../conflict-errors.ts';
 import { ContentRootUnavailableError } from '../fs-safety.ts';
 import { loggerFactory } from '../logger.ts';
 import type { AssetService } from '../services/assets.ts';
 import type { FileOpsService } from '../services/file-ops.ts';
 import { createFileOpsRoutes } from './file-ops-routes.ts';
+
+const makeTempDir = createTempDirFactory(afterAll);
 
 type Deps = Parameters<typeof createFileOpsRoutes>[0];
 
@@ -20,8 +23,8 @@ function buildGroup(overrides: Partial<Deps> = {}) {
     getPrincipal: undefined,
     contentFilter: undefined,
     signalChannel: undefined,
-    conflicts: createTestConflictAuthorityInTmpDir('file-ops-routes-authority-'),
-    flushContributors: undefined,
+    conflicts: createTestConflictAuthority(makeTempDir('file-ops-routes-authority-')),
+    commitOkArtifactWrite: () => Promise.resolve(),
     fileOpsService: {} as FileOpsService,
     assetService: {} as AssetService,
     extractAgentIdentity: () => {
@@ -156,5 +159,46 @@ describe('create-page path-resolution error classification', () => {
     expect((JSON.parse(captured.body) as { type?: string }).type).toBe(
       'urn:ok:error:internal-server-error',
     );
+  });
+});
+
+describe('rename-path history commit', () => {
+  function buildRenameGroup() {
+    const commits: string[] = [];
+    const group = buildGroup({
+      docNameForFileOperationPath: (_contentDir, path) => path.replace(/\.md$/, ''),
+      isValidRelativeContentPath: () => true,
+      renameAttributionCounter: () =>
+        ({ add: () => {} }) as unknown as ReturnType<Deps['renameAttributionCounter']>,
+      commitOkArtifactWrite: (context) => {
+        commits.push(context);
+        return new Promise<never>(() => {});
+      },
+      _performManagedRenameForDocs: () =>
+        Promise.resolve({
+          renamed: [{ fromDocName: 'a', toDocName: 'b' }],
+          renamedAssets: [],
+          rewrittenDocs: [],
+        }),
+      _performAssetRename: () =>
+        Promise.resolve({
+          renamedAssets: [{ fromPath: 'a.png', toPath: 'b.png' }],
+          rewrittenDocs: [],
+        }),
+    });
+    const resolved = group.table.resolve('/api/rename-path');
+    if (!resolved?.dispatch) throw new Error('rename-path did not resolve to a dispatch handler');
+    return { dispatch: resolved.dispatch, commits };
+  }
+
+  test.each([
+    { kind: 'file', fromPath: 'a.md', toPath: 'b.md' },
+    { kind: 'asset', fromPath: 'a.png', toPath: 'b.png' },
+  ])('$kind rename responds while its history commit is still running', async (body) => {
+    const { dispatch, commits } = buildRenameGroup();
+    const { res, captured } = makeRes();
+    await dispatch(makeReq('/api/rename-path', body), res);
+    expect(captured.status).toBe(200);
+    expect(commits).toEqual(['rename-path']);
   });
 });

@@ -1,13 +1,15 @@
 import { randomUUID } from 'node:crypto';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
+import { realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as wait } from 'node:timers/promises';
 import { type ElectronApplication, _electron as electron } from '@playwright/test';
+import { configureDesktopGitRepositories } from '../support/git-fixture.test-helper.ts';
 import { desktopLaunchOptions, resolveDesktopTarget } from './_helpers/launch-desktop';
 import { PLATFORM_SKIP_REASON, PLATFORM_SUPPORTED, SMOKE_ENABLED } from './_helpers/platform-gate';
 import { waitForEditorSelection } from './_helpers/settings-surface';
-import { expect, test } from './_helpers/smoke-test';
+import { expect, type SmokeFixtures, test } from './_helpers/smoke-test';
 
 const TARGET = resolveDesktopTarget();
 
@@ -234,6 +236,7 @@ async function executeRace(opts: {
       }),
     });
   let httpStatus: number;
+  let responseBody: string;
   if (randomizedStaggerMs !== undefined && randomizedStaggerMs > 0) {
     const firstHalf = humanText.slice(0, 4);
     const secondHalf = humanText.slice(4);
@@ -244,13 +247,16 @@ async function executeRace(opts: {
       page.keyboard.type(secondHalf, { delay: typingDelay }),
     ]);
     httpStatus = agentRes.status;
+    responseBody = await agentRes.text();
   } else {
     const [agentRes] = await Promise.all([
       agentPatchPromise(),
       page.keyboard.type(humanText, { delay: typingDelay }),
     ]);
     httpStatus = agentRes.status;
+    responseBody = await agentRes.text();
   }
+  console.log(`[PROBE ${variant} trial ${trial}] response:`, { httpStatus, responseBody });
 
   let finalContent = '';
   const readFailures: string[] = [];
@@ -295,7 +301,7 @@ async function executeRace(opts: {
 
 async function setupElectron(
   variantTag: string,
-  captureStderrFor: (app: ElectronApplication) => void,
+  captureStderrFor: SmokeFixtures['captureStderrFor'],
 ): Promise<{
   app: ElectronApplication;
   page: import('@playwright/test').Page;
@@ -309,6 +315,12 @@ async function setupElectron(
   test.skip(!TARGET.exists, TARGET.missingReason);
 
   const contentDir = mkdtempSync(join(tmpdir(), `ok-agent-patch-probe-${variantTag}-`));
+  console.log(`[PROBE ${variantTag}] content root:`, {
+    contentDir,
+    realpathSync: realpathSync(contentDir),
+    realpathSyncNative: realpathSync.native(contentDir),
+    realpathAsync: await realpath(contentDir),
+  });
   const userDataDir = mkdtempSync(join(tmpdir(), `ok-pw-userdata-${variantTag}-`));
   const docName = `probe-${variantTag}-${randomUUID().slice(0, 8)}`;
   const initialContent = SEED_MARKDOWN;
@@ -327,7 +339,7 @@ async function setupElectron(
       timeout: 30_000,
     }),
   );
-  captureStderrFor(app);
+  captureStderrFor(app, { cleanupDirs: [contentDir, userDataDir] });
 
   const expectedHashSuffix = `#/${docName}`;
   let page: import('@playwright/test').Page | undefined;
@@ -346,6 +358,7 @@ async function setupElectron(
   await expect(
     page.locator('.ProseMirror[contenteditable="true"]:not(.composer-prosemirror)'),
   ).toContainText(AGENT_FIND, { timeout: 30_000 });
+  await configureDesktopGitRepositories(page, contentDir);
 
   const { port } = await detectApiPort(page);
 
@@ -527,6 +540,7 @@ test.describe('PRD-6666 — agent-patch divergence (production-built Electron)',
         trial,
         randomizedStaggerMs: stagger,
       });
+      expect(result.httpStatus).toBe(200);
       outcomes.cherryPresent.push(result.cherryPresent);
       outcomes.bananaAbsent.push(result.bananaAbsent);
       outcomes.raceFired.push(result.raceFired);

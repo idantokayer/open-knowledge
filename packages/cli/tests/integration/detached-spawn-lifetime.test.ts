@@ -64,7 +64,7 @@ describe('detached spawn lifetime (A3 / D-003)', () => {
       `
 import { createServer } from 'node:http';
 import { setTimeout as wait } from 'node:timers/promises';
-import { writeFileSync } from 'node:fs';
+import { renameSync, writeFileSync } from 'node:fs';
 
 const server = createServer((_req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/plain' });
@@ -73,7 +73,9 @@ const server = createServer((_req, res) => {
 server.listen(0, '127.0.0.1', () => {
   const addr = server.address();
   if (typeof addr !== 'object' || addr === null) process.exit(2);
-  writeFileSync(${JSON.stringify(stateFile)}, JSON.stringify({ pid: process.pid, port: addr.port }));
+  const pendingStateFile = ${JSON.stringify(`${stateFile}.pending`)};
+  writeFileSync(pendingStateFile, JSON.stringify({ pid: process.pid, port: addr.port }));
+  renameSync(pendingStateFile, ${JSON.stringify(stateFile)});
 });
 
 await wait(30_000);

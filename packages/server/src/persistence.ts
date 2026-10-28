@@ -43,7 +43,12 @@ import {
 } from './cc1-broadcast.ts';
 import { type ConfigPersistenceCtx, loadConfigDoc, storeConfigDoc } from './config-persistence.ts';
 import type { ConflictAuthority } from './conflict-authority.ts';
-import type { FreezingLifecycleStatus, LifecycleView } from './conflict-kinds.ts';
+import {
+  type FreezingLifecycleStatus,
+  isRemovalLifecycleStatus,
+  type LifecycleView,
+  type RemovalLifecycleStatus,
+} from './conflict-kinds.ts';
 import { isWithinContentDir, safeContentPath } from './content-path.ts';
 import type { ContributorEntry } from './contributor-tracker.ts';
 import {
@@ -54,15 +59,22 @@ import {
   restoreContributors,
   swapContributors,
 } from './contributor-tracker.ts';
-import type { DerivedDocumentIndexPersistencePort } from './derived-document-index.ts';
+import {
+  type DerivedDocumentIndexPersistencePort,
+  isDerivedDocumentIndexClosedError,
+} from './derived-document-index.ts';
+import { resolveDirectoryRoot, resolveNativePath } from './directory-root.ts';
 import { applyDiskContentToDoc, FILE_WATCHER_ORIGIN } from './disk-content-intake.ts';
 import {
   assertNeverStorePublishOutcome,
+  type DeferredStoreOutcome,
+  type DeferredStoreSettlement,
   DocumentDurabilityState,
   OK_DOC_REMOVED,
   OK_PATH_UNRESOLVABLE,
   OK_STORE_REFUSED,
   type StoreFailure,
+  type StoreFailureRemoval,
 } from './document-durability-state.ts';
 import { refuseStaleExternalWrite } from './external-change.ts';
 import { contentHash, registerWrite } from './file-watcher.ts';
@@ -119,7 +131,12 @@ import {
 } from './metrics.ts';
 import { toPosix } from './path-utils.ts';
 import { classifyDuplication } from './persistence-tripwire.ts';
-import { backfillRenameLogCommitSha, getOrLoadRenameLogIndex } from './rename-log.ts';
+import { assertProjectContentScope, NestedProjectScopeError } from './project-content-scope.ts';
+import {
+  backfillRenameLogCommitSha,
+  getOrLoadRenameLogIndex,
+  pendingRenameLogEntries,
+} from './rename-log.ts';
 import { getConvergedFragmentWitness, OBSERVER_SYNC_ORIGIN } from './server-observers.ts';
 import type { ShadowRef, WriterIdentity } from './shadow-repo.ts';
 import {
@@ -263,6 +280,7 @@ export function classifyDeferredStoreError(err: unknown): DeferredStoreErrorClas
 
 export interface PersistenceOptions {
   contentDir: string;
+  assertContentPath?: (path: string) => void;
   projectDir: string;
   durabilityState?: DocumentDurabilityState;
   conflicts?: Pick<ConflictAuthority, 'dissolveReconcile' | 'fileOf' | 'raise'>;
@@ -278,6 +296,11 @@ export interface PersistenceOptions {
   getPrincipal?: () => Principal | null;
   onAgentCommit?: () => void;
   onFlushCommit?: () => void;
+  capturePublicationReceipt?: (
+    document: Y.Doc,
+    documentName: string,
+    snapshotSV: Uint8Array,
+  ) => (() => void) | undefined;
   onDiskFlush?: (
     docName: string,
     sv: Uint8Array,
@@ -390,14 +413,14 @@ export interface PersistenceHandle {
 
 export function createPersistenceExtension(options?: PersistenceOptions): PersistenceHandle {
   const durabilityState = options?.durabilityState ?? new DocumentDurabilityState();
-  const contentDirRaw = options?.contentDir ?? process.cwd();
-  let contentDir: string;
-  try {
-    contentDir = realpathSync(contentDirRaw);
-  } catch {
-    contentDir = contentDirRaw;
-  }
-  const projectDir = options?.projectDir ?? process.cwd();
+  const contentDir = resolveDirectoryRoot(resolve(options?.contentDir ?? process.cwd()), {
+    root: 'content',
+    component: 'persistence',
+  });
+  const projectDir = resolveDirectoryRoot(resolve(options?.projectDir ?? process.cwd()), {
+    root: 'project',
+    component: 'persistence',
+  });
   const shadowRef = options?.shadowRef;
   const contentRoot = options?.contentRoot || toPosix(relative(projectDir, contentDir)) || '.';
   const derivedDocumentIndex = options?.derivedDocumentIndex;
@@ -416,7 +439,7 @@ export function createPersistenceExtension(options?: PersistenceOptions): Persis
     const view = options?.lifecycleOf?.(document, documentName);
     if (view === undefined) {
       const status = document.getMap('lifecycle').get('status');
-      return status === 'deleted-upstream' || status === 'renamed' ? status : null;
+      return isRemovalLifecycleStatus(status) ? status : null;
     }
     return view === null ? null : view.status;
   };
@@ -444,6 +467,7 @@ export function createPersistenceExtension(options?: PersistenceOptions): Persis
 
   const mermaidLkgCache = new Map<string, string>();
   const mermaidPersistenceCtx: MermaidPersistenceCtx = {
+    assertContentPath: options?.assertContentPath,
     contentDir,
     lkgCache: mermaidLkgCache,
   };
@@ -456,6 +480,7 @@ export function createPersistenceExtension(options?: PersistenceOptions): Persis
 
   const QUIESCENCE_MAX_DEFER = 8;
   const persistenceDeferCounts = new Map<string, number>();
+  const frozenStoreBaselines = new Map<string, string>();
 
   const gitEnabled = options?.gitEnabled ?? true;
   const commitDebounceMs = options?.commitDebounceMs ?? 15_000;
@@ -473,6 +498,7 @@ export function createPersistenceExtension(options?: PersistenceOptions): Persis
       branch: string;
       document: Y.Doc;
       lastTransactionOrigin: unknown;
+      settlement: DeferredStoreSettlement;
     }
   >();
 
@@ -491,6 +517,7 @@ export function createPersistenceExtension(options?: PersistenceOptions): Persis
     const shadow = shadowRef?.current;
     if (shadow) {
       const snapshot = swapContributors();
+      const claimableRenames = pendingRenameLogEntries(getOrLoadRenameLogIndex(shadow.gitDir));
       const branch = getCurrentBranch?.() ?? 'main';
 
       if (snapshot.size === 0) {
@@ -521,6 +548,7 @@ export function createPersistenceExtension(options?: PersistenceOptions): Persis
               SERVICE_WRITER.id,
               sha,
               getOrLoadRenameLogIndex(shadow.gitDir),
+              claimableRenames,
             );
           } catch (err) {
             log.warn({ err }, '[rename-log] service-writer backfill failed');
@@ -604,6 +632,7 @@ export function createPersistenceExtension(options?: PersistenceOptions): Persis
               writerId,
               sha,
               getOrLoadRenameLogIndex(shadow.gitDir),
+              claimableRenames,
             );
           } catch (err) {
             log.warn({ err }, '[rename-log] backfill failed; will retry next commit');
@@ -922,7 +951,7 @@ export function createPersistenceExtension(options?: PersistenceOptions): Persis
     if (!existsSync(requestedDiskPath)) return { kind: 'missing' };
     let canonical: string | null = null;
     try {
-      canonical = realpathSync(requestedDiskPath);
+      canonical = resolveNativePath(requestedDiskPath);
     } catch (realpathErr) {
       log.warn(
         { err: realpathErr, documentName },
@@ -1243,24 +1272,62 @@ export function createPersistenceExtension(options?: PersistenceOptions): Persis
     base: string | undefined,
     candidate: string,
     callerAwaitingFlush: boolean,
+    frozen?: { status: RemovalLifecycleStatus; removal: StoreFailureRemoval | undefined },
   ): void {
     incrementPersistenceStoreRemovedDoc();
     console.warn(
       JSON.stringify({
         event: 'persistence-store-removed-doc',
         'doc.name': documentName,
-        reason: options?.isRecentlyRemoved?.(documentName) ? 'recently-removed' : 'file-absent',
+        reason:
+          frozen?.status ??
+          (options?.isRecentlyRemoved?.(documentName) ? 'recently-removed' : 'file-absent'),
         baseBytes: base?.length ?? null,
         candidateBytes: candidate.length,
       }),
     );
     if (callerAwaitingFlush) {
-      durabilityState.recordStoreFailure(documentName, {
-        code: OK_DOC_REMOVED,
-        message: `${documentName} is no longer on disk, so the store was refused rather than recreating the removed file`,
-      });
+      durabilityState.recordStoreFailure(
+        documentName,
+        frozen?.removal?.kind === 'path-occupied'
+          ? {
+              code: OK_DOC_REMOVED,
+              message: `${documentName} was ${frozen.status === 'renamed' ? 'renamed' : 'deleted'} on disk and the file now at its path has not been loaded into it, so the store was refused rather than overwriting that file`,
+              removal: frozen.removal,
+            }
+          : frozen?.removal?.kind === 'renamed'
+            ? {
+                code: OK_DOC_REMOVED,
+                message: `${documentName} was renamed to ${frozen.removal.renamedTo} on disk, so the store was refused rather than recreating the file under its old name`,
+                removal: frozen.removal,
+              }
+            : {
+                code: OK_DOC_REMOVED,
+                message: `${documentName} is no longer on disk, so the store was refused rather than recreating the removed file`,
+              },
+      );
     }
     persistenceDeferCounts.delete(documentName);
+  }
+
+  function frozenPathOccupied(documentName: string): boolean {
+    try {
+      return existsSync(safeContentPath(documentName, contentDir));
+    } catch {
+      return false;
+    }
+  }
+
+  function frozenRemovalOf(
+    document: Y.Doc,
+    documentName: string,
+    status: RemovalLifecycleStatus,
+  ): StoreFailureRemoval | undefined {
+    if (frozenPathOccupied(documentName)) return { kind: 'path-occupied' };
+    const newPath = document.getMap('lifecycle').get('newPath');
+    return status === 'renamed' && typeof newPath === 'string' && newPath !== ''
+      ? { kind: 'renamed', renamedTo: newPath }
+      : undefined;
   }
 
   function documentHadFileOnDisk(documentName: string, base: string | undefined): boolean {
@@ -1305,11 +1372,25 @@ export function createPersistenceExtension(options?: PersistenceOptions): Persis
       { attributes: { 'doc.name': documentName } },
       async () => {
         const lifecycleStatus = frozenStatusOf(document, documentName);
+        if (!isRemovalLifecycleStatus(lifecycleStatus)) frozenStoreBaselines.delete(documentName);
         if (lifecycleStatus !== null) {
           log.info(
             { documentName, lifecycleStatus },
             `[persistence] Skipped store for ${documentName}: lifecycle=${lifecycleStatus}`,
           );
+          if (isRemovalLifecycleStatus(lifecycleStatus)) {
+            const callerAwaitingFlush = durabilityState.consumeAgentWriteStore(documentName);
+            const base = durabilityState.getReconciledBase(documentName);
+            const candidate = document.getText('source').toString();
+            const baseline = base ?? frozenStoreBaselines.get(documentName);
+            if (baseline === undefined) frozenStoreBaselines.set(documentName, candidate);
+            if (callerAwaitingFlush || (baseline !== undefined && candidate !== baseline)) {
+              refuseRemovedDocPublish(documentName, base, candidate, callerAwaitingFlush, {
+                status: lifecycleStatus,
+                removal: frozenRemovalOf(document, documentName, lifecycleStatus),
+              });
+            }
+          }
           persistenceDeferCounts.delete(documentName);
           tripwireResetFailedDocs.delete(documentName);
           return;
@@ -1347,6 +1428,19 @@ export function createPersistenceExtension(options?: PersistenceOptions): Persis
 
         const { sv: stateVectorAtRead, json } = captureDocSnapshotForPersistence(document);
         const ytextSnapshot = document.getText('source').toString();
+        let publicationReceipt: (() => void) | undefined;
+        try {
+          publicationReceipt = options?.capturePublicationReceipt?.(
+            document,
+            documentName,
+            stateVectorAtRead,
+          );
+        } catch (err) {
+          log.warn(
+            { err, documentName },
+            '[persistence] capturePublicationReceipt callback failed',
+          );
+        }
         const storeAttempt = durabilityState.beginStoreAttempt(documentName);
 
         const { frontmatter, body } = stripFrontmatter(ytextSnapshot);
@@ -1585,7 +1679,18 @@ export function createPersistenceExtension(options?: PersistenceOptions): Persis
         inFlightFlushValue = normalizeBridge(markdown);
         durabilityState.beginInFlightFlush(documentName, inFlightFlushValue);
 
-        const requestedPath = safeContentPath(documentName, contentDir);
+        let requestedPath: string;
+        try {
+          requestedPath = safeContentPath(documentName, contentDir);
+          options?.assertContentPath?.(requestedPath);
+        } catch (error) {
+          if (error instanceof NestedProjectScopeError && markdown === currentBase) {
+            persistenceDeferCounts.delete(documentName);
+            return;
+          }
+          recordPathFault(documentName, error, agentTriggeredStore);
+          throw error;
+        }
         if (
           documentHadFileOnDisk(documentName, currentBase) &&
           resolveStorePathPresence(
@@ -1798,6 +1903,8 @@ export function createPersistenceExtension(options?: PersistenceOptions): Persis
             return;
           }
           const outcome = durabilityState.tryPublishStore(storeAttempt, () => {
+            assertProjectContentScope(canonicalPath, contentDir);
+            options?.assertContentPath?.(canonicalPath);
             tracedRenameSync(tmpPath, canonicalPath);
           });
           if (outcome !== 'published') {
@@ -1843,6 +1950,14 @@ export function createPersistenceExtension(options?: PersistenceOptions): Persis
           durabilityState.clearStoreFailure(documentName);
           incrementPersistenceDiskWrite();
           try {
+            publicationReceipt?.();
+          } catch (err) {
+            log.warn(
+              { err, documentName },
+              '[persistence] capturePublicationReceipt receipt completion failed',
+            );
+          }
+          try {
             onDiskFlush?.(documentName, stateVectorAtRead, markdown, currentBase ?? null);
           } catch (flushErr) {
             log.warn(
@@ -1879,14 +1994,19 @@ export function createPersistenceExtension(options?: PersistenceOptions): Persis
         durabilityState.clearStoreRefused(documentName);
         persistenceDeferCounts.delete(documentName);
 
-        try {
-          await derivedDocumentIndex?.recordDurableStore(documentName, markdown);
-        } catch (err) {
+        derivedDocumentIndex?.recordDurableStore(documentName, markdown).catch((err: unknown) => {
+          if (isDerivedDocumentIndexClosedError(err)) {
+            log.debug(
+              { err, documentName },
+              '[derived-index] coordinator closed; skipping durable-store projection',
+            );
+            return;
+          }
           log.warn(
             { err, documentName },
             '[derived-index] durable-store projection failed; disk write remains authoritative',
           );
-        }
+        });
 
         setActiveSpanAttributes({ 'persistence.bytes': markdown.length });
         scheduleGitCommit();
@@ -1912,10 +2032,19 @@ export function createPersistenceExtension(options?: PersistenceOptions): Persis
       branch: durabilityState.getActiveBranch(),
       document,
       lastTransactionOrigin,
+      settlement:
+        deferredStores.get(documentName)?.settlement ??
+        durabilityState.openDeferredStore(documentName),
     });
   }
 
+  function discardDeferredStores(): void {
+    for (const entry of deferredStores.values()) entry.settlement.settle({ kind: 'discarded' });
+    deferredStores.clear();
+  }
+
   async function flushDeferredStores(mode: 'within-branch' | 'discard-stale' = 'within-branch') {
+    if (mode === 'discard-stale') discardDeferredStores();
     if (deferredStoreDrainInFlight) {
       pendingDeferredStoreFlushMode =
         pendingDeferredStoreFlushMode === 'discard-stale' || mode === 'discard-stale'
@@ -1927,12 +2056,17 @@ export function createPersistenceExtension(options?: PersistenceOptions): Persis
     deferredStoreDrainInFlight = (async () => {
       let drainMode = mode;
       while (true) {
+        if (drainMode === 'discard-stale') discardDeferredStores();
         const entries = [...deferredStores.entries()];
         deferredStores.clear();
 
         if (drainMode !== 'discard-stale') {
           for (const [documentName, entry] of entries) {
-            if (entry.branch !== durabilityState.getActiveBranch()) continue;
+            if (entry.branch !== durabilityState.getActiveBranch()) {
+              entry.settlement.settle({ kind: 'discarded' });
+              continue;
+            }
+            let outcome: DeferredStoreOutcome = { kind: 'completed' };
             try {
               await storeDocumentNow({
                 document: entry.document,
@@ -1940,6 +2074,7 @@ export function createPersistenceExtension(options?: PersistenceOptions): Persis
                 lastTransactionOrigin: entry.lastTransactionOrigin,
               });
             } catch (err) {
+              outcome = { kind: 'failed', failure: toStoreFailure(err) };
               const verbose = process.env.OK_TELEMETRY_VERBOSE === '1';
               let rawMessage = '';
               try {
@@ -1982,6 +2117,8 @@ export function createPersistenceExtension(options?: PersistenceOptions): Persis
                 { err, documentName },
                 `[persistence] Deferred store failed for ${documentName}`,
               );
+            } finally {
+              entry.settlement.settle(outcome);
             }
           }
         }
@@ -2002,6 +2139,7 @@ export function createPersistenceExtension(options?: PersistenceOptions): Persis
     async onLoadDocument({ document, documentName, context: _context }) {
       docsWithSettledWrite.delete(documentName);
       docsWithFileObservedOnDisk.delete(documentName);
+      frozenStoreBaselines.delete(documentName);
       if (isSystemDoc(documentName)) return;
       if (isConfigDoc(documentName)) {
         loadConfigDoc(document, documentName, configPersistenceCtx);
@@ -2011,6 +2149,7 @@ export function createPersistenceExtension(options?: PersistenceOptions): Persis
         loadManagedArtifactDoc(document, documentName, managedArtifactCtx);
         return;
       }
+      options?.assertContentPath?.(safeContentPath(documentName, contentDir));
       if (
         isMermaidDoc(documentName) ||
         isExcalidrawDoc(documentName) ||
@@ -2030,23 +2169,13 @@ export function createPersistenceExtension(options?: PersistenceOptions): Persis
             `[persistence] onLoadDocument called for ${documentName} (connections: ${document.getConnectionsCount?.() ?? '?'})`,
           );
           const filePath = safeContentPath(documentName, contentDir);
+          options?.assertContentPath?.(filePath);
           if (!existsSync(filePath)) return;
           docsWithFileObservedOnDisk.add(documentName);
 
-          let canonical = filePath;
+          let canonical: string;
           try {
-            const resolvedCanonical = realpathSync(filePath);
-            if (
-              !isWithinContentDir(resolvedCanonical, contentDir) ||
-              resolvesIntoPrivateState(filePath, resolvedCanonical, contentDir)
-            ) {
-              log.warn(
-                { path: filePath, canonical: resolvedCanonical },
-                `[persistence] symlink-escape on load: ${filePath} → ${resolvedCanonical}, refusing`,
-              );
-              return;
-            }
-            canonical = resolvedCanonical;
+            canonical = resolveNativePath(filePath);
           } catch (e) {
             const code = errnoCode(e);
             if (code === 'ELOOP') {
@@ -2056,6 +2185,21 @@ export function createPersistenceExtension(options?: PersistenceOptions): Persis
               );
               return;
             }
+            log.warn(
+              { path: filePath, code },
+              `[persistence] Could not resolve ${filePath} on load (${code}), refusing`,
+            );
+            return;
+          }
+          if (
+            !isWithinContentDir(canonical, contentDir) ||
+            resolvesIntoPrivateState(filePath, canonical, contentDir)
+          ) {
+            log.warn(
+              { path: filePath, canonical },
+              `[persistence] symlink-escape on load: ${filePath} → ${canonical}, refusing`,
+            );
+            return;
           }
 
           const fileSize = statSync(canonical).size;
@@ -2202,6 +2346,7 @@ export function createPersistenceExtension(options?: PersistenceOptions): Persis
         isExcalidrawDoc(documentName) ||
         isEditableTextDoc(documentName)
       ) {
+        options?.assertContentPath?.(safeContentPath(documentName, contentDir));
         await storeMermaidDoc(document, documentName, lastTransactionOrigin, mermaidPersistenceCtx);
         return;
       }

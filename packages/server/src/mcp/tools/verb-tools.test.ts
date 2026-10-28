@@ -1,22 +1,16 @@
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readdirSync,
-  readFileSync,
-  statSync,
-  writeFileSync,
-} from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, test } from 'vitest';
+import { afterAll, describe, expect, test } from 'vitest';
+import { createTempDirFactory } from '../../../../../test-support/temp-dir.test-helper.ts';
 import { type Config, ConfigSchema } from '../../config/schema.ts';
 import { register as registerDelete } from './delete.ts';
 import { register as registerEdit } from './edit.ts';
 import { startFetchTestServer } from './fetch-test-server.test-helper.ts';
 import type { ServerInstance } from './shared.ts';
 import { register as registerWrite } from './write.ts';
+
+const makeTempDir = createTempDirFactory(afterAll);
 
 const BASE_CONFIG: Config = ConfigSchema.parse({});
 
@@ -44,7 +38,7 @@ function capture<D>(register: (server: ServerInstance, deps: D) => void, cwd: st
 }
 
 function newProject(): string {
-  return mkdtempSync(join(tmpdir(), 'ok-verb-tools-'));
+  return makeTempDir('ok-verb-tools-');
 }
 
 function textOf(r: ToolResult): string {
@@ -92,6 +86,44 @@ describe('edit — body-XOR-frontmatter + exactly-one-target teaching errors', (
     const r = await edit({});
     expect(r.isError).toBe(true);
     expect(textOf(r)).toContain('Name exactly one of');
+  });
+});
+
+describe('edit — occurrence on a path with no document', () => {
+  test('names the missing document instead of implying it is pending', async () => {
+    let requests = 0;
+    const server = await startFetchTestServer({
+      fetch() {
+        requests += 1;
+        return Response.json({ error: 'unexpected request' }, { status: 500 });
+      },
+    });
+    try {
+      const cwd = newProject();
+      let handler: Handler | undefined;
+      registerEdit(
+        {
+          registerTool(_name: string, _cfg: unknown, h: Handler) {
+            handler = h;
+          },
+        } as unknown as ServerInstance,
+        {
+          serverUrl: `http://127.0.0.1:${server.port}`,
+          config: BASE_CONFIG,
+          resolveCwd: async () => cwd,
+        } as unknown as Parameters<typeof registerEdit>[1],
+      );
+      if (!handler) throw new Error('tool did not register');
+      const r = await handler({
+        document: { path: 'system/ops', find: 'x', replace: 'y', occurrence: 2 },
+      });
+      expect(r.isError).toBe(true);
+      expect(textOf(r)).toContain('No document at "system/ops" on disk');
+      expect(textOf(r)).not.toContain('not on disk yet');
+      expect(requests).toBe(0);
+    } finally {
+      server.stop();
+    }
   });
 });
 

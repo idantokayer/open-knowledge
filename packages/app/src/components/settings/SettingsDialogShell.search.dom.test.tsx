@@ -2,6 +2,7 @@ import type { ConfigBinding, OkignoreBinding } from '@inkeep/open-knowledge-core
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { createServedBindingLog } from '@/test-utils/served-binding.test-helper';
 
 type WindowGlobals = { MutationObserver?: typeof MutationObserver; NodeFilter?: typeof NodeFilter };
 type GlobalWithDomShims = typeof globalThis &
@@ -76,15 +77,16 @@ const SEMANTIC_STATUS_RESPONSE = {
   total: 0,
 };
 
-vi.doMock('@inkeep/open-knowledge-core', async () => ({
-  ...(await vi.importActual<typeof import('@inkeep/open-knowledge-core')>(
-    '@inkeep/open-knowledge-core',
-  )),
-  get SHOW_INSTALL_SKILL() {
-    return true;
-  },
-  MARKDOWNLINT_RULE_CATALOG: FAKE_RULE_CATALOG,
-}));
+const servedCore = createServedBindingLog();
+
+vi.doMock('@inkeep/open-knowledge-core/markdown/lint', async () =>
+  servedCore.serve('@inkeep/open-knowledge-core/markdown/lint', {
+    ...(await vi.importActual<typeof import('@inkeep/open-knowledge-core/markdown/lint')>(
+      '@inkeep/open-knowledge-core/markdown/lint',
+    )),
+    MARKDOWNLINT_RULE_CATALOG: FAKE_RULE_CATALOG,
+  }),
+);
 
 vi.doMock('@/components/settings/SettingsDialogBodyLazy', () => ({
   SettingsDialogBodyLazy: (props: BodyProps) => {
@@ -184,6 +186,82 @@ describe('settings dialog search', () => {
     }
   });
 
+  test('the GitHub account block is findable by the GitHub CLI names', async () => {
+    const user = userEvent.setup();
+    render(<SettingsDialogShell open={true} onOpenChange={() => {}} />);
+    const input = screen.getByTestId('settings-search-input');
+
+    for (const query of ['GitHub CLI', 'gh']) {
+      await user.clear(input);
+      await user.type(input, query);
+      expect(
+        await screen.findByTestId('settings-search-result-subsection:account:github-account'),
+      ).toBeTruthy();
+    }
+
+    await user.click(
+      screen.getByTestId('settings-search-result-subsection:account:github-account'),
+    );
+    expect(latestProbe()?.activeId).toBe('account');
+  });
+
+  describe('in the desktop app', () => {
+    beforeEach(() => {
+      (window as unknown as { okDesktop?: unknown }).okDesktop = {
+        platform: 'linux',
+        appVersion: '0.81.5-cloud.1343',
+        config: { ptyAvailable: false },
+      };
+    });
+
+    afterEach(() => {
+      (window as unknown as { okDesktop?: unknown }).okDesktop = undefined;
+    });
+
+    test('About & updates is findable as "update" and as "about"', async () => {
+      const user = userEvent.setup();
+      render(<SettingsDialogShell open={true} onOpenChange={() => {}} />);
+      const input = screen.getByTestId('settings-search-input');
+
+      for (const query of ['update', 'about', 'version', 'release notes']) {
+        await user.clear(input);
+        await user.type(input, query);
+        expect(await screen.findByTestId('settings-search-result-section:about')).toBeTruthy();
+      }
+
+      await user.click(screen.getByTestId('settings-search-result-section:about'));
+      expect(latestProbe()?.activeId).toBe('about');
+    });
+
+    test('About & updates is the last sidebar entry, under App', () => {
+      render(<SettingsDialogShell open={true} onOpenChange={() => {}} />);
+
+      const items = screen.getAllByTestId(/^settings-sidebar-item-/);
+      expect(items.at(-1)?.getAttribute('data-testid')).toBe('settings-sidebar-item-about');
+      expect(screen.getByRole('heading', { name: 'App' })).toBeTruthy();
+    });
+
+    test('the sidebar version label opens About & updates in place', async () => {
+      const user = userEvent.setup();
+      render(<SettingsDialogShell open={true} onOpenChange={() => {}} />);
+
+      await user.click(screen.getByRole('button', { name: 'v0.81.5-cloud.1343 About & updates' }));
+
+      expect(latestProbe()?.activeId).toBe('about');
+    });
+  });
+
+  test('the web host has no About & updates section', async () => {
+    const user = userEvent.setup();
+    render(<SettingsDialogShell open={true} onOpenChange={() => {}} />);
+
+    await user.type(screen.getByTestId('settings-search-input'), 'update');
+    await waitFor(() => {
+      expect(screen.getByTestId('settings-search-empty')).toBeDefined();
+    });
+    expect(screen.queryByTestId('settings-search-result-section:about')).toBeNull();
+  });
+
   test('a markdownlint rule is searchable when the plugin is enabled', async () => {
     const user = userEvent.setup();
     render(<SettingsDialogShell open={true} onOpenChange={() => {}} />);
@@ -206,6 +284,30 @@ describe('settings dialog search', () => {
       expect(screen.getByTestId('settings-search-empty')).toBeDefined();
     });
     expect(screen.queryByTestId('settings-search-result-rule:MD013')).toBeNull();
+  });
+
+  test('rule search results come from the catalog the lint replacement serves', async () => {
+    const user = userEvent.setup();
+    const since = servedCore.mark();
+    render(<SettingsDialogShell open={true} onOpenChange={() => {}} />);
+    const input = screen.getByTestId('settings-search-input');
+
+    await user.type(input, 'MD001');
+    expect(await screen.findByTestId('settings-search-result-rule:MD001')).toBeTruthy();
+
+    await user.clear(input);
+    await user.type(input, 'MD009');
+    await waitFor(() => {
+      expect(screen.getByTestId('settings-search-empty')).toBeDefined();
+    });
+    expect(screen.queryByTestId('settings-search-result-rule:MD009')).toBeNull();
+    expect(
+      servedCore.readersOf(
+        '@inkeep/open-knowledge-core/markdown/lint',
+        'MARKDOWNLINT_RULE_CATALOG',
+        since,
+      ),
+    ).toEqual(['components/settings/settings-search-index.ts']);
   });
 
   test('a no-match query renders the empty state', async () => {

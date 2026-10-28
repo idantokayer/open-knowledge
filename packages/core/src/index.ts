@@ -49,6 +49,8 @@ export {
   detectFmRegion,
   diffLinesFast,
   docEdgeRunsDiffer,
+  documentBodyLineEnding,
+  dominantLineEnding,
   emitToleranceFire,
   type FmBoundarySlotSplit,
   type FmEditError,
@@ -67,11 +69,14 @@ export {
   type FrontmatterDocProvider,
   type FrontmatterSnapshot,
   findDroppedContent,
+  findDroppedSourceContentInRange,
   findFirstDivergenceIndex,
   fnv1aDigest,
   fragmentHoldsPendingContent,
   type InvariantViolation,
   isParseEquivalentBridge,
+  type LfProjection,
+  type LineEnding,
   locateBridgeDivergence,
   MAX_FM_REGION_BYTES,
   type MergeBoundarySpace,
@@ -84,6 +89,7 @@ export {
   parseFencedFmRegion,
   parseFmRegion,
   pendingContentLines,
+  projectToLf,
   readFmKeys,
   readFmMap,
   readFmRegionWithError,
@@ -96,6 +102,7 @@ export {
   type SynthesisedConflictMarkers,
   type SynthesisedConflictRegion,
   setToleranceTelemetryHook,
+  spellLineEndings,
   splitFmBoundarySlot,
   structuralDivergence,
   synthesiseConflictMarkers,
@@ -154,12 +161,17 @@ export {
 } from './checkpoint-kinds.ts';
 export {
   CLIENT_RUNTIME_VERSION_FALLBACK,
+  CLIENT_SURFACE_ATTRIBUTE,
   CLIENT_VERSION_HEADER,
   type ClientKind,
+  type ClientSurface,
+  type ClientSurfaceReading,
   type ClientVersionInput,
   type ClientVersionTokenFields,
   clientVersionHeaders,
   clientVersionTokenFields,
+  deriveClientSurface,
+  readClientSurface,
 } from './client-version.ts';
 export {
   COMMAND_IDENTITIES,
@@ -443,10 +455,13 @@ export { SHOW_INSTALL_SKILL } from './constants/feature-flags.ts';
 export type { OkFolderState } from './constants/folder-state.ts';
 export {
   classifyGitHubShareHost,
+  credentialHostFromRemoteUrl,
   DEFAULT_GITHUB_OAUTH_CLIENT_ID,
   declaredGitHubHostsFrom,
   GIT_HOST_PROVIDERS,
   type GitHostProvider,
+  gitCredentialHostKey,
+  isGitCredentialHost,
   isGitHubHost,
   normalizeGitHostname,
 } from './constants/github.ts';
@@ -499,6 +514,8 @@ export {
   MENU_LABELS,
   type MenuLabelKey,
   menuLabelForPlatform,
+  OPEN_KNOWLEDGE_DISCORD_URL,
+  OPEN_KNOWLEDGE_DOCS_URL,
   OPEN_KNOWLEDGE_GITHUB_URL,
   PLATFORM_MENU_LABELS,
 } from './constants/menu-labels.ts';
@@ -557,6 +574,8 @@ export { isReservedLogDoc } from './constants/reserved-docs.ts';
 export { DEFAULT_SERVER_HOST } from './constants/server.ts';
 export {
   MACHINE_ID_FILENAME,
+  SERVER_AUTHORITY_LEASES_DIRNAME,
+  SERVER_AUTHORITY_REGISTRY_FILENAME,
   SHARED_OK_ENTRIES,
   SKILL_MOVE_RETAINED_FILENAME,
   SKILL_PLACEMENTS_FILENAME,
@@ -758,6 +777,7 @@ export {
   type AssembleHandoffPromptInput,
   assembleHandoffPrompt,
   assertNeverUrnIpcLookup,
+  BRACKETED_PASTE_ENABLE_MARKER,
   buildClaudeLaunchCommand,
   buildClaudeUrl,
   buildCliLaunchArgString,
@@ -765,6 +785,7 @@ export {
   buildCodexUrl,
   buildCursorUrl,
   buildStartupInjectionBytes,
+  buildTerminalInputBytes,
   buildWindowsCliLaunch,
   type ComposeSelection,
   type CreateScenario,
@@ -1374,6 +1395,8 @@ export {
   isWriteWarningKind,
   type LifecycleStatus,
   LifecycleStatusSchema,
+  type LinkCheckDeferredWarning,
+  LinkCheckDeferredWarningSchema,
   type LinkGraphDocNode,
   LinkGraphDocNodeSchema,
   type LinkGraphEdge,
@@ -1406,6 +1429,10 @@ export {
   LocalOpAuthSetIdentityRequestSchema,
   type LocalOpAuthStatusSuccess,
   LocalOpAuthStatusSuccessSchema,
+  type LocalOpAuthTokenRequest,
+  LocalOpAuthTokenRequestSchema,
+  type LocalOpAuthTokenSuccess,
+  LocalOpAuthTokenSuccessSchema,
   type LocalOpCloneRequest,
   LocalOpCloneRequestSchema,
   type LocalOpEmbeddingsMutationSuccess,
@@ -1994,6 +2021,7 @@ export {
   TERMINAL_PLACEMENTS,
   type TerminalPlacement,
 } from './terminal-layout.ts';
+export { TEST_LOOP_CORE_MARKER } from './test-loop-marker.ts';
 export type {
   AnsiSlotName,
   Base16Palette,
@@ -2075,6 +2103,7 @@ export {
   isValidDocName,
   validateDocName,
 } from './util/doc-name.ts';
+export { isMarkdownSkillFilePath, skillFilePathSegments } from './util/skill-file-path.ts';
 export { applyByPrefixSuffix } from './utils/apply-by-prefix-suffix.ts';
 export { toDesktopAssetHref } from './utils/asset-href.ts';
 export { ChunkedInsertError, chunkedYTextInsert } from './utils/chunked-insert.ts';
@@ -2143,6 +2172,26 @@ export {
 } from './utils/slug.ts';
 export { expandTagToHierarchy, tagsMatchingPrefix } from './utils/tag-rollup.ts';
 export {
+  type DependencySlug,
+  dependencySlug,
+  type IdentityKey,
+  identityKey,
+  leafKey,
+  TARGET_IDENTITY,
+  type TargetKind,
+  wikiAssetPathKey,
+} from './utils/target-identity.ts';
+export {
+  addDocumentFolders,
+  asTargetNamespace,
+  createTargetNamespace,
+  isTargetNamespace,
+  type MutableTargetNamespace,
+  resolveName,
+  type TargetMatch,
+  type TargetNamespace,
+} from './utils/target-namespace.ts';
+export {
   hasUninstallFeedbackContent,
   type PostUninstallFeedbackOptions,
   postUninstallFeedback,
@@ -2156,6 +2205,7 @@ export {
   buildPagesByBasenameIndex,
   buildPagesBySlugIndex,
   buildWikiLinkAssetTargetKeys,
+  createWikiAssetResolver,
   getWikiLinkResolutionCandidates,
   isResolvedWikiLinkTarget,
   resolveWikiLinkAssetTarget,

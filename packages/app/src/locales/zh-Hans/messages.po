@@ -88,6 +88,10 @@ msgstr "“{docName}”不存在。"
 msgid "\"{docName}\" took too long. Check your connection."
 msgstr "“{docName}”耗时过长。请检查你的网络连接。"
 
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "\"{name}\""
+msgstr "“{name}”"
+
 #: src/hooks/use-skill-origin.ts
 msgid "\"{name}\" is already up to date"
 msgstr "“{name}”已是最新"
@@ -216,6 +220,11 @@ msgstr "{0, plural, other {预览的安全策略拦截了 # 个请求}}"
 msgid "{0, plural, one {# result} other {# results}}"
 msgstr "{0, plural, other {# 条结果}}"
 
+#. placeholder {0}: templates.length
+#: src/components/empty-state/CreateView.tsx
+msgid "{0, plural, one {# template available} other {# templates available}}"
+msgstr "{0, plural, other {有 # 个模板可用}}"
+
 #. placeholder {0}: folder.templateCount
 #: src/components/CreatedItemsList.tsx
 msgid "{0, plural, one {# template} other {# templates}}"
@@ -230,6 +239,11 @@ msgstr "{0, plural, other {# 次使用}}"
 #: src/components/ProblemsPanel.tsx
 msgid "{0, plural, one {# warning} other {# warnings}}"
 msgstr "{0, plural, other {# 条警告}}"
+
+#. placeholder {0}: templates.length
+#: src/components/empty-state/CreateView.tsx
+msgid "{0, plural, one {At least # template found} other {At least # templates found}}"
+msgstr "{0, plural, other {至少找到 # 个模板}}"
 
 #. placeholder {0}: deleteTargets.length
 #: src/components/FileTree.tsx
@@ -453,11 +467,6 @@ msgstr "{0} 共用此文件夹。"
 #: src/components/SkillsTree.tsx
 msgid "{0} skills selected"
 msgstr "已选择 {0} 个技能"
-
-#. placeholder {0}: templates.length
-#: src/components/empty-state/CreateView.tsx
-msgid "{0} templates available"
-msgstr "有 {0} 个模板可用"
 
 #. placeholder {0}: formatBundleSize(operation.zipSizeBytes)
 #: src/components/BugReportSendToast.tsx
@@ -750,6 +759,10 @@ msgstr "{count, plural, other {确定要删除以下 # 个文件吗？}}"
 msgid "{count, plural, one {Are you sure you want to delete the following # file/directory and its contents?} other {Are you sure you want to delete the following # files/directories and their contents?}}"
 msgstr "{count, plural, other {确定要删除以下 # 个文件/文件夹及其内容吗？}}"
 
+#: src/components/ConsentDialogBody.tsx
+msgid "{count, plural, one {Found {formattedCount} markdown file} other {Found {formattedCount} markdown files}}"
+msgstr "{count, plural, other {找到 {formattedCount} 个 markdown 文件}}"
+
 #: src/components/ProblemsPanel.tsx
 msgid "{count, plural, one {Hands the # problem to your AI agent, including what has no automatic fix.} other {Hands all # problems to your AI agent, including what has no automatic fix.}}"
 msgstr "{count, plural, other {把这 # 个问题交给你的 AI 智能体，包括没有自动修复方案的部分。}}"
@@ -964,6 +977,14 @@ msgstr "{label}（{0}）"
 msgid "{label} already loads \"{0}\" from the {1} plugin. Installing here puts a copy at {2} that {label} uses instead of the plugin's — it stops tracking plugin updates."
 msgstr "{label} 已经通过 {1} 插件加载 \"{0}\"。在此安装会在 {2} 创建一个副本，{label} 将使用该副本而不是插件的版本——副本不再跟随插件更新。"
 
+#: src/components/InstanceBadge.tsx
+msgid "{label} build, v{version}. Its settings and data are kept separate from other OpenKnowledge apps."
+msgstr "{label} 版本，v{version}。其设置和数据与其他 OpenKnowledge 应用分开保存。"
+
+#: src/components/InstanceBadge.tsx
+msgid "{label} build. Its settings and data are kept separate from other OpenKnowledge apps."
+msgstr "{label} 版本。其设置和数据与其他 OpenKnowledge 应用分开保存。"
+
 #: src/components/settings/plugin-enabled-notice.ts
 msgid "{label} enabled"
 msgstr "已启用 {label}"
@@ -971,10 +992,6 @@ msgstr "已启用 {label}"
 #: src/components/file-tree-problem-indicators.ts
 msgid "{label} problems"
 msgstr "{label} 个问题"
-
-#: src/components/InstanceBadge.tsx
-msgid "{label} uses isolated app data"
-msgstr "{label} 使用隔离的应用数据"
 
 #: src/components/ActivityPanelBurstRow.tsx
 msgid "{laterEdits, plural, one {Removes # newer edit on this file.} other {Removes # newer edits on this file.}}"
@@ -1034,6 +1051,7 @@ msgid "{openedWorktreeCount, plural, one {worktree} other {worktrees}}"
 msgstr "{openedWorktreeCount, plural, one {worktree} other {worktree}}"
 
 #: src/lib/acp/image-attachment.ts
+#: src/lib/install-stale-tab-reload-prompt.ts
 msgid "{others, plural, one {# other} other {# others}}"
 msgstr "{others, plural, other {其他 # 个文件}}"
 
@@ -1548,6 +1566,10 @@ msgstr "这里已存在名为 <0>{trimmedSlug}</0> 的模板。保存会创建�
 msgid "A title, description, tags — anything that describes this folder."
 msgstr "标题、描述、标签——任何能描述这个文件夹的信息。"
 
+#: src/components/settings/AccountSection.tsx
+msgid "A token added here only applies to HTTPS remotes, and this project's remote doesn't use HTTPS."
+msgstr "在此添加的令牌只适用于 HTTPS 远程仓库，而此项目的远程仓库不使用 HTTPS。"
+
 #: src/components/ShareBranchSwitchDialog.tsx
 msgid "A worktree folder for {shareBranch} already exists."
 msgstr "{shareBranch} 的 worktree 文件夹已存在。"
@@ -1556,13 +1578,26 @@ msgstr "{shareBranch} 的 worktree 文件夹已存在。"
 msgid "A worktree folder for that branch already exists."
 msgstr "该分支的 worktree 文件夹已存在。"
 
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "about"
+msgstr "关于"
+
 #: src/lib/native-menu-catalog.ts
+#: src/lib/platform-labels.ts
 msgid "About"
 msgstr "关于"
 
 #: src/lib/native-menu-catalog.ts
+#: src/lib/platform-labels.ts
 msgid "About {appName}"
 msgstr "关于 {appName}"
+
+#: src/components/HelpPopover.tsx
+#: src/components/settings/AboutSection.tsx
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "About & updates"
+msgstr "关于和更新"
 
 #: src/editor/slash-command/items.tsx
 msgid "Above"
@@ -1600,9 +1635,8 @@ msgid "Accept their deletion"
 msgstr "接受对方的删除"
 
 #: src/components/settings/AccountSection.tsx
-#: src/components/settings/SettingsDialogShell.tsx
-msgid "Account"
-msgstr "账户"
+msgid "Access token"
+msgstr "访问令牌"
 
 #: src/components/TemplateRow.tsx
 msgid "Actions for {label}"
@@ -1680,6 +1714,10 @@ msgstr "添加属性"
 #: src/components/empty-state/CreateView.tsx
 msgid "Add a starter pack"
 msgstr "添加入门包"
+
+#: src/components/settings/AccountSection.tsx
+msgid "Add an access token for a GitLab, Gitea, Bitbucket, Azure DevOps or self-hosted git server. Without one, git uses the credentials it already has saved for that host; with one, OpenKnowledge uses the token instead."
+msgstr "为 GitLab、Gitea、Bitbucket、Azure DevOps 或自托管 git 服务器添加访问令牌。没有令牌时，git 会使用它已为该主机保存的凭据；添加令牌后，OpenKnowledge 改用该令牌。"
 
 #: src/components/settings/OkignoreSection.tsx
 msgid "Add another pattern"
@@ -1810,6 +1848,12 @@ msgstr "添加到词典"
 msgid "Add to prompt"
 msgstr "添加到提示词"
 
+#: src/components/settings/AccountSection.tsx
+#: src/components/SyncStatusBadge.tsx
+#: src/hooks/use-sync-auth-prompt.ts
+msgid "Add token"
+msgstr "添加令牌"
+
 #: src/components/settings/frontmatter-schema-field-editor.tsx
 msgid "Add value"
 msgstr "添加值"
@@ -1819,6 +1863,10 @@ msgstr "添加值"
 #: src/components/SyncStatusBadge.tsx
 msgid "Added"
 msgstr "已添加"
+
+#: src/components/settings/AccountSection.tsx
+msgid "Adding"
+msgstr "正在添加"
 
 #: src/components/settings/AgentConnectionDialogs.tsx
 msgid "Adds a global OpenKnowledge MCP entry for this agent."
@@ -1909,8 +1957,7 @@ msgstr "智能体对话"
 msgid "Agent configuration file"
 msgstr "智能体配置文件"
 
-#: src/components/settings/AgentConnectionsSection.tsx
-#: src/components/settings/SettingsDialogShell.tsx
+#: src/components/settings/settings-section-labels.ts
 msgid "Agent connections"
 msgstr "智能体连接"
 
@@ -2016,6 +2063,11 @@ msgstr "即将完成。以下是已完成和仍需完成的事项。"
 msgid "Already at {assetContentPath} — reusing."
 msgstr "已经在 {assetContentPath} 了——直接复用。"
 
+#. Status under the unticked AI-tools checkbox; replacingToolList names the tools that already have an OpenKnowledge MCP entry, which stay as they are while the box is unticked
+#: src/components/McpConsentDialogBody.tsx
+msgid "Already connected to {replacingToolList}"
+msgstr "已连接到：{replacingToolList}"
+
 #: src/components/settings/applies-to-folder-picker.tsx
 msgid "Already covered by a picked parent folder"
 msgstr "已被选中的上级文件夹覆盖"
@@ -2115,9 +2167,17 @@ msgstr "还有什么想补充的吗？（可选）"
 msgid "API key set"
 msgstr "API 密钥已设置"
 
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "App"
+msgstr "应用"
+
 #: src/components/InstanceBadge.tsx
 msgid "App instance: {label}"
 msgstr "应用实例：{label}"
+
+#: src/components/InstanceBadge.tsx
+msgid "App instance: {label}, v{version}"
+msgstr "应用实例：{label}，v{version}"
 
 #: src/components/CreatedItemsList.tsx
 msgid "Append-only log of what changed."
@@ -2335,6 +2395,10 @@ msgstr "附件总大小必须小于 3 MB。"
 msgid "Authenticated as {login}."
 msgstr "已以 {login} 身份验证。"
 
+#: src/components/SyncStatusBadge.tsx
+msgid "Authentication failed for this git host. Add a token for it in Settings, or replace the one stored."
+msgstr "这个 git 主机的身份验证失败。请在「设置」中为它添加令牌，或者替换已保存的令牌。"
+
 #: src/editor/slash-command/component-items.tsx
 msgid "Authoritative content; mirrored verbatim everywhere it's referenced."
 msgstr "权威内容；在所有被引用的地方逐字镜像。"
@@ -2399,6 +2463,10 @@ msgid "Auto-save"
 msgstr "自动保存"
 
 #: src/components/settings/SyncSection.tsx
+msgid "Auto-sync is on, but there's no remote to sync with yet. It starts as soon as a remote is connected."
+msgstr "自动同步已开启，但还没有可同步的远程仓库。连接远程仓库后就会开始同步。"
+
+#: src/components/settings/SyncSection.tsx
 msgid "Auto-sync is paused — sign in to resume."
 msgstr "自动同步已暂停——请登录以继续。"
 
@@ -2439,6 +2507,14 @@ msgstr "自动"
 #: src/components/settings/NetworkAccessSection.tsx
 msgid "Automatic picks a free port each start. Choose a fixed port to keep the same address across restarts."
 msgstr "自动模式会在每次启动时选择一个空闲端口。选择固定端口可在重启后保持相同地址。"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "Automatic updates"
+msgstr "自动更新"
+
+#: src/components/settings/AboutSection.tsx
+msgid "Automatic updates are not available right now."
+msgstr "目前无法自动更新。"
 
 #: src/components/PublishToGitHubDialog.tsx
 msgid "Available"
@@ -2535,6 +2611,11 @@ msgstr "大号章节标题。"
 #: src/components/empty-state/use-create-suggestions.ts
 msgid "Bird wiki"
 msgstr "鸟类维基"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "Bitbucket"
+msgstr "Bitbucket"
 
 #: src/components/NewItemDialog.tsx
 msgid "Blank note"
@@ -2883,6 +2964,10 @@ msgid "Chat name"
 msgstr "对话名称"
 
 #: src/components/command-palette-commands.ts
+#: src/components/HelpPopover.tsx
+#: src/components/settings/AboutSection.tsx
+#: src/components/settings/SettingsDialogShell.tsx
+#: src/components/UpdateNotices.shared.ts
 msgid "Check for updates"
 msgstr "检查更新"
 
@@ -2934,6 +3019,7 @@ msgstr "正在查找智能体"
 msgid "Checking for Slidev"
 msgstr "正在检查 Slidev"
 
+#: src/components/settings/AboutSection.tsx
 #: src/components/SyncStatusBadge.tsx
 msgid "Checking for updates"
 msgstr "正在检查更新"
@@ -2943,6 +3029,7 @@ msgstr "正在检查更新"
 msgid "Checking for updates on GitHub"
 msgstr "正在 GitHub 上检查更新"
 
+#: src/components/settings/SettingsDialogShell.tsx
 #: src/components/UpdateNotices.shared.ts
 msgid "Checking for updates…"
 msgstr "正在检查更新…"
@@ -3062,8 +3149,8 @@ msgid "Choose where to send this message"
 msgstr "选择把这条消息发送到哪里"
 
 #: src/components/settings/SharingSection.tsx
-msgid "Choose whether this project's OpenKnowledge setup, including its AI-tool connections, is saved with the project so teammates get it too, or kept only on your computer."
-msgstr "选择这个项目的 OpenKnowledge 配置（包括它与 AI 工具的连接）是随项目一起保存、让队友也能获得，还是只留在你的电脑上。"
+msgid "Choose whether this project's OpenKnowledge setup, including its AI-tool connections and the Shared default sync mode, is saved with the project so teammates get it too, or kept only on your computer."
+msgstr "选择这个项目的 OpenKnowledge 配置（包括它与 AI 工具的连接以及共享的默认值同步模式）是随项目一起保存、让队友也能获得，还是只留在你的电脑上。"
 
 #: src/components/settings/AgentConnectionsSection.tsx
 msgid "Choose which agents appear in agent menus across the app, and set them up to read and update your documents."
@@ -3301,6 +3388,10 @@ msgstr "关闭终端"
 #: src/components/acp/ThreadHistoryPanel.tsx
 msgid "Close this chat's tab to delete it"
 msgstr "关闭此对话的标签页后才能删除"
+
+#: src/editor/image-upload/upload-admission.ts
+msgid "Close this preview, then open the folder to upload files"
+msgstr "关闭此预览，然后打开文件夹以上传文件"
 
 #: src/components/NoteWindowDeletedState.tsx
 msgid "Close window"
@@ -3605,8 +3696,8 @@ msgid "Connect"
 msgstr "连接"
 
 #: src/components/settings/AccountSection.tsx
-msgid "Connect a GitHub account to browse and sync your repositories."
-msgstr "连接一个 GitHub 账户，以便浏览和同步你的仓库。"
+msgid "Connect a GitHub account to browse and publish GitHub repositories."
+msgstr "连接一个 GitHub 账户，以浏览和发布 GitHub 仓库。"
 
 #: src/components/settings/SyncSection.tsx
 msgid "Connect an existing repository"
@@ -3664,7 +3755,6 @@ msgid "Connected — this endpoint returns {0}-dimension vectors."
 msgstr "已连接——该端点返回 {0} 维向量。"
 
 #: src/components/AuthModal.tsx
-#: src/components/settings/AccountSection.tsx
 msgid "Connected as @{login}"
 msgstr "已以 @{login} 身份连接"
 
@@ -3675,6 +3765,10 @@ msgstr "已以 <0>@{signedInLogin}</0> 身份连接"
 #: src/components/settings/SyncSection.tsx
 msgid "Connected to"
 msgstr "已连接到"
+
+#: src/components/settings/AccountSection.tsx
+msgid "Connected to {host} as @{login}"
+msgstr "已以 @{login} 身份连接到 {host}"
 
 #: src/components/AuthModal.tsx
 msgid "Connected to GitHub"
@@ -3698,6 +3792,7 @@ msgid "Connection dropped"
 msgstr "连接已断开"
 
 #: src/components/AuthModal.tsx
+#: src/components/settings/AccountSection.tsx
 #: src/lib/transports/auth-transport.ts
 msgid "Connection error — try again"
 msgstr "连接出错——请重试"
@@ -4413,6 +4508,10 @@ msgstr "无法连接到该端点。请检查 URL，并确认服务器已启动�
 msgid "Couldn't reach the Open Knowledge server to upload {fileName}."
 msgstr "无法连接到 Open Knowledge 服务器以上传 {fileName}。"
 
+#: src/components/settings/SyncSection.tsx
+msgid "Couldn't reach the OpenKnowledge server, so sync options are hidden. They appear here as soon as the sync status loads; closing and reopening Settings also retries."
+msgstr "无法连接到 OpenKnowledge 服务器，因此已隐藏同步选项。同步状态一加载完成，选项就会显示在这里；关闭并重新打开设置也会重试。"
+
 #: src/components/acp/ThreadView.tsx
 #: src/editor/use-composer-attachments.ts
 msgid "Couldn't read {fileName}."
@@ -4561,6 +4660,10 @@ msgstr "无法保存密钥——请重试。"
 #: src/components/DiffViewBoundary.tsx
 msgid "Couldn't save the resolution for {filePath}."
 msgstr "无法保存 {filePath} 的解决结果。"
+
+#: src/components/settings/AboutSection.tsx
+msgid "Couldn't save this setting. Try again."
+msgstr "无法保存此设置。请重试。"
 
 #: src/components/McpConsentDialogBody.tsx
 msgid "Couldn't save your theme preference."
@@ -5323,6 +5426,8 @@ msgstr "文件结构"
 msgid "Document the architecture of this repo: create an overview page that links to a page per major module describing its responsibilities and entry points."
 msgstr "记录这个仓库的架构：创建一页总览，链接到每个主要模块的页面，说明各自的职责和入口。"
 
+#: src/components/AppMenubar.tsx
+#: src/components/command-palette-commands.ts
 #: src/components/settings/markdownlint-rule-browser.tsx
 msgid "Documentation"
 msgstr "文档"
@@ -5382,6 +5487,10 @@ msgstr "双击进行编辑"
 #: src/components/acp/ThreadView.tsx
 msgid "Download {0}"
 msgstr "下载 {0}"
+
+#: src/components/settings/AboutSection.tsx
+msgid "Download and install updates automatically"
+msgstr "自动下载并安装更新"
 
 #: src/components/HelpPopover.tsx
 msgid "Download app"
@@ -5937,6 +6046,10 @@ msgstr "请输入 {minimum} 到 {maximum} 之间的整数。"
 msgid "Enter at least 3 characters to search by meaning."
 msgstr "输入至少 3 个字符以按含义搜索。"
 
+#: src/components/settings/AccountSection.tsx
+msgid "Enter the host name git connects to, with an optional :port and no scheme or path, for example git.example.com."
+msgstr "输入 git 连接的主机名，可带可选的 :port，不要包含协议或路径，例如 git.example.com。"
+
 #: src/components/settings/NetworkAccessSection.tsx
 msgid "Enter the public origin your tunnel serves, for example https://notes.example.com"
 msgstr "输入你的隧道所服务的公开来源，例如 https://notes.example.com"
@@ -6001,6 +6114,18 @@ msgstr "Excalidraw 画板加载失败。"
 #: src/components/ExcalidrawDocEditor.tsx
 msgid "Excalidraw canvas"
 msgstr "Excalidraw 画布"
+
+#: src/components/LinksPanel.tsx
+msgid "Excluded"
+msgstr "已排除"
+
+#: src/components/LinksPanel.tsx
+msgid "Excluded file {identity}. Go to reference."
+msgstr "已排除的文件 {identity}。转到引用位置。"
+
+#: src/components/LinksPanel.tsx
+msgid "Excluded image {identity}. Go to reference."
+msgstr "已排除的图片 {identity}。转到引用位置。"
 
 #: src/components/NewWorktreeDialog.tsx
 msgid "Existing branch <0>{trimmed}</0> will be checked out into its own window, under <1>.ok/worktrees/</1>."
@@ -6412,6 +6537,7 @@ msgid "Failed to start sign-in — try again"
 msgstr "启动登录失败——请重试"
 
 #: src/components/AuthModal.tsx
+#: src/components/settings/AccountSection.tsx
 #: src/lib/transports/auth-transport.ts
 msgid "Failed to store the token — try again"
 msgstr "保存令牌失败——请重试"
@@ -6882,8 +7008,18 @@ msgstr "获取在应用中打开此项目或文档的链接"
 
 #: src/components/settings/SettingsDialogShell.tsx
 msgctxt "settings search keyword"
+msgid "gh"
+msgstr "gh"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
 msgid "GHES"
 msgstr "GHES"
+
+#: src/components/settings/AccountSection.tsx
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "Git"
+msgstr "Git"
 
 #: src/components/ExploreSkills.tsx
 msgid "Git & PRs"
@@ -6892,6 +7028,10 @@ msgstr "Git 与 PR"
 #: src/components/ShareFreshnessWarning.tsx
 msgid "Git can't track this folder — it's empty or contains only ignored files. The link won't work until you add a tracked document."
 msgstr "Git 无法跟踪这个文件夹——它是空的，或者只包含被忽略的文件。在你添加一个受跟踪的文档之前，链接不会生效。"
+
+#: src/hooks/use-sync-auth-prompt.ts
+msgid "Git couldn't authenticate with this host. Check the SSH key or saved credentials git uses for it."
+msgstr "git 无法向此主机进行身份验证。请检查 git 为该主机使用的 SSH 密钥或已保存的凭据。"
 
 #: src/components/RecentProjectsMenu.tsx
 msgid "Git has locked this worktree, but it can still be opened."
@@ -6931,9 +7071,19 @@ msgstr "Git 同步"
 msgid "Git syncing is paused because a Git operation or unresolved conflicts need attention. Your edits still save locally. Finish the operation or resolve the conflicts in your terminal, then retry sync."
 msgstr "Git 同步已暂停，因为有 Git 操作或未解决的冲突需要处理。你的编辑仍会保存在本地。请在终端中完成该操作或解决冲突，然后重试同步。"
 
+#: src/components/settings/AccountSection.tsx
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "GitHub"
+msgstr "GitHub"
+
 #: src/components/SyncStatusBadge.tsx
 msgid "GitHub authentication failed. Try signing in again."
 msgstr "GitHub 身份验证失败。请尝试重新登录。"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "GitHub CLI"
+msgstr "GitHub CLI"
 
 #: src/lib/share/publish-wizard.ts
 msgid "GitHub connection expired. Connect again to continue."
@@ -6952,10 +7102,6 @@ msgstr "GitHub Enterprise Server 主机"
 msgid "GitHub sign-in is missing or expired. Reconnect to resume syncing."
 msgstr "GitHub 登录缺失或已过期。请重新连接以继续同步。"
 
-#: src/components/settings/AccountSection.tsx
-msgid "GitHub sign-in isn't available for this project"
-msgstr "此项目无法使用 GitHub 登录"
-
 #: src/components/ImportSkillForm.tsx
 msgid "GitHub, a git URL, or a local path."
 msgstr "GitHub、一个 git URL，或一个本地路径。"
@@ -6963,6 +7109,11 @@ msgstr "GitHub、一个 git URL，或一个本地路径。"
 #: src/components/settings/EnterpriseHostsSection.tsx
 msgid "github.com is always recognized, so it doesn't need to be added."
 msgstr "github.com 始终会被识别，无需添加。"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "GitLab"
+msgstr "GitLab"
 
 #: src/components/settings/SavedThemesTiles.tsx
 msgid "Give it a name before editing its colors."
@@ -7318,6 +7469,10 @@ msgstr "水平胶囊条，活动面板在下方；点击胶囊可切换面板。
 msgid "Horizontal rule that divides sections."
 msgstr "用于分隔章节的水平分割线。"
 
+#: src/components/settings/AccountSection.tsx
+msgid "Host"
+msgstr "主机"
+
 #: src/components/settings/NetworkAccessSection.tsx
 msgid "Hosting is on. The server is running on port {boundPort}. Reach it through your tunnel."
 msgstr "托管已开启。服务器正在端口 {boundPort} 上运行。通过您的隧道访问它。"
@@ -7488,6 +7643,10 @@ msgstr "无法将图片目标“{shown}”解析为项目本地文件。"
 #: src/editor/localized-validation-message.ts
 msgid "Image target \"{shown}\" does not resolve to an existing file."
 msgstr "图片目标“{shown}”未指向现有文件。"
+
+#: src/editor/localized-validation-message.ts
+msgid "Image target \"{shown}\" exists but is excluded by .gitignore or .okignore. Re-include it, or its folder, with a \"!\" rule in .okignore."
+msgstr "图片目标“{shown}”存在，但被 .gitignore 或 .okignore 排除。请在 .okignore 中添加“!”规则，重新包含该文件或其文件夹。"
 
 #: src/components/ReportBugDialogBody.tsx
 msgid "Images aren't redacted."
@@ -7975,8 +8134,24 @@ msgid "Invalid YAML"
 msgstr "无效的 YAML"
 
 #: src/components/ReportBugDialogBody.tsx
+msgid "It also adds any display-connection errors OpenKnowledge wrote to your user journal in the past week, each message cut to 200 characters."
+msgstr "它还会添加 OpenKnowledge 在过去一周内写入你的用户日志的显示连接错误，每条消息截断为 200 个字符。"
+
+#: src/components/ReportBugDialogBody.tsx
+msgid "It also adds the crash and hang records Windows logged for OpenKnowledge in the past week, without file paths, and the times of every shutdown, restart, power loss, and low-memory warning on this computer in that week, whatever caused them."
+msgstr "它还会添加 Windows 在过去一周内为 OpenKnowledge 记录的崩溃和无响应记录（不含文件路径），以及这台电脑在那一周内每次关机、重启、断电和内存不足警告的时间，无论原因为何。"
+
+#: src/components/ReportBugDialogBody.tsx
 msgid "It also adds the crash reports macOS recorded for OpenKnowledge and its helper processes, never another app's report, though ours do name the processes they were running alongside. Each one carries machine details macOS puts in every report: your account uid, the Mac model, and the name of the process that launched the app. On a managed machine, that launching process can be internal tooling. The identifiers that would link the bug reports you file to each other are replaced first, so a collected report is not byte-identical to the one macOS wrote."
 msgstr "还会添加 macOS 为 OpenKnowledge 及其辅助进程记录的崩溃报告，绝不包含其他应用的报告，不过我们自己的报告会列出与之同时运行的进程。每份报告都含有 macOS 写入所有报告的机器信息：你的账户 uid、Mac 机型，以及启动该应用的进程名称。在受管理的设备上，该启动进程可能是内部工具。会先替换掉可能将你提交的多份问题报告相互关联的标识符，因此收集到的报告与 macOS 写入的原文并非逐字节相同。"
+
+#: src/components/ReportBugDialogBody.tsx
+msgid "It also adds the low-memory reports macOS wrote in the past week that list OpenKnowledge's processes, with each one's memory use and whether macOS ended it."
+msgstr "它还会添加 macOS 在过去一周内写下的、列出 OpenKnowledge 进程的内存不足报告，包括每个进程的内存用量以及 macOS 是否终止了它。"
+
+#: src/components/ReportBugDialogBody.tsx
+msgid "It also adds the out-of-memory kills of OpenKnowledge that the system journal recorded in the past week, without the machine name, account id, or folder paths."
+msgstr "它还会添加系统日志在过去一周内记录的 OpenKnowledge 因内存耗尽被终止的事件，不含计算机名称、账户 ID 或文件夹路径。"
 
 #. placeholder {0}: prompt.cwd
 #. placeholder {1}: prompt.agentName
@@ -8009,6 +8184,8 @@ msgstr "斜体"
 msgid "Item {0}"
 msgstr "项目 {0}"
 
+#: src/components/AppMenubar.tsx
+#: src/components/command-palette-commands.ts
 #: src/components/SubscribeCard.tsx
 msgid "Join us on Discord"
 msgstr "来 Discord 加入我们"
@@ -8269,6 +8446,10 @@ msgstr "链接目标“{shown}”未指向现有文档。"
 msgid "Link target \"{shown}\" does not resolve to an existing file."
 msgstr "链接目标“{shown}”未指向现有文件。"
 
+#: src/editor/localized-validation-message.ts
+msgid "Link target \"{shown}\" exists but is excluded by .gitignore or .okignore. Re-include it, or its folder, with a \"!\" rule in .okignore."
+msgstr "链接目标“{shown}”存在，但被 .gitignore 或 .okignore 排除。请在 .okignore 中添加“!”规则，重新包含该文件或其文件夹。"
+
 #: src/lib/keyboard-shortcuts.ts
 msgid "Link the selected text, or edit the link under the caret."
 msgstr "为选中的文本加链接，或编辑光标处的链接。"
@@ -8456,6 +8637,10 @@ msgstr "正在加载技能"
 msgid "Loading starter packs"
 msgstr "正在加载入门包"
 
+#: src/components/settings/SyncSection.tsx
+msgid "Loading sync status"
+msgstr "正在加载同步状态"
+
 #: src/components/CommandPalette.tsx
 #: src/editor/tag-suggestion/TagSuggestionMenu.tsx
 msgid "Loading tags"
@@ -8611,8 +8796,8 @@ msgid "Manage skill folders"
 msgstr "管理技能文件夹"
 
 #: src/components/settings/AccountSection.tsx
-msgid "Manage the GitHub account OpenKnowledge uses to browse and sync your repositories."
-msgstr "管理 OpenKnowledge 用来浏览和同步你的仓库的 GitHub 账户。"
+msgid "Manage the accounts and access tokens OpenKnowledge uses to connect to your git hosts."
+msgstr "管理 OpenKnowledge 用来连接你的 git 主机的账户和访问令牌。"
 
 #: src/components/settings/AgentConnectionDialogs.tsx
 #: src/components/settings/AgentConnectionsSection.tsx
@@ -8756,6 +8941,12 @@ msgstr "镜像来源 <0>api-spec</0>"
 #: src/components/LinksPanel.tsx
 msgid "Missing"
 msgstr "缺失"
+
+#. placeholder {0}: error.slots.length
+#. placeholder {1}: error.slots.join(', ')
+#: src/components/settings/CustomThemeEditor.tsx
+msgid "Missing {0} slot(s): {1}"
+msgstr "缺少 {0} 个颜色槽位：{1}"
 
 #: src/components/FeedbackForm.tsx
 msgid "Missing a feature"
@@ -9343,10 +9534,12 @@ msgstr "还没有配置任何智能体——请从发送菜单中选一个。"
 msgid "no agents — saved, not installed anywhere"
 msgstr "未选择智能体 — 仅保存，不安装到任何位置"
 
+#. Composer hint when no agent is set up; agentConnectionsLabel is the Settings sidebar pane name
+#. Composer hint when no agent is set up; agentConnectionsLabel is the Settings sidebar pane name
 #: src/components/BottomComposer.tsx
 #: src/components/empty-state/CreatePromptComposer.tsx
-msgid "No agents are set up yet — add an in-app agent in Agent connections to attach files."
-msgstr "还没有配置任何智能体——要附加文件，请在「智能体连接」中添加应用内智能体。"
+msgid "No agents are set up yet — add an in-app agent in {agentConnectionsLabel} to attach files."
+msgstr "还没有配置任何智能体——要附加文件，请在「{agentConnectionsLabel}」中添加应用内智能体。"
 
 #: src/components/settings/AgentConnectionsSection.tsx
 msgid "No agents available."
@@ -9369,10 +9562,10 @@ msgstr "没有智能体匹配你的搜索。"
 msgid "No AI agents installed"
 msgstr "未安装任何 AI 智能体"
 
-#. Shown in place of the AI-tools checkbox when no AI tool was detected
+#. Shown in place of the AI-tools checkbox when no AI tool was detected; agentConnectionsLabel is the Settings sidebar pane name
 #: src/components/McpConsentDialogBody.tsx
-msgid "No AI tools detected yet. Once you install one, connect it from Settings > AI tools & CLI."
-msgstr "尚未检测到 AI 工具。安装之后，可在「设置 > AI 工具与 CLI」中连接。"
+msgid "No AI tools detected yet. Once you install one, connect it from Settings > {agentConnectionsLabel}."
+msgstr "尚未检测到 AI 工具。安装之后，可在「设置 > {agentConnectionsLabel}」中连接。"
 
 #: src/components/ProjectAiToolsField.tsx
 msgid "No AI tools detected yet. Once you install one, connect it from Settings > This project."
@@ -9441,6 +9634,10 @@ msgstr "这个版本没有内容改动。"
 #: src/components/TimelineDiffPane.tsx
 msgid "No content changes in this version"
 msgstr "这个版本没有内容改动"
+
+#: src/components/SyncStatusBadge.tsx
+msgid "No credential is stored for this git host. Add a token in Settings, or let git use the credentials it already has."
+msgstr "没有为这个 git 主机保存任何凭据。请在「设置」中添加一个令牌，或者让 git 使用它已有的凭据。"
 
 #: src/components/GraphPanel.tsx
 msgid "No disconnected pages. Pages appear here only when they have no incoming and no outgoing graph edges."
@@ -9748,6 +9945,15 @@ msgstr "这些问题都没有自动修复方案。可以试试「用 AI 全部�
 msgid "Not a base16 theme"
 msgstr "不是 base16 主题"
 
+#. placeholder {0}: error.slots.join(', ')
+#: src/components/settings/CustomThemeEditor.tsx
+msgid "Not a hex color: {0}"
+msgstr "不是十六进制颜色：{0}"
+
+#: src/components/SkillConsentRow.tsx
+msgid "Not added to any AI tool yet."
+msgstr "尚未添加到任何 AI 工具。"
+
 #: src/components/acp/ThreadView.tsx
 msgid "Not answered"
 msgstr "未回答"
@@ -9805,6 +10011,7 @@ msgstr "尚未安装到此项目。"
 #: src/components/ReportBugDialogBody.tsx
 #: src/components/settings/SkillsStudioIntroDialog.tsx
 #: src/lib/install-server-drift-listener.ts
+#: src/lib/install-stale-tab-reload-prompt.ts
 msgid "Not now"
 msgstr "暂时不用"
 
@@ -10197,6 +10404,10 @@ msgid "Open it there"
 msgstr "在那里打开"
 
 #: src/components/settings/LintingSection.tsx
+msgid "Open Knowledge could not reach the project server to check index maintenance. The status updates when the project reconnects."
+msgstr "Open Knowledge 无法连接到项目服务器以检查索引维护。项目重新连接后，状态会更新。"
+
+#: src/components/settings/LintingSection.tsx
 msgid "Open Knowledge creates and maintains a navigation file named index.md in every folder that contains Markdown."
 msgstr "Open Knowledge 在包含 Markdown 的每个文件夹中创建并维护名为 index.md 的导航文件。"
 
@@ -10394,6 +10605,10 @@ msgstr "正在打开…"
 msgid "OpenKnowledge"
 msgstr "OpenKnowledge"
 
+#: src/components/AuthModal.tsx
+msgid "OpenKnowledge can't sign in to GitHub for this project."
+msgstr "OpenKnowledge 无法为此项目登录 GitHub。"
+
 #: src/lib/acp/tool-call-display.ts
 msgid "OpenKnowledge checked {subject}"
 msgstr "OpenKnowledge 检查了 {subject}"
@@ -10402,13 +10617,13 @@ msgstr "OpenKnowledge 检查了 {subject}"
 msgid "OpenKnowledge checked the project"
 msgstr "OpenKnowledge 检查了项目"
 
+#: src/components/settings/AboutSection.tsx
+msgid "OpenKnowledge checks for and downloads updates in the background."
+msgstr "OpenKnowledge 会在后台检查并下载更新。"
+
 #: src/components/settings/AgentConnectionDialogs.tsx
 msgid "OpenKnowledge could not find this agent on this machine."
 msgstr "OpenKnowledge 未在此设备上找到该智能体。"
-
-#: src/components/settings/AccountSection.tsx
-msgid "OpenKnowledge couldn't find a host name in this project's git remote, so it can't tell which GitHub server to sign in to."
-msgstr "OpenKnowledge 在此项目的 git 远程地址中找不到主机名，因此无法确定要登录哪个 GitHub 服务器。"
 
 #: src/lib/worktree-create-error.ts
 msgid "OpenKnowledge couldn't finish setting up this project. The worktree was created but not opened."
@@ -10454,6 +10669,10 @@ msgstr "OpenKnowledge 无法识别此条目，且无法在此文件格式中安�
 msgid "OpenKnowledge does not recognize this entry. Turning it on replaces it."
 msgstr "OpenKnowledge 无法识别此条目。启用后将替换它。"
 
+#: src/components/settings/AboutSection.tsx
+msgid "OpenKnowledge doesn't check for or download updates on its own. Check for updates still works when you want a newer version."
+msgstr "OpenKnowledge 不会自行检查或下载更新。需要新版本时，仍可使用“检查更新”。"
+
 #: src/lib/acp/tool-call-display.ts
 msgid "OpenKnowledge edited {subject}"
 msgstr "OpenKnowledge 编辑了 {subject}"
@@ -10465,6 +10684,10 @@ msgstr "OpenKnowledge 编辑了一个文档"
 #: src/uninstall/UninstallResultScreen.tsx
 msgid "OpenKnowledge files were removed"
 msgstr "已移除 OpenKnowledge 文件"
+
+#: src/hooks/use-sync-auth-prompt.ts
+msgid "OpenKnowledge has no credential stored for this host. Add a token in Settings, or let git use the credentials it already has."
+msgstr "OpenKnowledge 没有为这个主机保存任何凭据。请在「设置」中添加一个令牌，或者让 git 使用它已有的凭据。"
 
 #: src/lib/acp/tool-call-display.ts
 msgid "OpenKnowledge imported {source}"
@@ -10495,12 +10718,12 @@ msgid "OpenKnowledge is set up at the repository root here, so the pack goes ins
 msgstr "这里的 OpenKnowledge 设置在仓库根目录，因此入门包会放进 <0>{sanitized}</0>，而不是仓库顶层。"
 
 #: src/components/settings/AccountSection.tsx
-msgid "OpenKnowledge is using a GitHub account provided by the gh CLI. There's no separate OpenKnowledge credential to disconnect."
-msgstr "OpenKnowledge 正在使用 gh CLI 提供的 GitHub 账户。没有单独的 OpenKnowledge 凭据需要断开。"
-
-#: src/components/settings/AccountSection.tsx
 msgid "OpenKnowledge is using this GitHub account."
 msgstr "OpenKnowledge 正在使用这个 GitHub 账户。"
+
+#: src/components/settings/SettingsDialogBody.tsx
+msgid "OpenKnowledge keeps retrying and shows them as soon as the file can be read."
+msgstr "OpenKnowledge 会持续重试，并在文件可以读取后立即显示这些设置。"
 
 #: src/components/settings/AgentConnectionDialogs.tsx
 msgid "OpenKnowledge left this file alone because it could not parse it safely. Fix the file by hand, then try again."
@@ -10542,6 +10765,14 @@ msgstr "OpenKnowledge 移动了一个文档"
 #: src/components/command-palette-commands.ts
 msgid "OpenKnowledge on GitHub"
 msgstr "GitHub 上的 OpenKnowledge"
+
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "OpenKnowledge on this computer changed to a different build, but this tab is still running the old one."
+msgstr "这台电脑上的 OpenKnowledge 已换成另一个构建，但这个标签页仍在运行旧的构建。"
+
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "OpenKnowledge on this computer is now v{serverVersion}, but this tab is still running v{tabVersion}."
+msgstr "这台电脑上的 OpenKnowledge 现在是 v{serverVersion}，但这个标签页仍在运行 v{tabVersion}。"
 
 #: src/lib/acp/tool-call-display.ts
 msgid "OpenKnowledge opened the live preview"
@@ -10693,6 +10924,11 @@ msgstr "其他"
 #: src/components/FeedbackForm.tsx
 msgid "Other"
 msgstr "其他"
+
+#: src/components/settings/AccountSection.tsx
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "Other Git hosts"
+msgstr "其他 Git 主机"
 
 #: src/components/settings/SharingSection.tsx
 msgid "Other OK paths are tracked upstream:"
@@ -11246,6 +11482,10 @@ msgstr "项目详情"
 msgid "Project folder created, but git init failed. Try again."
 msgstr "项目文件夹已创建，但 git init 失败。请重试。"
 
+#: src/components/ConsentDialogBody.tsx
+msgid "Project folder: <0>{projectDir}</0>"
+msgstr "项目文件夹：<0>{projectDir}</0>"
+
 #: src/components/settings/AgentConnectionDialogs.tsx
 msgid "Project MCP server"
 msgstr "项目 MCP 服务器"
@@ -11319,6 +11559,10 @@ msgstr "属性值"
 #: src/components/SyncStatusBadge.tsx
 msgid "Protected branch — cannot push"
 msgstr "受保护分支——无法推送"
+
+#: src/components/settings/AccountSection.tsx
+msgid "Provided by the GitHub CLI (<0>gh</0>) on this computer. To switch accounts or sign out, run <1>gh auth</1> in a terminal."
+msgstr "由这台电脑上的 GitHub CLI（<0>gh</0>）提供。要切换账户或退出登录，请在终端中运行 <1>gh auth</1>。"
 
 #: src/components/TemplateForm.tsx
 msgid "provisional"
@@ -11628,6 +11872,14 @@ msgstr "需要重新连接"
 msgid "Reconnect required to keep syncing."
 msgstr "需要重新连接才能继续同步。"
 
+#: src/components/SyncStatusBadge.tsx
+msgid "Reconnect required to keep syncing. Add a token for this host in Settings, or replace the one stored."
+msgstr "需要重新连接才能继续同步。请在「设置」中为这个主机添加令牌，或者替换已保存的令牌。"
+
+#: src/components/SyncStatusBadge.tsx
+msgid "Reconnect required to keep syncing. Check the SSH key or saved credentials git uses for this host."
+msgstr "需要重新连接才能继续同步。请检查 git 为此主机使用的 SSH 密钥或已保存的凭据。"
+
 #: src/presence/use-sync-toasts.ts
 msgid "Reconnected"
 msgstr "已重新连接"
@@ -11706,6 +11958,7 @@ msgstr "相对路径"
 msgid "Relaunching to install the update…"
 msgstr "正在重新启动以安装更新…"
 
+#: src/components/settings/AboutSection.tsx
 #: src/components/settings/SettingsDialogShell.tsx
 #: src/components/SubscribeCard.tsx
 msgid "Release notes"
@@ -11725,10 +11978,15 @@ msgstr "相关度"
 #: src/components/settings/SettingsDialogErrorBoundary.tsx
 #: src/components/TerminalGate.tsx
 #: src/components/TerminalStartingNotice.tsx
+#: src/lib/install-stale-tab-reload-prompt.ts
 #: src/lib/locale-load-failure-notice.ts
 #: src/lib/native-menu-catalog.ts
 msgid "Reload"
 msgstr "重新加载"
+
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "Reload this tab to bring it up to date. Your edits are saved before it reloads."
+msgstr "重新加载这个标签页即可更新到最新。重新加载前会先保存你的编辑。"
 
 #: src/components/NewWorktreeDialog.tsx
 msgid "remote"
@@ -11975,6 +12233,7 @@ msgid "Renaming changes the file on disk and the id agents use to pick this temp
 msgstr "重命名会改变磁盘上的文件，以及智能体选择这个模板时使用的 id。"
 
 #: src/editor/utils/severity.ts
+#: src/lib/rendered-diff/diff-jsx-block.tsx
 msgid "render error"
 msgstr "渲染错误"
 
@@ -12571,6 +12830,10 @@ msgstr "正在保存"
 msgid "Saving changes…"
 msgstr "正在保存更改…"
 
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "Saving your edits before reloading…"
+msgstr "正在保存你的编辑，然后重新加载…"
+
 #: src/components/settings/LintingSection.tsx
 msgid "schema {deleteTarget}"
 msgstr "架构 {deleteTarget}"
@@ -13089,10 +13352,6 @@ msgstr "设置身份"
 #: src/components/settings/plugin-enabled-notice.ts
 msgid "Set it up on its own page under Plugins."
 msgstr "在「插件」下它自己的页面中进行设置。"
-
-#: src/components/settings/SyncSection.tsx
-msgid "Set the sync default for users opening this project for the first time. This setting is committed to your repository."
-msgstr "为首次打开这个项目的用户设置同步默认值。这项设置会提交到你的仓库。"
 
 #: src/components/command-palette-commands.ts
 msgid "Set up OpenKnowledge integrations"
@@ -13663,6 +13922,14 @@ msgstr "部分检查失败，但仍可合并"
 msgid "Some dropped files could not be inserted safely."
 msgstr "部分拖放的文件无法安全插入。"
 
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "Some edits haven't reached the server yet, so the tab didn't reload. Open {docs} to save them, then reload."
+msgstr "部分编辑尚未到达服务器，因此没有重新加载标签页。请打开 {docs} 以保存这些编辑，然后重新加载。"
+
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "Some edits haven't reached the server yet, so the tab didn't reload. Your edits are still here."
+msgstr "部分编辑尚未到达服务器，因此没有重新加载标签页。你的编辑仍然保留在这里。"
+
 #: src/components/SyncStatusBadge.tsx
 msgid "Some files are not listed — the working tree has too many changes."
 msgstr "部分文件未列出：工作区的更改过多。"
@@ -13678,6 +13945,10 @@ msgstr "因为主题文件夹超出扫描限制，部分已保存的主题未显
 #: src/components/SkillBulkDeleteDialog.tsx
 msgid "Some skills were deleted with a warning"
 msgstr "部分技能删除时带有警告"
+
+#: src/components/empty-state/CreateView.tsx
+msgid "Some templates may not be listed because this knowledge base has too many folders to scan. To see a folder's templates, open its menu in the file tree and choose New from template."
+msgstr "部分模板可能未列出，因为此知识库的文件夹太多，无法全部扫描。要查看某个文件夹的模板，请在文件树中打开该文件夹的菜单，然后选择「从模板新建」。"
 
 #: src/components/DiffViewBoundary.tsx
 msgid "Someone may have already resolved {filePath} — check the document's current content before redoing your edit."
@@ -14154,6 +14425,10 @@ msgstr "这个 worktree 的同步已设为「手动」，继承自 {project}。�
 msgid "Sync is taking longer than usual — your changes are safe on this device."
 msgstr "同步用时比平常更久——你的更改已安全保存在此设备上。"
 
+#: src/components/settings/SettingsDialogBody.tsx
+msgid "Sync keeps this computer's copy up to date with your Git remote. The shared settings below decide what teammates get when they open the project."
+msgstr "同步会让这台电脑上的副本与你的 Git 远程仓库保持一致。下方的共享设置决定队友打开项目时会获得什么。"
+
 #: src/components/SyncStatusBadge.tsx
 msgid "Sync mode"
 msgstr "同步模式"
@@ -14443,6 +14718,15 @@ msgstr "操作没有成功。请查看服务器日志后重试。"
 msgid "That document didn't open in time. Try again once it has synced."
 msgstr "该文档未能及时打开。请在同步完成后重试。"
 
+#. placeholder {0}: error.line
+#: src/components/settings/CustomThemeEditor.tsx
+msgid "That doesn’t parse as YAML or JSON — check line {0}."
+msgstr "无法将此内容解析为 YAML 或 JSON，请检查第 {0} 行。"
+
+#: src/components/settings/CustomThemeEditor.tsx
+msgid "That doesn’t parse as YAML or JSON."
+msgstr "无法将此内容解析为 YAML 或 JSON。"
+
 #: src/components/settings/SearchSection.tsx
 msgid "That endpoint can't be used. Enter an https:// URL — http:// is only allowed for loopback endpoints."
 msgstr "无法使用那个端点。请输入 https:// 的 URL——http:// 只允许用于回环端点。"
@@ -14471,6 +14755,10 @@ msgstr "该语言不支持拼写检查。"
 #: src/components/acp/ThreadView.tsx
 msgid "That message already went out — your edit wasn't applied."
 msgstr "该消息已发出——你的编辑未生效。"
+
+#: src/components/settings/CustomThemeEditor.tsx
+msgid "That parsed, but it isn’t a base16 theme."
+msgstr "解析成功，但这不是 base16 主题。"
 
 #. placeholder {0}: item.displayName
 #: src/components/acp/ThreadView.tsx
@@ -14598,6 +14886,10 @@ msgstr "无法将对话添加到此报告中。"
 #: src/lib/skills-api.ts
 msgid "The copy of \"{name}\" kept in {scopeLabel} is a redundant duplicate: the original was verified unchanged. Remove that copy, then retry the move."
 msgstr "保留在{scopeLabel}中的“{name}”副本是多余的重复：原件已核实未被改动。请删除该副本，然后重试移动。"
+
+#: src/components/ReportBugDialogBody.tsx
+msgid "The crash dump couldn't be added to this report."
+msgstr "无法将崩溃转储添加到此报告中。"
 
 #: src/components/SyncStatusBadge.tsx
 msgid "The default branch is protected — pushes need a pull request."
@@ -14778,6 +15070,10 @@ msgstr "启用 Open Knowledge 工具的请求已超时。此线程将在没有�
 msgid "The schema file does not exist or failed to load — adding a field creates it."
 msgstr "架构文件不存在或加载失败——添加字段会自动创建它。"
 
+#: src/components/settings/SyncSection.tsx
+msgid "The server couldn't read this project's sync status, so sync options are hidden. They appear here as soon as the sync status loads; closing and reopening Settings also retries."
+msgstr "服务器无法读取此项目的同步状态，因此已隐藏同步选项。同步状态一加载完成，选项就会显示在这里；关闭并重新打开设置也会重试。"
+
 #: src/components/ConnectingBanner.tsx
 msgid "the server responded but server.lock has no port yet"
 msgstr "服务器有响应，但 server.lock 中还没有端口"
@@ -14818,6 +15114,14 @@ msgstr "技能列表与其结构定义不匹配。"
 #: src/components/SkillInstallMenu.tsx
 msgid "The source folder itself does not move."
 msgstr "来源文件夹本身不会移动。"
+
+#: src/components/SyncStatusBadge.tsx
+msgid "The stored token is missing the permissions this host needs to push."
+msgstr "保存的令牌缺少这个主机推送所需的权限。"
+
+#: src/components/settings/SyncSection.tsx
+msgid "The sync mode teammates start with the first time they open this project. It's saved in the project's OpenKnowledge settings, so it only reaches them when Config sharing below is set to Shared."
+msgstr "队友第一次打开此项目时采用的同步模式。它保存在项目的 OpenKnowledge 设置中，因此只有当下方的配置共享设为已共享时才会传给他们。"
 
 #: src/components/TemplateProperties.tsx
 msgid "The template's filename (without `.md`)."
@@ -14876,6 +15180,10 @@ msgstr "未找到 .ok/local/config.yml 中指定的 terminal.shell 可执行文�
 #: src/components/AuthModal.tsx
 msgid "The token needs the repo and read:user scopes."
 msgstr "这个令牌需要 repo 和 read:user 权限范围。"
+
+#: src/components/settings/AccountSection.tsx
+msgid "The username git sends with the token. Some hosts expect a fixed value: type <0>x-bitbucket-api-token-auth</0> for a Bitbucket API token, <1>x-token-auth</1> for a Bitbucket repository or workspace access token, or <2>oauth2</2> for GitLab. For Gitea, use your Gitea username. Azure DevOps accepts any value."
+msgstr "git 随令牌一起发送的用户名。有些主机要求填写固定值：Bitbucket API 令牌填 <0>x-bitbucket-api-token-auth</0>，Bitbucket 仓库或工作区访问令牌填 <1>x-token-auth</1>，GitLab 填 <2>oauth2</2>。Gitea 请填你的 Gitea 用户名。Azure DevOps 可填任意值。"
 
 #: src/lib/tab-session-restore-recovery-notice.ts
 msgid "The workspace opened without it so the app could start."
@@ -15067,9 +15375,10 @@ msgstr "这个分支已在以下位置检出："
 msgid "This branch redirects an OpenKnowledge setup path outside the worktree. The worktree was created but not opened."
 msgstr "此分支将 OpenKnowledge 设置路径重定向到工作树之外。工作树已创建，但未打开。"
 
+#. Toast after first-launch setup ends without connecting AI tools; agentConnectionsLabel is the Settings sidebar pane name
 #: src/components/McpConsentDialogBody.tsx
-msgid "This can be configured in Settings > AI tools & CLI"
-msgstr "这可以在「设置 > AI 工具与 CLI」中配置"
+msgid "This can be configured in Settings > {agentConnectionsLabel}"
+msgstr "这可以在「设置 > {agentConnectionsLabel}」中配置"
 
 #: src/components/RecentProjectsMenu.tsx
 msgid "This checkout path cannot be read."
@@ -15277,10 +15586,6 @@ msgstr "此列表可能不是最新的——上次读取：{staleRelative}。"
 msgid "This list may be out of date."
 msgstr "此列表可能不是最新的。"
 
-#: src/components/ConsentDialogBody.tsx
-msgid "This looks like a drive root (e.g., C:\\). Scaffolding here will scan an entire drive."
-msgstr "这看起来像是驱动器根目录（例如 C:\\）。在这里搭建项目会扫描整个驱动器。"
-
 #: src/components/settings/AgentConnectionDialogs.tsx
 #: src/components/settings/ScopeBadge.tsx
 #: src/components/SkillScopeSegment.tsx
@@ -15290,6 +15595,10 @@ msgstr "本机"
 #: src/uninstall/UninstallProgressScreen.tsx
 msgid "This may take a moment. Your markdown content is kept."
 msgstr "这可能需要一点时间。你的 markdown 内容会保留。"
+
+#: src/components/settings/SyncSection.tsx
+msgid "This mode comes from the project's Shared default below. Pick a mode to choose your own for this computer."
+msgstr "此模式来自下方项目的共享的默认值。选择一个模式即可为这台电脑设定你自己的模式。"
 
 #. placeholder {0}: scopeLabels[scope]
 #. placeholder {1}: scopeLabels[toScope]
@@ -15405,10 +15714,6 @@ msgstr "这个项目不是 git 仓库，因此无法使用 worktree。"
 msgid "This project lives only on this computer. Connect it to GitHub to back it up and share it with other people."
 msgstr "这个项目只存在于这台电脑上。把它连接到 GitHub 即可备份并与他人共享。"
 
-#: src/components/settings/AccountSection.tsx
-msgid "This project's git remote is on {host}, which OpenKnowledge doesn't recognize as a GitHub host. If {host} runs GitHub Enterprise Server, add it to GitHub Enterprise Server hosts below, then restart OpenKnowledge."
-msgstr "此项目的 git 远程位于 {host}，OpenKnowledge 未将其识别为 GitHub 主机。如果 {host} 运行的是 GitHub Enterprise Server，请在下方的“GitHub Enterprise Server 主机”中添加它，然后重启 OpenKnowledge。"
-
 #: src/components/DocumentErrorBoundary.tsx
 msgid "This project's running server doesn't support live editing. Restart OpenKnowledge to fix."
 msgstr "这个项目正在运行的服务器不支持实时编辑。重启 OpenKnowledge 即可修复。"
@@ -15480,6 +15785,14 @@ msgstr "这个来源包含多个技能——请先选择一个，然后导入。
 msgid "This source bundles several skills — choose the one to import."
 msgstr "这个来源包含多个技能——请选择要导入的那一个。"
 
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "This tab couldn't confirm that your edits are saved, so it didn't reload. Your edits are still here."
+msgstr "此标签页无法确认你的编辑已保存，因此没有重新加载。你的编辑仍然保留在这里。"
+
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "This tab is still reconnecting to OpenKnowledge, so it didn't reload. Try again in a moment."
+msgstr "此标签页仍在重新连接 OpenKnowledge，因此没有重新加载。请稍后重试。"
+
 #: src/components/TemplateDeleteDialog.tsx
 msgid "This template lives in a parent folder — deleting it affects every folder beneath it that doesn't define its own version."
 msgstr "这个模板位于上级文件夹中——删除它会影响下面所有没有定义自己版本的文件夹。"
@@ -15500,11 +15813,16 @@ msgstr "无法读取此主题文件"
 msgid "This theme file is too large"
 msgstr "此主题文件过大"
 
+#: src/components/UpdateNotices.shared.ts
+msgid "This update is no longer ready to install."
+msgstr "此更新已不再可供安装。"
+
 #: src/components/ShareReceiveDialog.tsx
 msgid "This usually means one of:"
 msgstr "这通常意味着以下之一："
 
 #: src/components/AuthModal.tsx
+#: src/components/settings/AccountSection.tsx
 msgid "This window can't store a token — open Settings from the main app window."
 msgstr "这个窗口无法保存令牌——请从应用主窗口打开「设置」。"
 
@@ -15538,6 +15856,10 @@ msgstr "标题"
 #: src/editor/extensions/CodeBlockView.tsx
 msgid "Title"
 msgstr "标题"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "To connect AI tools without a project, use File > Set up OpenKnowledge integrations…"
+msgstr "若要在没有项目的情况下连接 AI 工具，请使用“文件 > 设置 OpenKnowledge 集成…”。"
 
 #: src/editor/slash-command/items.tsx
 msgid "To do"
@@ -15658,6 +15980,15 @@ msgstr "切换下划线格式。"
 msgid "Toggles the pattern {0}/**"
 msgstr "切换模式 {0}/**"
 
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "token"
+msgstr "令牌"
+
+#: src/components/settings/AccountSection.tsx
+msgid "Token stored for {login} on {host}. To remove it, run <0>ok auth signout --host {host}</0>."
+msgstr "已为 {host} 上的 {login} 保存令牌。要移除它，请运行 <0>ok auth signout --host {host}</0>。"
+
 #: src/components/SkillBundlePreview.tsx
 #: src/components/SkillProperties.tsx
 msgid "tokens"
@@ -15743,6 +16074,10 @@ msgstr "把 {display} 变回一个真实目录，其中为它当前看到的每�
 msgid "Turn it off any time in Settings."
 msgstr "随时在“设置”中将其关闭。"
 
+#: src/components/settings/SyncSection.tsx
+msgid "Turn off auto-sync"
+msgstr "关闭自动同步"
+
 #: src/components/NotInSidebarIndicator.tsx
 msgid "Turn off Only markdown files"
 msgstr "关闭「只显示 markdown 文件」"
@@ -15775,6 +16110,22 @@ msgstr "将其关闭"
 #: src/components/acp/working-status.ts
 msgid "Turning it over…"
 msgstr "正在反复推敲…"
+
+#: src/components/settings/LintingSection.tsx
+msgid "Turning off index maintenance failed because Open Knowledge could not reach the project server. Try again when the project reconnects."
+msgstr "关闭索引维护失败，因为 Open Knowledge 无法连接到项目服务器。项目重新连接后重试。"
+
+#: src/components/settings/LintingSection.tsx
+msgid "Turning off index maintenance failed because Open Knowledge could not update the Git merge rule. Check Git and .gitattributes, then try again."
+msgstr "关闭索引维护失败，因为 Open Knowledge 无法更新 Git 合并规则。检查 Git 和 .gitattributes，然后重试。"
+
+#: src/components/settings/LintingSection.tsx
+msgid "Turning off index maintenance failed because the Open Knowledge section of .gitattributes was edited or is incomplete. Remove that section, then try again."
+msgstr "关闭索引维护失败，因为 .gitattributes 中的 Open Knowledge 部分已被编辑或不完整。删除该部分，然后重试。"
+
+#: src/components/settings/LintingSection.tsx
+msgid "Turning off index maintenance failed because the project setting could not be saved. Check the project file permissions, then try again."
+msgstr "关闭索引维护失败，因为无法保存项目设置。检查项目文件权限，然后重试。"
 
 #. placeholder {0}: skill.name
 #: src/components/SkillForkDialog.tsx
@@ -15920,6 +16271,7 @@ msgid "Unknown component: {componentName} — source editable below"
 msgstr "未知组件：{componentName}——可在下方编辑源码"
 
 #: src/editor/extensions/RawMdxFallbackCMView.tsx
+#: src/lib/rendered-diff/diff-jsx-block.tsx
 msgid "Unknown component: {unregisteredComponentName}"
 msgstr "未知组件：{unregisteredComponentName}"
 
@@ -16004,6 +16356,11 @@ msgstr "未跟踪"
 #: src/components/SyncStatusBadge.tsx
 msgid "Up to date"
 msgstr "已是最新"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "update"
+msgstr "更新"
 
 #: src/components/SkillOriginInline.tsx
 #: src/components/SkillPreviewTab.tsx
@@ -16244,6 +16601,10 @@ msgstr "用户"
 msgid "User plugins are personal to this device — turn them on or off here. Each enabled plugin gets its own page under Plugins in the settings sidebar."
 msgstr "用户插件是这台设备的个人设置——在这里开启或关闭它们。每个启用的插件在设置侧边栏的「插件」下都有自己的页面。"
 
+#: src/components/settings/AccountSection.tsx
+msgid "Username"
+msgstr "用户名"
+
 #: src/components/settings/SearchSection.tsx
 msgid "Using the <0>OK_EMBEDDINGS_API_KEY</0> environment variable (managed outside OpenKnowledge)."
 msgstr "正在使用 <0>OK_EMBEDDINGS_API_KEY</0> 环境变量（在 OpenKnowledge 之外管理）。"
@@ -16268,6 +16629,11 @@ msgstr "此项必填"
 #: src/components/FrontmatterRow.tsx
 msgid "Values for {keyName}"
 msgstr "{keyName} 的值"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "version"
+msgstr "版本"
 
 #: src/components/CommandPalette.tsx
 msgid "via {viaTags}"
@@ -16761,14 +17127,6 @@ msgstr "你选择了 ~/Documents。OpenKnowledge 会索引它下面的每个 mar
 msgid "You picked ~/Downloads. Files there are usually transient — consider a stable folder instead."
 msgstr "你选择了 ~/Downloads。那里的文件通常是临时的——建议改用一个稳定的文件夹。"
 
-#: src/components/ConsentDialogBody.tsx
-msgid "You picked the filesystem root (/). Scaffolding here will scan every file on this machine — make sure that's what you want."
-msgstr "你选择了文件系统根目录（/）。在这里搭建项目会扫描这台电脑上的每个文件——请确认这确实是你想要的。"
-
-#: src/components/ConsentDialogBody.tsx
-msgid "You picked your home directory. OpenKnowledge will index everything in your home tree — large and may surface personal files."
-msgstr "你选择了主目录。OpenKnowledge 会索引整个主目录树——数量庞大，而且可能暴露个人文件。"
-
 #: src/components/OnboardingCard.tsx
 msgid "You're all set up!"
 msgstr "全都设置好了！"
@@ -16889,6 +17247,10 @@ msgstr "你的搜索查询和匹配页面的全文会发送到你的嵌入服务
 #: src/components/PublishToGitHubDialog.tsx
 msgid "Your share link is ready below."
 msgstr "你的共享链接已在下方生成。"
+
+#: src/components/settings/SettingsDialogBody.tsx
+msgid "Your user settings could not be read"
+msgstr "无法读取你的用户设置"
 
 #: src/components/ImportSkillForm.tsx
 msgid "Zip file"

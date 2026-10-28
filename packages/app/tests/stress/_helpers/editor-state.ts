@@ -1,6 +1,6 @@
 import { expect, type JSHandle, type Page } from '@playwright/test';
 
-export const SELECT_ALL_SETTLE_TIMEOUT_MS = process.env.CI ? 15_000 : 5_000;
+export const SELECT_ALL_SETTLE_TIMEOUT_MS = 15_000;
 
 type ViewSelectionState = 'covers-document' | 'partial' | 'empty' | 'unreadable';
 
@@ -109,7 +109,7 @@ const SETTLED_READING = {
   'select-all': { viewSelection: 'covers-document' },
 } as const satisfies { [S in 'focus' | 'select-all']: Partial<SelectAllProbe> };
 
-/* UPSTREAM(@playwright/test@1.59.1): lib/matchers/expect.js pollMatcher returns
+/* UPSTREAM(@playwright/test@1.63.0): lib/matchers/expect.js invokePollMatcher returns
    { continuePolling: false } without ever calling the poll generator once the test that armed the
    poll is no longer the running test, so the barrier resolves holding whatever reading the previous
    iteration left — undefined if there was none. Neither the public expect.poll reference nor the

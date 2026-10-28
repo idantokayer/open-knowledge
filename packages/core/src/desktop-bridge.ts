@@ -1,5 +1,8 @@
 import type { ApplyReport } from './agent-registry/apply.ts';
+import type { HandoffHostPlatform } from './agent-registry/schema.ts';
 import type { HostSnapshot } from './agent-registry/snapshot.ts';
+import type { ConfigValidationError } from './config/errors.ts';
+import type { ConfigPatch } from './config/schema.ts';
 import type { CreateNewBannerKind } from './constants/create-new-banner.ts';
 import type { EditorId } from './constants/editors.ts';
 import type { OkFolderState } from './constants/folder-state.ts';
@@ -244,7 +247,7 @@ export interface OkHeadBranchInfo {
 }
 
 export interface OkUpdateDownloadedInfo {
-  readonly version: string;
+  readonly version: string | null;
 }
 
 export interface OkUpdateRelaunchingInfo {
@@ -260,6 +263,7 @@ export interface OkUpdateRelaunchFailedInfo {
   readonly message?: string;
   readonly downloadUrl?: string;
   readonly dismissPending?: boolean;
+  readonly reason?: 'no-longer-pending';
 }
 
 export interface OkWhatsNewInfo {
@@ -273,6 +277,14 @@ export interface OkUpdateStuckHintInfo {
 
 export interface OkUpdateManualCheckInfo {
   readonly phase: 'started' | 'settled';
+}
+
+export interface OkAboutInfo {
+  readonly productName: string;
+  readonly version: string;
+  readonly releasesUrl: string;
+  readonly releaseNotesUrl: string;
+  readonly updateChecks: 'available' | 'unavailable';
 }
 
 export type ShareTarget =
@@ -321,7 +333,23 @@ export type ShareFolderValidationResult =
 
 export type OkUpdateChannel = 'latest' | 'beta';
 
+export type OkUpdateMode = 'auto' | 'off';
+
 export type OkThemeSource = 'system' | 'light' | 'dark';
+
+export interface OkUserConfigSnapshot {
+  readonly text: string;
+}
+
+export type OkUserConfigPatchResult =
+  | { readonly ok: true; readonly text: string }
+  | { readonly ok: false; readonly error: ConfigValidationError };
+
+export interface OkUserConfigBridge {
+  read(): Promise<OkUserConfigSnapshot>;
+  patch(patch: ConfigPatch): Promise<OkUserConfigPatchResult>;
+  onChanged(cb: (snapshot: OkUserConfigSnapshot) => void): OkUnsubscribe;
+}
 
 export interface OkChromeColors {
   bg: string;
@@ -335,6 +363,8 @@ export interface OkStateSnapshot {
     readonly persistedSchemaVersion: number;
     readonly maxSupported: number;
   } | null;
+  readonly about?: OkAboutInfo;
+  readonly updateMode?: OkUpdateMode;
 }
 
 export type OkMcpWiringEditorId = EditorId;
@@ -474,13 +504,10 @@ export type OkAgentIntegrationsApplyResult =
     };
 
 export type OkOnboardingWarningKind =
-  | 'root'
-  | 'home'
   | 'home-documents'
   | 'home-desktop'
   | 'home-downloads'
-  | 'volumes-mount'
-  | 'drive-root';
+  | 'volumes-mount';
 
 export type OkOnboardingGitState = 'present' | 'absent' | 'shell-only';
 
@@ -747,7 +774,8 @@ export type OkMenuDispatchRole =
   | 'toggleFullScreen'
   | 'minimize'
   | 'close'
-  | 'quit';
+  | 'quit'
+  | 'about';
 
 export type OkMenuDispatchCommand =
   | 'open-navigator'
@@ -757,6 +785,8 @@ export type OkMenuDispatchCommand =
   | 'check-for-updates'
   | 'reconfigure-mcp-wiring'
   | 'open-github'
+  | 'open-docs'
+  | 'open-discord'
   | 'toggle-spell-check';
 
 export type OkMenuDispatchRequest =
@@ -928,6 +958,33 @@ export type OkServerRestartOutcome = { readonly ok: true } | OkServerRestartFail
 
 export type OkPtyCreateReason = 'no-project' | 'not-consented';
 
+export type OkAssetOpenRefusalReason =
+  | 'extension-blocked'
+  | 'not-a-file'
+  | 'path-escape'
+  | 'not-found'
+  | 'resolve-error';
+
+export type OkAssetOpenResult =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly reason: OkAssetOpenRefusalReason };
+
+export function assetOpenRefusalRevealsInstead(reason: OkAssetOpenRefusalReason): boolean {
+  switch (reason) {
+    case 'extension-blocked':
+    case 'not-a-file':
+      return true;
+    case 'path-escape':
+    case 'not-found':
+    case 'resolve-error':
+      return false;
+    default: {
+      const _unknownFromNewerDesktop: never = reason;
+      return false;
+    }
+  }
+}
+
 export function assertNeverPtyCreateReason(value: never): never {
   throw new Error(`unhandled pty create reason: ${String(value)}`);
 }
@@ -1097,6 +1154,8 @@ export interface OkDesktopBridge {
 
   setLanguagePreference(preference: LanguagePreference): Promise<{ ok: true }>;
 
+  userConfig?: OkUserConfigBridge;
+
   signalThemeApplied(opts?: { reducedTransparency?: boolean; chrome?: OkChromeColors }): void;
 
   dialog: {
@@ -1121,12 +1180,7 @@ export interface OkDesktopBridge {
       readonly scope?: HandoffScope;
     }): Promise<void>;
 
-    openAsset(
-      relPath: string,
-    ): Promise<
-      | { ok: true }
-      | { ok: false; reason: 'extension-blocked' | 'path-escape' | 'not-found' | 'resolve-error' }
-    >;
+    openAsset(relPath: string): Promise<OkAssetOpenResult>;
 
     revealAsset(
       relPath: string,
@@ -1235,6 +1289,7 @@ export interface OkDesktopBridge {
       includeScreenshot?: boolean;
       attachments?: OkBugReportAttachmentInput[];
       agentChatThreadId?: string;
+      crashEventId?: string;
     }): Promise<OkBugReportCreateResult>;
     captureScreenshot(): Promise<OkBugReportScreenshot | null>;
     crashDumpAvailability(): Promise<OkBugReportCrashDumpAvailability>;
@@ -1302,6 +1357,8 @@ export interface OkDesktopBridge {
     relaunchNow(): Promise<void>;
     checkNow(): Promise<void>;
     dismissWhatsNew(version: string): Promise<void>;
+    dismissDownloaded(version: string): Promise<void>;
+    setMode(mode: OkUpdateMode): Promise<void>;
   };
 
   state: {
@@ -1426,7 +1483,7 @@ export interface OkDesktopBridge {
     onScreenReaderChanged(cb: (active: boolean) => void): OkUnsubscribe;
   };
 
-  readonly platform: 'darwin' | 'win32' | 'linux';
+  readonly platform: HandoffHostPlatform;
   readonly appVersion: string;
   readonly instanceLabel: string | null;
   readonly mcpServerName: string | null;

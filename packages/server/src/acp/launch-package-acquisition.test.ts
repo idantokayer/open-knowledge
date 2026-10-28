@@ -1,7 +1,16 @@
 import { once } from 'node:events';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { createServer } from 'node:http';
 import { join } from 'node:path';
+import { okUserHomeDir } from '@inkeep/open-knowledge-core/server';
 import { describe, expect, test } from 'vitest';
 import {
   executableFacts,
@@ -9,11 +18,21 @@ import {
 } from '../../../../test-support/capabilities.test-helper.ts';
 import { getLogger } from '../logger.ts';
 import {
+  ARGV_PROBE_PACKAGE,
+  ARGV_PROBE_VERSION,
   acquisitionFailureContract,
   withLocalAcquisitionRegistry,
 } from './acquisition-contract.test-helper.ts';
-import { AgentLaunchError, agentSpawnPath, resolveRegistryLaunch } from './launch.ts';
 import {
+  AgentLaunchError,
+  agentSpawnPath,
+  npxInstallRefused,
+  resolveRegistryLaunch,
+  spawnAcpAgent,
+} from './launch.ts';
+import { entryOutcome, npxEntries } from './npx-cache-entry.test-helper.ts';
+import {
+  captureChild,
   installNodeFixture,
   npmNative,
   npmOutputs,
@@ -27,6 +46,93 @@ const log = getLogger('package-acquisition-test');
 
 acquisitionFailureContract(withLocalAcquisitionRegistry, {
   uvxOnAgentSpawnPath: findExecutable('uvx', agentSpawnPath(), executableFacts),
+});
+
+describe('npx launches that OK installs before they start', () => {
+  const spec = `${ARGV_PROBE_PACKAGE}@${ARGV_PROBE_VERSION}`;
+  const resolveInstalled = async (reacquire = false) => {
+    const launch = await resolveRegistryLaunch(
+      registryPackage(spec),
+      null,
+      log,
+      undefined,
+      async (prepared) => prepared,
+      { install: true, reacquire },
+    );
+    if (launch?.kind !== 'npx') throw new Error(`expected an npx launch, got ${launch?.kind}`);
+    return launch;
+  };
+
+  test('the launch refuses to install and runs the copy its install step put in the npx cache', async () => {
+    await withLocalAcquisitionRegistry(async (home) => {
+      const launch = await resolveInstalled();
+      expect(launch.args).toEqual(['--yes=false', '--loglevel=error', spec, '--version']);
+      const installed = npxEntries(home);
+      expect(installed).toHaveLength(1);
+      const entry = String(installed[0]);
+      expect(entryOutcome(entry, ARGV_PROBE_PACKAGE).state).toBe('complete');
+      const run = await captureChild(spawnAcpAgent(launch));
+      expect(run.code, run.stderr).toBe(0);
+      expect(JSON.parse(run.stdout)).toEqual({
+        args: ['--version'],
+        script: join(entry, 'node_modules', ARGV_PROBE_PACKAGE, 'bin.js'),
+      });
+      expect(npxEntries(home)).toEqual([entry]);
+    });
+  }, 90_000);
+
+  test('a launch whose npx cache was wiped is refused before npm installs anything, and runs once reinstalled', async () => {
+    await withLocalAcquisitionRegistry(async (home) => {
+      const launch = await resolveInstalled();
+      const installed = npxEntries(home);
+      expect(installed).toHaveLength(1);
+      const entry = String(installed[0]);
+      expect(entryOutcome(entry, ARGV_PROBE_PACKAGE).state).toBe('complete');
+      rmSync(join(home, 'npm-cache', '_npx'), { recursive: true, force: true });
+      rmSync(join(home, 'npm-cache', '_cacache'), { recursive: true, force: true });
+      const refused = await captureChild(spawnAcpAgent(launch));
+      expect(refused.code, refused.stdout).toBe(1);
+      expect(npxInstallRefused(refused.stderr), refused.stderr).toBe(true);
+      expect(npxEntries(home)).toEqual([entry]);
+      expect(readdirSync(entry)).toEqual([]);
+      expect(await resolveInstalled(true)).toEqual(launch);
+      expect(entryOutcome(entry, ARGV_PROBE_PACKAGE).state).toBe('complete');
+      const run = await captureChild(spawnAcpAgent(launch));
+      expect(run.code, run.stderr).toBe(0);
+      expect(JSON.parse(run.stdout)).toEqual({
+        args: ['--version'],
+        script: join(entry, 'node_modules', ARGV_PROBE_PACKAGE, 'bin.js'),
+      });
+    });
+  }, 90_000);
+
+  test.each([
+    {
+      silencedBy: 'loglevel=silent in the user .npmrc',
+      silence: (home: string) => writeFileSync(join(home, '.npmrc'), 'loglevel=silent\n'),
+    },
+    {
+      silencedBy: 'npm_config_loglevel=silent in the environment',
+      silence: () => {
+        process.env.npm_config_loglevel = 'silent';
+      },
+    },
+  ])(
+    'a launch whose npx cache was wiped still reports the refusal when $silencedBy',
+    async ({ silence }) => {
+      await withLocalAcquisitionRegistry(async (home) => {
+        silence(home);
+        const launch = await resolveInstalled();
+        expect(npxEntries(home)).toHaveLength(1);
+        rmSync(join(home, 'npm-cache', '_npx'), { recursive: true, force: true });
+        rmSync(join(home, 'npm-cache', '_cacache'), { recursive: true, force: true });
+        const refused = await captureChild(spawnAcpAgent(launch));
+        expect(refused.code, refused.stdout).toBe(1);
+        expect(npxInstallRefused(refused.stderr), refused.stderr).toBe(true);
+      });
+    },
+    90_000,
+  );
 });
 
 describe('hermetic package acquisition and native dispatch', () => {
@@ -266,6 +372,110 @@ describe('hermetic package acquisition and native dispatch', () => {
       expect(result.message).not.toContain('E401');
     });
   });
+
+  test('an install that fails without output names its exit code in the machine detail', async () => {
+    await withAcquisitionHome(async (home) => {
+      const bin = join(home, 'bin');
+      mkdirSync(bin);
+      installNodeFixture(bin);
+      writeExecutable(join(bin, 'npx'), 'process.exit(3);');
+      writeExecutable(
+        join(bin, 'npm'),
+        `process.stdout.write(${JSON.stringify(JSON.stringify([{ name: 'is-number', version: '7.0.0' }]))});`,
+      );
+      await expect(
+        resolveRegistryLaunch(
+          registryPackage('is-number@7.0.0', 'npx', { PATH: bin }),
+          null,
+          log,
+          undefined,
+          async (launch) => launch,
+          { install: true },
+        ),
+      ).rejects.toMatchObject({
+        code: 'install-failed',
+        message: 'Could not install is-number@7.0.0.',
+        machineDetail: 'exit code 3',
+      });
+    });
+  });
+
+  test.skipIf(process.platform === 'win32')(
+    'an install reports the output it wrote without leaving an output file in its working directory',
+    async () => {
+      await withAcquisitionHome(async (home) => {
+        const bin = join(home, 'bin');
+        mkdirSync(bin);
+        installNodeFixture(bin);
+        const listing = join(home, 'npx-cwd-listing.json');
+        writeExecutable(
+          join(bin, 'npx'),
+          `const fs = require('node:fs');
+          fs.writeFileSync(${JSON.stringify(listing)}, JSON.stringify(fs.readdirSync(process.cwd())));
+          process.stderr.write('npm error fixture install output\\n');
+          process.exit(1);`,
+        );
+        writeExecutable(
+          join(bin, 'npm'),
+          `process.stdout.write(${JSON.stringify(JSON.stringify([{ name: 'is-number', version: '7.0.0' }]))});`,
+        );
+        await expect(
+          resolveRegistryLaunch(
+            registryPackage('is-number@7.0.0', 'npx', { PATH: bin }),
+            null,
+            log,
+            undefined,
+            async (launch) => launch,
+            { install: true },
+          ),
+        ).rejects.toMatchObject({
+          code: 'install-failed',
+          message: 'Could not install is-number@7.0.0.',
+          machineDetail: 'npm error fixture install output',
+        });
+        expect(JSON.parse(readFileSync(listing, 'utf8'))).toEqual(['package.json']);
+        expect(readdirSync(join(okUserHomeDir(home), 'acp-npx-cwd'))).toEqual(['package.json']);
+      });
+    },
+  );
+
+  test.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+    'an install whose working directory refuses its output file fails as an install naming the cause',
+    async () => {
+      await withAcquisitionHome(async (home) => {
+        const bin = join(home, 'bin');
+        mkdirSync(bin);
+        installNodeFixture(bin);
+        writeExecutable(join(bin, 'npx'), 'process.exit(0);');
+        writeExecutable(
+          join(bin, 'npm'),
+          `process.stdout.write(${JSON.stringify(JSON.stringify([{ name: 'is-number', version: '7.0.0' }]))});`,
+        );
+        const npxCwd = join(okUserHomeDir(home), 'acp-npx-cwd');
+        mkdirSync(npxCwd, { recursive: true });
+        writeFileSync(join(npxCwd, 'package.json'), '{}\n');
+        chmodSync(npxCwd, 0o500);
+        try {
+          const result = await resolveRegistryLaunch(
+            registryPackage('is-number@7.0.0', 'npx', { PATH: bin }),
+            null,
+            log,
+            undefined,
+            async (launch) => launch,
+            { install: true },
+          ).catch((error: unknown) => error);
+          expect(result).toBeInstanceOf(AgentLaunchError);
+          expect(result).toMatchObject({
+            code: 'install-failed',
+            message: 'Could not install is-number@7.0.0.',
+            machineDetail: expect.stringContaining('EACCES'),
+          });
+        } finally {
+          chmodSync(npxCwd, 0o700);
+        }
+      });
+    },
+  );
 
   test.each(['malformed', 'overflow', 'timeout'] as const)(
     'native npm %s output fails acquisition and releases the owned process',

@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { relative, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import type { Document, Hocuspocus } from '@hocuspocus/server';
 import {
   type DocumentListEntry,
@@ -17,10 +17,15 @@ import { isConfigDoc, isSystemDoc } from '../cc1-broadcast.ts';
 import type { ConflictAuthority } from '../conflict-authority.ts';
 import type { ContentFilter } from '../content-filter.ts';
 import { canonicalDocName, getDocExtension } from '../doc-extensions.ts';
-import type { FileIndexEntry, FolderIndexEntry } from '../file-watcher.ts';
+import {
+  type AllFileEntries,
+  type FileIndexEntry,
+  type FolderIndexEntry,
+  fileIndexEntryMembers,
+  indexedTargetPath,
+} from '../file-watcher.ts';
 import type { PinoLogger } from '../logger.ts';
 import { extractPageIcon, extractPageTitle } from '../page-identity.ts';
-import { toPosix } from '../path-utils.ts';
 import type { ApiRouteTable } from './api-pipeline.ts';
 import { createStreamingErrorWriter, errorResponse } from './error-response.ts';
 import { withValidation } from './request-validation.ts';
@@ -52,6 +57,7 @@ export interface DocumentRouteDeps {
   resolveDocPath: (docName: string) => string | null;
   extractHeadings: (content: string) => HeadingEntry[];
   getFileIndex: () => ReadonlyMap<string, FileIndexEntry>;
+  getFileIndexGeneration?: () => number;
   log: PinoLogger;
   ready: Promise<void> | undefined;
   contentFilter: ContentFilter | undefined;
@@ -77,7 +83,7 @@ export interface DocumentRouteDeps {
     signal: AbortSignal;
   }) => Promise<{ truncated: boolean }>;
   synthesizeShowAllAssetExt: (name: string) => string;
-  getAllFilesIndex: () => ReadonlyMap<string, FileIndexEntry>;
+  getAllFilesIndex: () => AllFileEntries;
   getFolderIndex: (() => ReadonlyMap<string, FolderIndexEntry>) | undefined;
   getFolderAliasIndex: (() => ReadonlyMap<string, string>) | undefined;
   onReferencedAssetsCacheInvalidator: ((invalidate: () => void) => void) | undefined;
@@ -100,6 +106,7 @@ export function createDocumentRoutes(deps: DocumentRouteDeps): DocumentRoutes {
     resolveDocPath,
     extractHeadings,
     getFileIndex,
+    getFileIndexGeneration,
     log,
     ready,
     contentFilter,
@@ -118,6 +125,7 @@ export function createDocumentRoutes(deps: DocumentRouteDeps): DocumentRoutes {
 
   let referencedAssetsCache: {
     signature: string;
+    generation: number | undefined;
     assets: ReturnType<typeof collectReferencedAssets>;
   } | null = null;
 
@@ -167,6 +175,7 @@ export function createDocumentRoutes(deps: DocumentRouteDeps): DocumentRoutes {
           return;
         }
 
+        const filePath = resolveContentEntryPath(contentDir, 'file', docName);
         const existing = hocuspocus.documents.get(docName);
         if (existing) {
           successResponse(
@@ -183,7 +192,6 @@ export function createDocumentRoutes(deps: DocumentRouteDeps): DocumentRoutes {
           return;
         }
 
-        const filePath = resolveContentEntryPath(contentDir, 'file', docName);
         if (!existsSync(filePath)) {
           errorResponse(res, 404, 'urn:ok:error:doc-not-found', `Document not found: ${docName}.`, {
             handler: 'document-read',
@@ -270,7 +278,7 @@ export function createDocumentRoutes(deps: DocumentRouteDeps): DocumentRoutes {
             'Content-Type': 'application/x-ndjson',
             'Transfer-Encoding': 'chunked',
             'X-Content-Type-Options': 'nosniff',
-            'Cache-Control': 'no-cache',
+            'Cache-Control': 'no-store',
           });
           const writeStreamError = createStreamingErrorWriter(res, 'document-list');
 
@@ -413,11 +421,13 @@ export function createDocumentRoutes(deps: DocumentRouteDeps): DocumentRoutes {
         }
 
         const index = getFileIndex();
-        const allFiles = getAllFilesIndex();
+        const allFiles = [...getAllFilesIndex()];
         const folderIndex = getFolderIndex?.() ?? new Map<string, FolderIndexEntry>();
+        const folderAliasIndex = getFolderAliasIndex?.() ?? new Map<string, string>();
         const documents: DocumentListEntry[] = [];
 
         for (const [folderPath, entry] of folderIndex) {
+          if (folderAliasIndex.has(folderPath)) continue;
           if (dir && !folderPath.startsWith(`${dir}/`) && folderPath !== dir) continue;
           documents.push({
             kind: 'folder',
@@ -434,9 +444,16 @@ export function createDocumentRoutes(deps: DocumentRouteDeps): DocumentRoutes {
         let assets: ReturnType<typeof collectReferencedAssets> = [];
         try {
           const assetSignature = referencedAssetsSignature(index);
-          if (referencedAssetsCache?.signature !== assetSignature) {
+          const assetGeneration = getFileIndexGeneration?.();
+          if (
+            !referencedAssetsCache ||
+            referencedAssetsCache.signature !== assetSignature ||
+            referencedAssetsCache.generation !== assetGeneration ||
+            referencedAssetsCache.assets.some((asset) => contentFilter?.isPathIgnored(asset.path))
+          ) {
             referencedAssetsCache = {
               signature: assetSignature,
+              generation: assetGeneration,
               assets: collectReferencedAssets({
                 contentDir,
                 fileIndex: index,
@@ -479,24 +496,27 @@ export function createDocumentRoutes(deps: DocumentRouteDeps): DocumentRoutes {
 
         for (const [docName, entry] of allFiles) {
           if (entry.kind === 'markdown') {
-            if (dir && !docName.startsWith(`${dir}/`) && docName !== dir) continue;
-
             const docExt = getDocExtension(docName);
 
-            documents.push({
-              kind: 'document',
-              docName,
-              docExt,
-              size: entry.size,
-              modified: entry.modified,
-              isSymlink: false,
-              canonicalDocName: null,
-              targetPath: null,
-            });
+            if (!dir || docName.startsWith(`${dir}/`) || docName === dir) {
+              documents.push({
+                kind: 'document',
+                docName,
+                docExt,
+                size: entry.size,
+                modified: entry.modified,
+                isSymlink: false,
+                canonicalDocName: null,
+                targetPath: null,
+              });
+            }
 
-            for (const alias of entry.aliases) {
+            const listed = new Set([docName]);
+            for (const member of fileIndexEntryMembers(contentDir, docName, entry).members) {
+              if (member.role !== 'symlink' || listed.has(member.path)) continue;
+              listed.add(member.path);
+              const alias = member.path;
               if (dir && !alias.startsWith(`${dir}/`) && alias !== dir) continue;
-              const targetRelPath = toPosix(relative(contentDir, entry.canonicalPath));
               documents.push({
                 kind: 'document',
                 docName: alias,
@@ -505,49 +525,34 @@ export function createDocumentRoutes(deps: DocumentRouteDeps): DocumentRoutes {
                 modified: entry.modified,
                 isSymlink: true,
                 canonicalDocName: docName,
-                targetPath: targetRelPath,
+                targetPath: member.targetPath,
               });
             }
             continue;
           }
 
-          const passesDir = !dir || docName === dir || docName.startsWith(`${dir}/`);
-          if (passesDir && !assetPaths.has(docName)) {
-            const assetExt = synthesizeShowAllAssetExt(docName);
+          const addFile = (path: string, targetPath: string | null): void => {
+            if ((dir && path !== dir && !path.startsWith(`${dir}/`)) || assetPaths.has(path))
+              return;
+            const assetExt = synthesizeShowAllAssetExt(path);
             documents.push({
               kind: 'file',
-              docName,
-              path: docName,
+              docName: path,
+              path,
               docExt: `.${assetExt}`,
               assetExt,
               size: entry.size,
               modified: entry.modified,
-              isSymlink: false,
-              canonicalDocName: null,
-              targetPath: null,
+              isSymlink: targetPath !== null,
+              canonicalDocName: targetPath === null ? null : docName,
+              targetPath,
             });
-          }
-          for (const alias of entry.aliases) {
-            const aliasPassesDir = !dir || alias === dir || alias.startsWith(`${dir}/`);
-            if (!aliasPassesDir || assetPaths.has(alias)) continue;
-            const targetRelPath = toPosix(relative(contentDir, entry.canonicalPath));
-            const assetExt = synthesizeShowAllAssetExt(alias);
-            documents.push({
-              kind: 'file',
-              docName: alias,
-              path: alias,
-              docExt: `.${assetExt}`,
-              assetExt,
-              size: entry.size,
-              modified: entry.modified,
-              isSymlink: true,
-              canonicalDocName: docName,
-              targetPath: targetRelPath,
-            });
+          };
+          for (const member of fileIndexEntryMembers(contentDir, docName, entry).members) {
+            addFile(member.path, member.role === 'symlink' ? member.targetPath : null);
           }
         }
 
-        const folderAliasIndex = getFolderAliasIndex?.() ?? new Map<string, string>();
         if (folderAliasIndex.size > 0) {
           const passesDirFilter = (p: string): boolean =>
             !dir || p === dir || p.startsWith(`${dir}/`);
@@ -560,7 +565,7 @@ export function createDocumentRoutes(deps: DocumentRouteDeps): DocumentRoutes {
           for (const [canonicalPrefix, aliasPrefixes] of aliasesByCanonical) {
             const canonRoot = folderIndex.get(canonicalPrefix);
             const rootTarget = canonRoot
-              ? toPosix(relative(contentDir, canonRoot.canonicalPath))
+              ? indexedTargetPath(contentDir, canonRoot.canonicalPath, canonicalPrefix)
               : canonicalPrefix;
             for (const aliasPrefix of aliasPrefixes) {
               if (!passesDirFilter(aliasPrefix)) continue;
@@ -601,25 +606,31 @@ export function createDocumentRoutes(deps: DocumentRouteDeps): DocumentRoutes {
                 docExt: '.md',
                 isSymlink: true,
                 canonicalDocName: folderPath,
-                targetPath: toPosix(relative(contentDir, fEntry.canonicalPath)),
+                targetPath: indexedTargetPath(contentDir, fEntry.canonicalPath, folderPath),
               });
             });
           }
           for (const [docName, dEntry] of allFiles) {
-            projectChild(docName, (aliasName) => {
-              const targetRelPath = toPosix(relative(contentDir, dEntry.canonicalPath));
-              if (dEntry.kind === 'markdown') {
-                documents.push({
-                  kind: 'document',
-                  docName: aliasName,
-                  docExt: getDocExtension(docName),
-                  size: dEntry.size,
-                  modified: dEntry.modified,
-                  isSymlink: true,
-                  canonicalDocName: docName,
-                  targetPath: targetRelPath,
-                });
-              } else {
+            const { resolved, members } = fileIndexEntryMembers(contentDir, docName, dEntry);
+            const projected = resolved
+              ? members
+              : [...new Map(members.map((member) => [member.path, member])).values()];
+            for (const member of projected) {
+              projectChild(member.path, (aliasName) => {
+                if (dEntry.kind === 'markdown') {
+                  documents.push({
+                    kind: 'document',
+                    docName: aliasName,
+                    docExt: getDocExtension(docName),
+                    size: dEntry.size,
+                    modified: dEntry.modified,
+                    isSymlink: true,
+                    canonicalDocName: docName,
+                    targetPath: member.targetPath,
+                  });
+                  return;
+                }
+                if (resolved && assetPaths.has(aliasName)) return;
                 const assetExt = synthesizeShowAllAssetExt(aliasName);
                 documents.push({
                   kind: 'file',
@@ -631,10 +642,10 @@ export function createDocumentRoutes(deps: DocumentRouteDeps): DocumentRoutes {
                   modified: dEntry.modified,
                   isSymlink: true,
                   canonicalDocName: docName,
-                  targetPath: targetRelPath,
+                  targetPath: member.targetPath,
                 });
-              }
-            });
+              });
+            }
           }
         }
 

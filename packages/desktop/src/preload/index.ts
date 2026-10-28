@@ -1,4 +1,6 @@
 import type {
+  ConfigPatch,
+  HandoffHostPlatform,
   LanguagePreference,
   OkBugReportCrashAckResult,
   OkBugReportCrashDetectedEvent,
@@ -54,6 +56,8 @@ import type {
   OkUpdateRelaunchFailedInfo,
   OkUpdateRelaunchingInfo,
   OkUpdateStuckHintInfo,
+  OkUserConfigPatchResult,
+  OkUserConfigSnapshot,
   OkWhatsNewInfo,
 } from '../shared/bridge-contract.ts';
 import {
@@ -64,6 +68,8 @@ import type {
   AgentIntegrationsApplyResult,
   IntegrationsSetResult,
   IntegrationsStatus,
+  OkUpdateDispatchRequest,
+  OkUpdateDispatchResult,
   ProjectIntegrationsSetResult,
   ProjectIntegrationsStatus,
 } from '../shared/ipc-channels.ts';
@@ -86,6 +92,14 @@ import { createSlidesBridge } from './slides-bridge.ts';
 import { createUninstallBridge } from './uninstall.ts';
 
 const invoke = createInvoker(ipcRenderer);
+
+async function dispatchUpdate(request: OkUpdateDispatchRequest): Promise<OkUpdateDispatchResult> {
+  const result = await invoke('ok:update:dispatch', request);
+  if (result.kind !== request.kind) {
+    throw new Error(`ok:update:dispatch: expected ${request.kind}, got ${result.kind}`);
+  }
+  return result;
+}
 
 function isDockStateIpcTeardown(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
@@ -462,7 +476,43 @@ const bridge: OkDesktopBridge = {
   setThemeSource: (source: OkThemeSource) => invoke('ok:theme:set-source', { source }),
 
   setLanguagePreference: (preference: LanguagePreference) =>
-    invoke('ok:locale:set-preference', { preference }),
+    invoke('ok:user-config:dispatch', { kind: 'set-language-preference', preference }) as Promise<{
+      ok: true;
+    }>,
+
+  userConfig: {
+    read: () =>
+      invoke('ok:user-config:dispatch', { kind: 'read' }) as Promise<OkUserConfigSnapshot>,
+    patch: (patch: ConfigPatch) =>
+      invoke('ok:user-config:dispatch', {
+        kind: 'patch',
+        patch,
+      }) as Promise<OkUserConfigPatchResult>,
+    onChanged(cb: (snapshot: OkUserConfigSnapshot) => void) {
+      const listener = (_event: IpcRendererEvent, snapshot: OkUserConfigSnapshot) => cb(snapshot);
+      // oxlint-disable-next-line ok/no-loosely-typed-webcontents-ipc -- preload-side subscription wrapper (precedent #14)
+      ipcRenderer.on('ok:user-config:changed', listener);
+      invoke('ok:user-config:dispatch', { kind: 'subscribe' }).catch((err: unknown) => {
+        console.warn(
+          JSON.stringify({
+            event: 'user-config-subscribe-failed',
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
+      });
+      return () => {
+        ipcRenderer.removeListener('ok:user-config:changed', listener);
+        invoke('ok:user-config:dispatch', { kind: 'unsubscribe' }).catch((err: unknown) => {
+          console.warn(
+            JSON.stringify({
+              event: 'user-config-unsubscribe-failed',
+              error: err instanceof Error ? err.message : String(err),
+            }),
+          );
+        });
+      };
+    },
+  },
 
   signalThemeApplied: (opts?: { reducedTransparency?: boolean; chrome?: OkChromeColors }) => {
     invoke('ok:theme:applied', opts).catch((err: unknown) => {
@@ -570,6 +620,7 @@ const bridge: OkDesktopBridge = {
         includeScreenshot: request.includeScreenshot,
         attachments: request.attachments,
         agentChatThreadId: request.agentChatThreadId,
+        crashEventId: request.crashEventId,
       }) as Promise<OkBugReportCreateResult>,
     captureScreenshot: () =>
       invoke('ok:bug-report:dispatch', {
@@ -657,9 +708,24 @@ const bridge: OkDesktopBridge = {
   },
 
   update: {
-    relaunchNow: () => invoke('ok:update:relaunch-now'),
-    checkNow: () => invoke('ok:update:check-now'),
-    dismissWhatsNew: (version: string) => invoke('ok:update:whats-new-dismiss', { version }),
+    relaunchNow: async () => {
+      await dispatchUpdate({ kind: 'relaunch-now' });
+    },
+    checkNow: async () => {
+      await dispatchUpdate({ kind: 'check-now' });
+    },
+    dismissWhatsNew: async (version: string) => {
+      await dispatchUpdate({ kind: 'whats-new-dismiss', version });
+    },
+    dismissDownloaded: async (version: string) => {
+      await dispatchUpdate({ kind: 'downloaded-dismiss', version });
+    },
+    setMode: async (mode) => {
+      const result = await dispatchUpdate({ kind: 'set-mode', mode });
+      if (result.kind === 'set-mode' && !result.ok) {
+        throw new Error(`ok:update:dispatch: set-mode refused (${result.reason})`);
+      }
+    },
   },
 
   state: {
@@ -897,7 +963,7 @@ const bridge: OkDesktopBridge = {
     },
   },
 
-  platform: process.platform as 'darwin' | 'win32' | 'linux',
+  platform: process.platform as HandoffHostPlatform,
   appVersion: parseArg('app-version') ?? '0.0.0',
   instanceLabel: parseArg('instance-label') ?? null,
   mcpServerName: parseArg(MCP_SERVER_NAME_ARG_NAME) ?? null,

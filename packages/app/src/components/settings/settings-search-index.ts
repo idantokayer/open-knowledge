@@ -1,4 +1,4 @@
-import { MARKDOWNLINT_RULE_CATALOG } from '@inkeep/open-knowledge-core';
+import { MARKDOWNLINT_RULE_CATALOG } from '@inkeep/open-knowledge-core/markdown/lint';
 import type { MessageDescriptor } from '@lingui/core';
 import { INDEXED_FIELD_GROUPS } from './settings-fields';
 import type { SidebarGroup } from './settings-sidebar-types';
@@ -27,6 +27,7 @@ export function buildSettingsSearchIndex(input: {
   for (const group of groups) {
     if (!group.enabled) continue;
     for (const item of group.items) {
+      if (item.disabled === true) continue;
       visibleSectionIds.add(item.id);
       entries.push({
         id: `section:${item.id}`,

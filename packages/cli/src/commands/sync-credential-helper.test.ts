@@ -1,11 +1,13 @@
 import { execFileSync } from 'node:child_process';
 import {
   copyFileSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   realpathSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -14,6 +16,14 @@ import { pathToFileURL } from 'node:url';
 import { shellSingleQuote } from '@inkeep/open-knowledge-core';
 import { type Config, readServerLock, resolveLockDir } from '@inkeep/open-knowledge-server';
 import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
+import { configureTestGitRepository } from '../../../../test-support/configure-git-fixture.test-helper.ts';
+import {
+  GITHUB_HOST,
+  type GitHubStandIn,
+  type PlainHttpInterceptor,
+  startGitHubStandIn,
+  startPlainHttpInterceptor,
+} from '../../tests/support/github-stand-in.test-helper.ts';
 import type { GhDetectResult } from '../auth/gh-detect.ts';
 import { FileBackend, type TokenStore } from '../auth/token-store.ts';
 import {
@@ -25,13 +35,6 @@ import {
   writeCliCredentialStandIn,
   writeRecordingCredentialHelper,
 } from './git-credential-fixtures.test-helper.ts';
-import {
-  GITHUB_HOST,
-  type GitHubStandIn,
-  type PlainHttpInterceptor,
-  startGitHubStandIn,
-  startPlainHttpInterceptor,
-} from './github-stand-in.test-helper.ts';
 import { runSync } from './sync.ts';
 
 const ORIGIN_URL = `https://${GITHUB_HOST}/alice/demo.git`;
@@ -78,6 +81,28 @@ interface Scenario {
 
 const ghUnavailable = (): GhDetectResult => ({ available: false });
 
+function readDiagnosticLines<T>(file: string): Array<T | 'unparseable'> {
+  if (!existsSync(file)) return [];
+  return readFileSync(file, 'utf-8')
+    .split('\n')
+    .filter((line) => line !== '')
+    .map((line) => {
+      try {
+        return JSON.parse(line) as T;
+      } catch {
+        return 'unparseable';
+      }
+    });
+}
+
+function countLines(file: string): number | null {
+  return existsSync(file) ? readFileSync(file, 'utf-8').split('\n').length - 1 : null;
+}
+
+function modifiedAt(file: string): number | null {
+  return existsSync(file) ? Math.trunc(statSync(file).mtimeMs) : null;
+}
+
 function originUpstreamOnGitHub(git: GitRunner, server: GitHubStandIn): void {
   git('remote', 'add', 'origin', ORIGIN_URL);
   git('push', server.repositoryDir('alice/demo.git'), 'main:main');
@@ -118,6 +143,8 @@ describe("ok sync without a running server authenticates through OpenKnowledge's
   let traceFile: string;
   let authFile: string;
   let cliStandIn: string;
+  let helperPhases: string;
+  let phases: Array<{ stage: string; at: number; requestId?: number }>;
   let standIn: GitHubStandIn | undefined;
   let interceptor: PlainHttpInterceptor | undefined;
 
@@ -137,6 +164,8 @@ describe("ok sync without a running server authenticates through OpenKnowledge's
     cliHelperLog = join(workspace, 'cli-helper-calls.jsonl');
     traceFile = join(workspace, 'git-trace.log');
     authFile = join(workspace, 'ok-auth.yml');
+    helperPhases = join(workspace, 'helper-phases.jsonl');
+    phases = [{ stage: 'setup:start', at: Date.now() }];
     vi.stubEnv('HOME', home);
     vi.stubEnv('USERPROFILE', home);
     vi.stubEnv('XDG_CONFIG_HOME', join(home, '.config'));
@@ -154,17 +183,41 @@ describe("ok sync without a running server authenticates through OpenKnowledge's
     }
     mkdirSync(home, { recursive: true });
     mkdirSync(projectDir, { recursive: true });
-    cliStandIn = writeCliCredentialStandIn({ dir: workspace, callLog: cliHelperLog, authFile });
+    cliStandIn = writeCliCredentialStandIn({
+      dir: workspace,
+      callLog: cliHelperLog,
+      authFile,
+      phaseLog: helperPhases,
+    });
   });
 
-  afterEach(async () => {
+  afterEach(async (context) => {
     vi.restoreAllMocks();
     vi.unstubAllEnvs();
-    await standIn?.close();
-    standIn = undefined;
-    await interceptor?.close();
-    interceptor = undefined;
-    rmSync(workspace, { recursive: true, force: true });
+    try {
+      if (context.task.result?.state === 'fail') {
+        process.stderr.write(
+          `${JSON.stringify({
+            diagnostic: 'sync-credential-phases',
+            phases,
+            helperPhases: readDiagnosticLines(helperPhases),
+            helperCalls: readDiagnosticLines<CliHelperCall>(cliHelperLog).map((call) =>
+              call === 'unparseable' ? call : call.args.at(-1),
+            ),
+            requests: standIn?.requests.map(({ method, status }) => ({ method, status })),
+            gitTracePresent: existsSync(traceFile),
+            gitTraceLines: countLines(traceFile),
+            gitTraceModifiedAt: modifiedAt(traceFile),
+          })}\n`,
+        );
+      }
+    } finally {
+      await standIn?.close();
+      standIn = undefined;
+      await interceptor?.close();
+      interceptor = undefined;
+      rmSync(workspace, { recursive: true, force: true });
+    }
   });
 
   function gitCredential(
@@ -179,8 +232,11 @@ describe("ok sync without a running server authenticates through OpenKnowledge's
   }
 
   async function arrange(scenario: Scenario): Promise<GitHubStandIn> {
+    const currentPhases = phases;
+    currentPhases.push({ stage: 'arrange:server-start', at: Date.now() });
     const started = await startGitHubStandIn({
       root: join(workspace, 'github'),
+      onPhase: (stage, requestId) => currentPhases.push({ stage, requestId, at: Date.now() }),
       acceptedPassword: scenario.gitHubAccepts,
       ...(scenario.gitHubDenies === undefined ? {} : { deniedPassword: scenario.gitHubDenies }),
       repositories: ['alice/demo.git'],
@@ -197,6 +253,7 @@ describe("ok sync without a running server authenticates through OpenKnowledge's
       },
     });
     standIn = started;
+    currentPhases.push({ stage: 'arrange:server-ready', at: Date.now() });
     const recordingHelper = writeRecordingCredentialHelper(workspace, helperLog);
     const globalConfig = join(home, '.gitconfig');
     for (const [key, value] of [
@@ -234,10 +291,12 @@ describe("ok sync without a running server authenticates through OpenKnowledge's
     const git = (...args: string[]) =>
       execFileSync('git', args, { cwd: projectDir, stdio: 'ignore' });
     git('init', '--initial-branch=main');
+    configureTestGitRepository(projectDir);
     git('commit', '--allow-empty', '-m', 'seed');
     (scenario.repository ?? originUpstreamOnGitHub)(git, started);
     git('commit', '--allow-empty', '-m', 'local work to push');
 
+    currentPhases.push({ stage: 'arrange:repository-ready', at: Date.now() });
     const liveness = scenario.ambientCredential ?? {
       username: 'liveness-probe',
       password: 'ok-test-sync-liveness-probe-password',
@@ -266,6 +325,7 @@ describe("ok sync without a running server authenticates through OpenKnowledge's
     }
     writeFileSync(helperLog, '', 'utf-8');
     vi.stubEnv('GIT_TRACE', traceFile);
+    currentPhases.push({ stage: 'arrange:ready', at: Date.now() });
     return started;
   }
 
@@ -276,17 +336,38 @@ describe("ok sync without a running server authenticates through OpenKnowledge's
   ): Promise<{ events: SyncEvent[]; stderr: string; error: unknown }> {
     expect(readServerLock(resolveLockDir(projectDir))).toBeNull();
     const events: SyncEvent[] = [];
+    const currentPhases = phases;
+    currentPhases.push({ stage: 'sync:start', at: Date.now() });
     let stderr = '';
     const writes = vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
       for (const line of String(chunk).split('\n')) {
-        if (line.trim() !== '') events.push(JSON.parse(line) as SyncEvent);
+        if (line.trim() !== '') {
+          const event = JSON.parse(line) as SyncEvent;
+          events.push(event);
+          if (event.type === 'step' && (event.step === 'pull' || event.step === 'push'))
+            currentPhases.push({ stage: `sync:${event.step}`, at: Date.now() });
+          if (event.type === 'pull' || event.type === 'push')
+            currentPhases.push({ stage: `sync:${event.type}-finished`, at: Date.now() });
+        }
       }
       return true;
     });
     const errorWrites =
       output === 'text'
         ? vi.spyOn(process.stderr, 'write').mockImplementation((chunk) => {
-            stderr += String(chunk);
+            const text = String(chunk);
+            stderr += text;
+            if (text === `Running ${op} directly (no live server)\n`)
+              currentPhases.push({
+                stage: `sync:${op === 'push' ? 'push' : 'pull'}`,
+                at: Date.now(),
+              });
+            if (text.startsWith('  pull: ')) {
+              currentPhases.push({ stage: 'sync:pull-finished', at: Date.now() });
+              if (op === 'sync') currentPhases.push({ stage: 'sync:push', at: Date.now() });
+            }
+            if (text === '  push: ok\n')
+              currentPhases.push({ stage: 'sync:push-finished', at: Date.now() });
             return true;
           })
         : undefined;
@@ -300,7 +381,9 @@ describe("ok sync without a running server authenticates through OpenKnowledge's
     let error: unknown = null;
     try {
       await runSync(options, {} as Config, projectDir);
+      currentPhases.push({ stage: 'sync:returned', at: Date.now() });
     } catch (caught) {
+      currentPhases.push({ stage: 'sync:rejected', at: Date.now() });
       error = caught;
     } finally {
       process.argv[1] = cliEntry;
@@ -798,6 +881,7 @@ describe("ok sync without a running server authenticates through OpenKnowledge's
         okStoreToken: OK_TOKEN,
         repository: (git) => {
           execFileSync('git', ['init', '--quiet', '--bare', '--initial-branch=main', localRemote]);
+          configureTestGitRepository(localRemote);
           git('remote', 'add', 'origin', urlOf(localRemote));
           git('push', localRemote, 'main:main');
           git('config', 'branch.main.remote', 'origin');
@@ -1173,6 +1257,7 @@ describe("ok sync without a running server authenticates through OpenKnowledge's
       gitHubAccepts: GH_TOKEN,
       repository: (git, github) => {
         execFileSync('git', ['init', '--quiet', '--initial-branch=main', submoduleSource]);
+        configureTestGitRepository(submoduleSource);
         execFileSync('git', [
           '-C',
           submoduleSource,
@@ -1191,6 +1276,7 @@ describe("ok sync without a running server authenticates through OpenKnowledge's
           submoduleSource,
           'sub',
         );
+        configureTestGitRepository(join(projectDir, 'sub'));
         git('-C', 'sub', 'remote', 'set-url', 'origin', `http://${GITHUB_HOST}/alice/sub.git`);
         git('commit', '--quiet', '-m', 'add the submodule');
         originUpstreamOnGitHub(git, github);
@@ -1212,6 +1298,7 @@ describe("ok sync without a running server authenticates through OpenKnowledge's
           github.repositoryDir('alice/demo.git'),
           upstreamWork,
         ]);
+        configureTestGitRepository(upstreamWork);
         execFileSync('git', [
           '-C',
           upstreamWork,
@@ -1328,14 +1415,17 @@ describe("ok sync without a running server authenticates through OpenKnowledge's
   });
 
   test.each([
-    { spelling: 'in different letter case', writtenHost: 'GitHub.com' },
-    { spelling: 'with an explicit :443', writtenHost: `${GITHUB_HOST}:443` },
-  ])(
-    "with a second push URL that writes the signed-in host $spelling, ok push sends that URL's credential request only to OpenKnowledge's helper, which declines it, and never to the user's own helpers",
-    async ({ writtenHost }) => {
+    { spelling: 'in different letter case', writtenHost: 'GitHub.com', source: 'stored' },
+    { spelling: 'with an explicit :443', writtenHost: `${GITHUB_HOST}:443`, source: 'stored' },
+    { spelling: 'in different letter case', writtenHost: 'GitHub.com', source: 'gh' },
+    { spelling: 'with an explicit :443', writtenHost: `${GITHUB_HOST}:443`, source: 'gh' },
+  ] as const)(
+    "with a second push URL that writes the signed-in host $spelling, ok push answers it from OpenKnowledge's helper with the $source token and never asks the user's own helpers",
+    async ({ writtenHost, source }) => {
+      const token = source === 'stored' ? OK_TOKEN : GH_TOKEN;
       const server = await arrange({
-        gitHubAccepts: OK_TOKEN,
-        okStoreToken: OK_TOKEN,
+        gitHubAccepts: token,
+        ...(source === 'stored' ? { okStoreToken: OK_TOKEN } : {}),
         repository: (git, github) => {
           originUpstreamOnGitHub(git, github);
           git('config', '--add', 'remote.origin.pushurl', ORIGIN_URL);
@@ -1343,11 +1433,26 @@ describe("ok sync without a running server authenticates through OpenKnowledge's
         },
       });
 
-      const outcome = await syncWith(signedInSeam(), 'push');
-
-      expect(server.requests, "the first push URL's receive-pack").toContainEqual(
-        authenticatedRequest('push', { username: expect.any(String), password: OK_TOKEN }),
+      const outcome = await syncWith(
+        source === 'stored'
+          ? signedInSeam()
+          : {
+              tokenStore: new FileBackend(authFile),
+              _detectGhFn: () => ({ available: true, token: GH_TOKEN }),
+            },
+        'push',
       );
+
+      expect.soft(outcome.error, 'the error runSync threw').toBeNull();
+      expect(
+        server.requests.filter(
+          (request) =>
+            request.path.endsWith('/info/refs?service=git-receive-pack') &&
+            request.credential?.password === token &&
+            request.status === 200,
+        ),
+        'authenticated push discoveries, one per push URL',
+      ).toHaveLength(2);
       expect
         .soft(
           readJsonLines<CliHelperCall>(cliHelperLog),
@@ -1361,12 +1466,6 @@ describe("ok sync without a running server authenticates through OpenKnowledge's
       expect
         .soft(readJsonLines<RecordedHelperCall>(helperLog), 'calls reaching the ambient helpers')
         .toEqual([]);
-      expect.soft(outcome.error, 'the error runSync threw').not.toBeNull();
-      const message =
-        outcome.error instanceof Error ? outcome.error.message : String(outcome.error);
-      expect
-        .soft(message, 'the failure ok push reports for the second push URL')
-        .not.toContain("OpenKnowledge's GitHub sign-in");
     },
   );
 
@@ -1418,6 +1517,7 @@ describe("ok sync without a running server authenticates through OpenKnowledge's
       repository: (git, github) => {
         const remote = github.repositoryDir(nestedRepository, ENTERPRISE_HOST);
         execFileSync('git', ['init', '--quiet', '--bare', '--initial-branch=main', remote]);
+        configureTestGitRepository(remote);
         git('remote', 'add', 'origin', `https://${ENTERPRISE_HOST}/${nestedRepository}`);
         git('push', remote, 'main:main');
         git('config', 'branch.main.remote', 'origin');

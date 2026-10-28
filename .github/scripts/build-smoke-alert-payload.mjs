@@ -61,17 +61,20 @@ export function recoveryCommand(tag, repo = DEFAULT_REPO) {
 
 function summaryLine(tag, verdict, blockedBy) {
   const { subject } = describeBlock({ verdict, blockedBy });
-  return `🚨 ${ALERT_HEADLINE}: ${tag} ${subject} — nothing shipped`;
+  return `🚨 ${ALERT_HEADLINE}: ${tag} ${subject}`;
 }
 
-function recoveryGuidance() {
+function recoveryGuidance(tag) {
   return [
-    "*Recovery guidance:* Inspect the failed packaging job's final `outcome=`.",
+    '*Recovery guidance:* If the Release is published, inspect the failed downstream npm or release-consumer operation before choosing recovery.',
+    "If it is unpublished, follow RELEASES.md, Resuming a blocked cut, using a guarded workflow revision. Inspect the failed packaging job's final `outcome=` when packaging failed.",
     'With no newer stable release, `transient-exhausted`, `deadline`, or `signal` can re-fire the same tag; investigate a recurring deadline.',
     '`unknown-exhausted` requires manual log review. `terminal` requires fixing the cause in `reason=`.',
     '`reason=rule:download-integrity` is the terminal exception: re-fire once on a fresh runner, then stop and investigate upstream if the same artifact fails again.',
-    '`cleanup-failure` reports its runner/tooling cause in `cleanup=`; `spawn-failure`, `attempt-timeout`, and `child-signal` are also runner/tooling failures. Confirm the runner/tooling failure is absent before re-firing.',
+    '`cleanup-failure` reports its runner/tooling cause in `cleanup=`; `spawn-failure` and `child-signal` are also runner/tooling failures. Confirm the runner/tooling failure is absent before re-firing.',
+    "`attempt-timeout` and a mid-attempt `deadline` list the processes still running under the stop line: a long `notarytool` wait is Apple's queue and can re-fire; a long `codesign`, or a `took no process snapshot` line, needs that failure confirmed absent first.",
     'Never re-fire a tag once a newer stable release has shipped; cut a new release from `main` instead.',
+    `Before any re-fire, run the shipped-fix check on the tag from a full clone: \`node .github/scripts/shipped-fix-containment.mjs --candidate ${tag}\`. Never re-fire a tag it refuses; the re-fired run refuses it too.`,
   ].join('\n');
 }
 
@@ -86,9 +89,9 @@ function bodyLines({ tag, verdict, reason, runUrl, repo, blockedBy }) {
         ? `*Why:* ${other} failed. The DMG smoke itself passed (${reason}).`
         : `*Why:* ${other} failed (${reason}).`
       : `*Why:* ${reason}`,
-    '*State:* the GitHub Release is still a DRAFT and npm `latest` has NOT moved.',
-    recoveryGuidance(),
-    `*Recovery command:*\n\`${recoveryCommand(tag, repo)}\``,
+    '*State:* Publication may have completed. Inspect the GitHub Release, npm and run before recovery.',
+    recoveryGuidance(tag),
+    `*Recovery command (only after confirming an eligible unpublished tag):*\n\`${recoveryCommand(tag, repo)}\``,
     `*Run:* ${runUrl}`,
   ];
 }

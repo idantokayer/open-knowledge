@@ -1,9 +1,11 @@
 import type { RmOptions, WriteFileOptions } from 'node:fs';
 import {
   appendFileSync,
+  chmodSync,
   cpSync,
   linkSync,
   mkdirSync,
+  openSync,
   renameSync,
   rmdirSync,
   rmSync,
@@ -50,6 +52,11 @@ function buildAttrs(operation: string, path: string, extra?: Attributes): Attrib
   if (extra) Object.assign(attrs, extra);
   return attrs;
 }
+
+export const tracedChmodSync: typeof chmodSync = (path, mode) =>
+  withSpanSync('fs.chmodSync', { attributes: buildAttrs('chmodSync', String(path)) }, () =>
+    chmodSync(path, mode),
+  );
 
 function byteLength(data: string | Uint8Array | ArrayBufferView): number {
   if (typeof data === 'string') return Buffer.byteLength(data, 'utf-8');
@@ -168,6 +175,12 @@ export function tracedCpSync(
     () => {
       cpSync(from, to, options);
     },
+  );
+}
+
+export function tracedOpenSync(path: string, flags: string, mode: number): number {
+  return withSpanSync('fs.openSync', { attributes: buildAttrs('openSync', path) }, () =>
+    openSync(path, flags, mode),
   );
 }
 

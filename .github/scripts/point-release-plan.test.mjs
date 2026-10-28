@@ -1,23 +1,36 @@
-import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { delimiter, join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Project, ts } from 'ts-morph';
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test } from 'vitest';
+import { gitAt, withBumpVerdicts } from '../../scripts/compute-stable-version.mjs';
+import { gitCleanEnv } from '../../scripts/git-clean-env.mjs';
 import {
+  APP_CREDENTIAL_HELPER,
   deriveEntryLevelResolution,
   formatReleaseNotes,
   guardAnchor,
+  guardBasePublished,
   guardDeltaMatchesFix,
   guardMainResetDeltaIds,
   guardNativeConfigProvenance,
   guardPatchOnly,
   guardRefsOnMain,
   guardResolvePathsAllowlisted,
+  guardShipsPublishedFixes,
   guardTagFree,
   parseFixRefs,
   parseResolvePaths,
+  pushTagArgs,
   RESOLVABLE_PATHS,
+  readFixBumps,
+  realIo,
   runPointRelease,
   verifyWorkspaceMatchesLockfile,
 } from './point-release-plan.mjs';
+import { appliedOrigins } from './shipped-fix-containment.mjs';
 
 function inspectGitEscapes(source) {
   const project = new Project({ useInMemoryFileSystem: true, skipLoadingLibFiles: true });
@@ -58,6 +71,37 @@ const membership = (...members) => {
     return set.has(value);
   };
 };
+
+const containedVerdict = (candidateSha = 'synthetic-sha') => ({
+  ok: true,
+  candidate: candidateSha,
+  candidateSha: candidateSha.padEnd(40, '0'),
+  published: 3,
+  checked: ['v0.31.4'],
+  records: 1,
+  plusRecords: 1,
+  plusCommits: 1,
+  coveredByProvenance: 1,
+  coveredByPrNumber: 0,
+  commits: [],
+  uncovered: [],
+});
+
+const droppedFixVerdict = () => ({
+  ...containedVerdict(),
+  ok: false,
+  coveredByProvenance: 0,
+  uncovered: [
+    {
+      sha: 'a66f9e77679cb6fad68eb0b8bdd8ff5b54edca49',
+      subject: 'fix(ok): keep the update-ready notice reachable (#5610)',
+      pr: '5610',
+      origin: null,
+      coverage: null,
+      stables: ['v0.31.4'],
+    },
+  ],
+});
 
 describe('guardAnchor', () => {
   test('refuses while a stable tag is ahead of the changeset anchor', () => {
@@ -548,6 +592,8 @@ describe('guard codes', () => {
       guardPatchOnly({ bump: 'major' }),
       guardNativeConfigProvenance({ selection: { headSha: '', reason: 'nothing qualified' } }),
       guardMainResetDeltaIds({ deltaIds: [] }),
+      guardBasePublished({ latestStableTag: 'v0.32.1', publishedTags: ['v0.32.0'] }),
+      guardShipsPublishedFixes({ verdict: droppedFixVerdict(), latestStableTag: 'v0.32.0' }),
     ];
     expect(refusals.every((r) => r.ok === false)).toBe(true);
     const codes = refusals.map((r) => r.code);
@@ -572,9 +618,12 @@ function makeIo(overrides = {}) {
     conflicts = [],
     files = {},
     worktree = {},
+    publishedTags = [stableTag],
+    containmentVerdict = containedVerdict,
   } = overrides;
 
   const calls = { tag: 0, pushTag: 0, createRelease: 0, dispatch: 0 };
+  const evaluated = [];
   const dispatches = [];
   const releases = [];
   const applied = [];
@@ -595,6 +644,15 @@ function makeIo(overrides = {}) {
     written,
     reads,
     worktree,
+    evaluated,
+    containment: {
+      publishedStableTags: () =>
+        typeof publishedTags === 'function' ? publishedTags() : [...publishedTags],
+      evaluate: (sha) => {
+        evaluated.push(sha);
+        return containmentVerdict(sha);
+      },
+    },
     fs: {
       readWorktreeFile: (path) => {
         if (!(path in worktree)) throw new Error(`no worktree file ${path}`);
@@ -885,6 +943,37 @@ describe('runPointRelease cascade', () => {
     expect(mainReset.clientPayload.delta_ids).toEqual(['undo-bad']);
   });
 
+  test('revert mode warns that main must carry the same patch before the next promotion', () => {
+    const plan = runPointRelease({ mode: 'revert', fixRefs: ['bad1'], dryRun: true }, makeIo());
+    expect(plan.removedIds).toEqual([]);
+    expect(plan.warnings.join(' ')).toContain(
+      'the shipped-fix check will refuse every later promotion until main holds a commit with exactly the patch this release ships',
+    );
+  });
+
+  test('revert mode warns that an ordinary main follow-up cannot match a consumed changeset deletion', () => {
+    const io = makeIo({
+      changesets: { 'stable-sha': ['keep-a', 'bad-change'], 'synthetic-sha': ['keep-a'] },
+    });
+    const plan = runPointRelease({ mode: 'revert', fixRefs: ['bad1'], dryRun: true }, io);
+    expect(plan.removedIds).toEqual(['bad-change']);
+    const warning = plan.warnings.join(' ');
+    expect(warning).toContain('This revert deletes .changeset/bad-change.md');
+    expect(warning).toContain('If main-reset has already consumed these files on main');
+    expect(warning).toContain('an ordinary code-only revert there cannot reproduce the shipped patch');
+    expect(warning).toContain('putting its changeset in a separate PR does not resolve this mismatch');
+    expect(warning).toContain('ship it in cherry-pick mode instead');
+    expect(warning).not.toContain('exactly the patch this release ships');
+  });
+
+  test('cherry-pick mode gives no revert warning', () => {
+    const plan = runPointRelease(
+      { mode: 'cherry-pick', fixRefs: ['fix1'], dryRun: true },
+      cherryPickIo(),
+    );
+    expect(plan.warnings.join(' ')).not.toContain('shipped-fix check will refuse');
+  });
+
   test('refuses when the operator names a delta that parses to nothing', () => {
     const io = makeIo();
     let refusal;
@@ -957,6 +1046,12 @@ describe('runPointRelease refusals', () => {
     [
       'native-config-drift',
       { nativeConfigSelection: { headSha: '', reason: 'newest green run 42 @ abc123 does not' } },
+      { mode: 'revert', fixRefs: ['bad1'] },
+    ],
+    ['base-unpublished', { publishedTags: ['v0.31.9'] }, { mode: 'revert', fixRefs: ['bad1'] }],
+    [
+      'drops-shipped-fix',
+      { containmentVerdict: droppedFixVerdict },
       { mode: 'revert', fixRefs: ['bad1'] },
     ],
   ];
@@ -1100,6 +1195,76 @@ describe('runPointRelease refusals', () => {
       /not one of/,
     );
     expect(io.applied).toEqual([]);
+  });
+});
+
+describe('runPointRelease keeps every fix a published stable shipped', () => {
+  test('builds only over the newest stable tag when its Release is published', () => {
+    const io = makeIo({ stableTag: 'v0.32.1', publishedTags: ['v0.31.9', 'v0.32.0'] });
+    let refusal;
+    try {
+      runPointRelease({ mode: 'revert', fixRefs: ['bad1'], dryRun: true }, io);
+    } catch (err) {
+      refusal = err;
+    }
+    expect(refusal?.code).toBe('base-unpublished');
+    expect(refusal?.message).toContain('The newest stable tag v0.32.1 has no published Release');
+    expect(refusal?.message).toContain('the newest published stable is v0.32.0');
+    expect(io.checkedOut).toEqual([]);
+    expect(io.applied).toEqual([]);
+    expect(io.evaluated).toEqual([]);
+  });
+
+  test('checks the synthetic commit, not the base, and records the verdict in the guard trail', () => {
+    const io = makeIo();
+    const plan = runPointRelease({ mode: 'revert', fixRefs: ['bad1'], dryRun: true }, io);
+    expect(io.evaluated).toEqual(['synthetic-sha']);
+    expect(plan.guards.map((g) => g.message)).toEqual(
+      expect.arrayContaining([
+        'The newest stable tag v0.32.0 is published, so the point release builds on it.',
+        expect.stringContaining('v0.32.0 plus the applied fixes'),
+      ]),
+    );
+  });
+
+  test('refuses a synthetic commit that lacks a shipped fix, naming it, in a dry run too', () => {
+    const io = makeIo({ containmentVerdict: droppedFixVerdict });
+    let refusal;
+    try {
+      runPointRelease({ mode: 'revert', fixRefs: ['bad1'], dryRun: true }, io);
+    } catch (err) {
+      refusal = err;
+    }
+    expect(refusal?.code).toBe('drops-shipped-fix');
+    expect(refusal?.message.split('\n')[0]).toBe(
+      'v0.32.0 plus the applied fixes lacks 1 fix that a published stable already shipped: #5610 ' +
+        '(v0.31.4). Add those fixes to fix_refs, or ship through a promotion whose beta contains them.',
+    );
+    expect(refusal?.message).toContain('a66f9e77679c fix(ok): keep the update-ready notice reachable (#5610)');
+    expect(io.calls).toEqual({ tag: 0, pushTag: 0, createRelease: 0, dispatch: 0 });
+  });
+
+  test('an unreadable release listing is an infra failure, never a pass', () => {
+    const io = makeIo({
+      publishedTags: () => {
+        throw new Error('listing the releases of inkeep/open-knowledge failed: HTTP 502');
+      },
+    });
+    let thrown;
+    try {
+      runPointRelease({ mode: 'revert', fixRefs: ['bad1'], dryRun: false }, io);
+    } catch (err) {
+      thrown = err;
+    }
+    expect(thrown?.message).toMatch(/HTTP 502/);
+    expect(thrown?.code).toBeUndefined();
+    expect(io.calls).toEqual({ tag: 0, pushTag: 0, createRelease: 0, dispatch: 0 });
+  });
+
+  test('the production io answers both questions from the published Releases', () => {
+    const { containment } = realIo();
+    expect(typeof containment.publishedStableTags).toBe('function');
+    expect(typeof containment.evaluate).toBe('function');
   });
 });
 
@@ -1459,6 +1624,22 @@ describe('formatReleaseNotes "Applied" line', () => {
       ]),
     ).toBe(`Applied: ${SHA}, hotfix-tag (${other})`);
   });
+
+  test('the shipped-fix check reads back every origin these notes record', () => {
+    const other = 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef';
+    const notes = formatReleaseNotes({
+      latestStableTag: 'v0.48.2',
+      mode: 'cherry-pick',
+      fixRefs: [
+        { ref: SHA, sha: SHA },
+        { ref: 'deadbeef', sha: other },
+      ],
+      changesetEntries: [],
+      addedIds: [],
+      removedIds: [],
+    });
+    expect(appliedOrigins(notes)).toEqual([SHA, other]);
+  });
 });
 
 describe('git escape rule self-test', () => {
@@ -1505,5 +1686,298 @@ describe('git escape rule self-test', () => {
       'forwarding',
     ]);
     expect(inspectGitEscapes(`${declarations} const = ;`).census).toEqual(['syntax']);
+  });
+});
+
+describe('readFixBumps, run by the job that holds no release credential', () => {
+  const blobGit = ({ blobs, bumps = {} }) => {
+    const reads = [];
+    return {
+      reads,
+      revParse: (ref) => `${ref}-sha`,
+      changesetBlobs: (sha) => new Map(Object.entries(blobs[sha] ?? {})),
+      bumpTypeOf: (sha, id) => {
+        reads.push(`${sha}:${id}`);
+        return bumps[id] ?? 'patch';
+      },
+    };
+  };
+
+  test('reads every changeset a fix ref adds or rewrites, keyed by blob, and no other', () => {
+    const git = blobGit({
+      blobs: {
+        'fix1-sha^': { 'keep-a': 'blob-keep', edited: 'blob-edited-before' },
+        'fix1-sha': { 'keep-a': 'blob-keep', edited: 'blob-edited-after', 'shiny-fix': 'blob-shiny' },
+      },
+      bumps: { 'shiny-fix': 'minor' },
+    });
+    const verdicts = readFixBumps({ mode: 'cherry-pick', fixRefs: ['fix1'] }, git);
+    expect(Object.fromEntries(verdicts)).toEqual({ 'blob-edited-after': 'patch', 'blob-shiny': 'minor' });
+    expect(git.reads).toEqual(['fix1-sha:edited', 'fix1-sha:shiny-fix']);
+  });
+
+  test('reads each ref of a batch against its own parent', () => {
+    const git = blobGit({
+      blobs: {
+        'fix1-sha^': {},
+        'fix1-sha': { 'fix1-cs': 'blob-1' },
+        'fix2-sha^': { 'fix1-cs': 'blob-1' },
+        'fix2-sha': { 'fix1-cs': 'blob-1', 'fix2-cs': 'blob-2' },
+      },
+    });
+    const verdicts = readFixBumps({ mode: 'cherry-pick', fixRefs: ['fix1', 'fix2'] }, git);
+    expect([...verdicts.keys()]).toEqual(['blob-1', 'blob-2']);
+    expect(git.reads).toEqual(['fix1-sha:fix1-cs', 'fix2-sha:fix2-cs']);
+  });
+
+  test('revert mode reads no changeset frontmatter', () => {
+    const git = blobGit({ blobs: { 'bad1-sha': { culprit: 'blob-culprit' } } });
+    expect(readFixBumps({ mode: 'revert', fixRefs: ['bad1'] }, git).size).toBe(0);
+    expect(git.reads).toEqual([]);
+  });
+});
+
+describe('runPointRelease in the release job, which has no Changesets reader', () => {
+  const cherryPickChangesets = {
+    'stable-sha': ['keep-a'],
+    'synthetic-sha': ['keep-a', 'shiny-fix'],
+    fix1: ['keep-a', 'shiny-fix'],
+    'fix1^': ['keep-a'],
+  };
+  const releaseJobIo = (verdicts) => {
+    const io = makeIo({ changesets: cherryPickChangesets });
+    const git = {
+      ...io.git,
+      changesetBlobs: (sha) => new Map((cherryPickChangesets[sha] ?? []).map((id) => [id, `blob-${id}`])),
+      bumpTypeOf: () => {
+        throw new Error('the Changesets reader is not installed in this job');
+      },
+    };
+    io.git = withBumpVerdicts(git, new Map(Object.entries(verdicts)));
+    return io;
+  };
+  const ship = { mode: 'cherry-pick', fixRefs: ['fix1'], dryRun: false, selfRepo: 'inkeep/open-knowledge' };
+
+  test('ships from the verdicts alone, never calling the reader', () => {
+    const io = releaseJobIo({ 'blob-shiny-fix': 'patch' });
+    const plan = runPointRelease(ship, io);
+    expect(plan.tag).toBe('v0.32.1');
+    expect(io.calls).toMatchObject({ tag: 1, pushTag: 1, createRelease: 1 });
+  });
+
+  test('a minor verdict still refuses as a non-patch bump', () => {
+    const io = releaseJobIo({ 'blob-shiny-fix': 'minor' });
+    let refusal;
+    try {
+      runPointRelease(ship, io);
+    } catch (err) {
+      refusal = err;
+    }
+    expect(refusal?.code).toBe('bump-not-patch');
+    expect(io.calls).toEqual({ tag: 0, pushTag: 0, createRelease: 0, dispatch: 0 });
+  });
+
+  test('a changeset the reader job did not read fails closed before anything remote', () => {
+    const io = releaseJobIo({ 'blob-unrelated': 'patch' });
+    expect(() => runPointRelease(ship, io)).toThrow(/no bump verdict for \.changeset\/shiny-fix\.md/);
+    expect(io.calls).toEqual({ tag: 0, pushTag: 0, createRelease: 0, dispatch: 0 });
+  });
+});
+
+describe('the tag push credential', () => {
+  const { GH_TOKEN: _ambient, ...withoutToken } = gitCleanEnv();
+  const fill = (env, configured = []) =>
+    spawnSync('git', [...configured, ...pushTagArgs('v0.0.0').slice(0, 4), 'credential', 'fill'], {
+      input: 'protocol=https\nhost=github.com\n\n',
+      encoding: 'utf8',
+      env: { ...withoutToken, GIT_TERMINAL_PROMPT: '0', ...env },
+    });
+
+  test('pushes only the named tag to origin, after resetting every configured helper', () => {
+    expect(pushTagArgs('v1.2.3')).toEqual([
+      '-c',
+      'credential.helper=',
+      '-c',
+      `credential.helper=${APP_CREDENTIAL_HELPER}`,
+      'push',
+      'origin',
+      'v1.2.3',
+    ]);
+  });
+
+  test('answers a credential request with GH_TOKEN as the App installation token', () => {
+    const res = fill({ GH_TOKEN: 'placeholder-app-token' });
+    expect(res.status, res.stderr).toBe(0);
+    expect(res.stdout).toContain('username=x-access-token\npassword=placeholder-app-token\n');
+  });
+
+  test('a helper configured beforehand is reset rather than consulted', () => {
+    const res = fill({ GH_TOKEN: 'placeholder-app-token' }, [
+      '-c',
+      'credential.helper=!f() { echo username=someone-else; echo password=persisted-credential; }; f',
+    ]);
+    expect(res.stdout).not.toContain('persisted-credential');
+    expect(res.stdout).toContain('password=placeholder-app-token\n');
+  });
+
+  test('without GH_TOKEN it supplies an empty password, so the push cannot authenticate', () => {
+    const res = fill({});
+    expect(res.stdout).toContain('password=\n');
+  });
+});
+
+describe('a bump read in one job is found by blob in the other', () => {
+  const roots = [];
+  afterEach(() => {
+    while (roots.length) rmSync(roots.pop(), { recursive: true, force: true });
+  });
+  const git = (cwd, ...args) => {
+    const res = spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.com', ...args], {
+      cwd,
+      env: gitCleanEnv(),
+      encoding: 'utf8',
+    });
+    if (res.status !== 0) throw new Error(`git ${args.join(' ')} failed: ${res.stderr}`);
+    return res.stdout.trim();
+  };
+  const changeset = (root, id, type) => {
+    mkdirSync(join(root, '.changeset'), { recursive: true });
+    writeFileSync(join(root, '.changeset', `${id}.md`), `---\n"@inkeep/open-knowledge": ${type}\n---\n\nA change.\n`);
+  };
+
+  test('a cherry-picked changeset keeps the blob its fix commit wrote', () => {
+    const root = mkdtempSync(join(tmpdir(), 'point-release-bumps-'));
+    roots.push(root);
+    git(root, 'init', '-q', '-b', 'main');
+    changeset(root, 'keep-a', 'patch');
+    git(root, 'add', '-A');
+    git(root, 'commit', '-q', '-m', 'stable');
+    const stable = git(root, 'rev-parse', 'HEAD');
+    writeFileSync(join(root, 'unrelated.txt'), 'soaking\n');
+    git(root, 'add', '-A');
+    git(root, 'commit', '-q', '-m', 'unsoaked');
+    changeset(root, 'shiny-fix', 'minor');
+    git(root, 'add', '-A');
+    git(root, 'commit', '-q', '-m', 'fix');
+    const fix = git(root, 'rev-parse', 'HEAD');
+
+    const verdicts = readFixBumps({ mode: 'cherry-pick', fixRefs: [fix] }, gitAt(root));
+    expect([...verdicts.values()]).toEqual(['minor']);
+
+    git(root, 'checkout', '-q', '--detach', stable);
+    git(root, 'cherry-pick', fix);
+    const synthetic = git(root, 'rev-parse', 'HEAD');
+    expect(synthetic).not.toBe(fix);
+
+    const releaseJob = withBumpVerdicts(
+      {
+        ...gitAt(root),
+        bumpTypeOf: () => {
+          throw new Error('the Changesets reader is not installed in this job');
+        },
+      },
+      verdicts,
+    );
+    expect(releaseJob.bumpTypeOf(synthetic, 'shiny-fix')).toBe('minor');
+  });
+});
+
+describe('the production entry points the release workflows run', () => {
+  const SCRIPT = realpathSync(fileURLToPath(new URL('./point-release-plan.mjs', import.meta.url)));
+  const dirs = [];
+  afterEach(() => {
+    while (dirs.length) rmSync(dirs.pop(), { recursive: true, force: true });
+  });
+  const scratch = (prefix) => {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), prefix)));
+    dirs.push(dir);
+    return dir;
+  };
+  const { BUMP_VERDICTS: _inherited, ...cleanEnv } = gitCleanEnv();
+  const git = (cwd, ...args) => {
+    const res = spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.com', ...args], {
+      cwd,
+      env: gitCleanEnv(),
+      encoding: 'utf8',
+    });
+    if (res.status !== 0) throw new Error(`git ${args.join(' ')} failed: ${res.stderr}`);
+    return res.stdout.trim();
+  };
+  const fixRepo = (fixBump) => {
+    const root = scratch('point-release-read-bumps-');
+    const changeset = (id, type) => {
+      mkdirSync(join(root, '.changeset'), { recursive: true });
+      writeFileSync(join(root, '.changeset', `${id}.md`), `---\n"@inkeep/open-knowledge": ${type}\n---\n\nA change.\n`);
+    };
+    git(root, 'init', '-q', '-b', 'main');
+    changeset('keep-a', 'patch');
+    git(root, 'add', '-A');
+    git(root, 'commit', '-q', '-m', 'stable');
+    changeset('shiny-fix', fixBump);
+    git(root, 'add', '-A');
+    git(root, 'commit', '-q', '-m', 'fix');
+    return { root, fix: git(root, 'rev-parse', 'HEAD'), blob: git(root, 'rev-parse', 'HEAD:.changeset/shiny-fix.md') };
+  };
+  const runScript = (cwd, args, env) => {
+    const output = join(scratch('point-release-output-'), 'github-output');
+    writeFileSync(output, '');
+    const res = spawnSync(process.execPath, [SCRIPT, ...args], {
+      cwd,
+      encoding: 'utf8',
+      env: { ...cleanEnv, GITHUB_OUTPUT: output, ...env },
+    });
+    return { ...res, output: readFileSync(output, 'utf8') };
+  };
+
+  test('realIo pushes the tag with every configured helper reset and the App helper set', () => {
+    const bin = scratch('point-release-fake-git-');
+    const argvFile = join(bin, 'argv');
+    writeFileSync(join(bin, 'git'), '#!/bin/sh\nfor arg in "$@"; do printf \'%s\\n\' "$arg"; done > "$ARGV_FILE"\n', {
+      mode: 0o755,
+    });
+    const res = spawnSync(
+      process.execPath,
+      [
+        '--input-type=module',
+        '-e',
+        `const { realIo } = await import(${JSON.stringify(pathToFileURL(SCRIPT).href)}); realIo().git.pushTag('v9.9.9');`,
+      ],
+      { cwd: bin, encoding: 'utf8', env: { ...cleanEnv, PATH: `${bin}${delimiter}${cleanEnv.PATH}`, ARGV_FILE: argvFile } },
+    );
+    expect(res.status, res.stderr).toBe(0);
+    expect(readFileSync(argvFile, 'utf8').split('\n').filter(Boolean)).toEqual([
+      '-c',
+      'credential.helper=',
+      '-c',
+      `credential.helper=${APP_CREDENTIAL_HELPER}`,
+      'push',
+      'origin',
+      'v9.9.9',
+    ]);
+  });
+
+  test('--read-bumps writes the bump of each changeset a fix ref writes, keyed by blob id', () => {
+    const { root, fix, blob } = fixRepo('minor');
+    const res = runScript(root, ['--read-bumps'], { MODE: 'cherry-pick', FIX_REFS: fix });
+    expect(res.status, res.stderr).toBe(0);
+    expect(res.output).toBe(`bump_verdicts={"${blob}":"minor"}\n`);
+  });
+
+  test('--read-bumps writes {} in revert mode without reading frontmatter it could not parse', () => {
+    const { root, fix } = fixRepo('Major');
+    const revert = runScript(root, ['--read-bumps'], { MODE: 'revert', FIX_REFS: fix });
+    expect(revert.status, revert.stderr).toBe(0);
+    expect(revert.output).toBe('bump_verdicts={}\n');
+
+    const cherryPick = runScript(root, ['--read-bumps'], { MODE: 'cherry-pick', FIX_REFS: fix });
+    expect(cherryPick.status).toBe(1);
+    expect(cherryPick.output).toBe('');
+  });
+
+  test('an empty BUMP_VERDICTS stops the release run with an error naming the read-bumps output', () => {
+    const res = runScript(scratch('point-release-empty-verdicts-'), [], { BUMP_VERDICTS: '' });
+    expect(res.status).toBe(1);
+    expect(res.stderr).toMatch(/BUMP_VERDICTS is empty: the read-bumps job wrote no bump_verdicts output/);
+    expect(res.output).toBe('');
   });
 });

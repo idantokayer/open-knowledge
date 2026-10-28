@@ -27,6 +27,7 @@ import {
   okManagedBinDirs,
   okPackagedCliBinDir,
 } from '../shared/ok-child-env.ts';
+import { createPtyPhaseTrace, type PtyPhaseTrace } from '../shared/pty-phase-trace.ts';
 import {
   commandWithManagedPath,
   interactiveShellArgs,
@@ -38,6 +39,13 @@ import {
   materializeSupportFileSync,
   TERMINAL_SUPPORT_FILE_ESCAPE_CODE,
 } from './support-file-write.ts';
+
+const utilityPhaseTrace = (process as NodeJS.Process & { parentPort?: unknown }).parentPort
+  ? createPtyPhaseTrace(process.env, 'utility', (record) => {
+      process.stderr.write(`${JSON.stringify(record)}\n`);
+    })
+  : undefined;
+utilityPhaseTrace?.mark('module-entry', 'point');
 
 const DARWIN_FALLBACK_SHELL = '/bin/zsh';
 const KILL_ESCALATE_MS = 250;
@@ -201,18 +209,129 @@ export type PtyStartupSnapshotReason =
   | 'before-shutdown'
   | 'exit';
 
+export type PtyOsUnavailableReason =
+  | 'deadline'
+  | 'no-budget'
+  | 'unsupported-platform'
+  | 'query-start-failed'
+  | 'query-exited'
+  | 'invalid-json'
+  | 'invalid-shape'
+  | 'output-limit'
+  | 'owner-loss'
+  | 'process-absent'
+  | 'access-unavailable'
+  | 'identity-changed'
+  | 'worker-request-deadline'
+  | 'worker-unavailable'
+  | 'console-identity-unavailable';
+
+export type PtyOsSection<T> =
+  | { status: 'captured'; value: T }
+  | { status: 'unavailable'; reason: PtyOsUnavailableReason };
+
+export interface PtyOsThreadSample {
+  id: number;
+  state:
+    | 'initialized'
+    | 'ready'
+    | 'running'
+    | 'standby'
+    | 'terminated'
+    | 'wait'
+    | 'transition'
+    | 'unknown';
+  waitReason:
+    | 'executive'
+    | 'free-page'
+    | 'page-in'
+    | 'pool-allocation'
+    | 'execution-delay'
+    | 'suspended'
+    | 'user-request'
+    | 'event-pair-high'
+    | 'event-pair-low'
+    | 'lpc-receive'
+    | 'lpc-reply'
+    | 'virtual-memory'
+    | 'page-out'
+    | 'unknown'
+    | 'not-applicable';
+}
+
+export interface PtyOsProcessSample {
+  pid: number;
+  parentPid: number | null;
+  createdAtMs: number;
+  first: { userMs: number; kernelMs: number; threadCount: number };
+  second: { userMs: number; kernelMs: number; threadCount: number };
+  threads: PtyOsThreadSample[];
+  omittedThreads: number;
+}
+
+export interface PtyOsMachineSample {
+  atMs: number;
+  logicalCpus: number;
+  userMs: number;
+  systemMs: number;
+  idleMs: number;
+  irqMs: number;
+  niceMs: number;
+}
+
+export interface PtyOsObservation {
+  version: 1;
+  status: 'captured' | 'partial' | 'unavailable';
+  reason: PtyOsUnavailableReason | null;
+  requestedPid: number | null;
+  targets: Array<{ requestedPid: number; shell: PtyOsSection<PtyOsProcessSample> }>;
+  startedAtMs: number | null;
+  completedAtMs: number | null;
+  shell: PtyOsSection<PtyOsProcessSample>;
+  machine: PtyOsSection<{ first: PtyOsMachineSample; second: PtyOsMachineSample }>;
+  console: PtyOsSection<{
+    association: 'candidate-parent-relation';
+    candidateCount: number;
+    candidates: PtyOsProcessSample[];
+    unavailableCandidates: Array<{
+      reason: 'process-absent' | 'access-unavailable' | 'identity-changed';
+      count: number;
+    }>;
+    omittedCandidates: number;
+  }>;
+  worker: PtyOsSection<{
+    nodeThreadId: number;
+    requestedAtMs: number;
+    repliedAtMs: number;
+    userMs: number;
+    systemMs: number;
+  }>;
+  helper: {
+    requested: boolean;
+    reason: 'deadline' | 'output-limit' | 'owner-loss' | null;
+    delivery: 'not-attempted' | 'no-pid' | 'already-exited' | 'accepted' | 'rejected' | 'threw';
+    exit:
+      | 'not-observed'
+      | 'observed-before-request'
+      | 'observed-after-request'
+      | 'cooperative-deadline'
+      | 'cooperative-owner-loss';
+    exitCode: number | null;
+  };
+}
+
 export interface PtyStartupNativeSnapshot {
   shell: {
     pid: number | null;
     nativeExitObserved: boolean;
     exitCode: number | null;
-    osState: 'unobserved';
+    osState: 'unobserved' | PtyOsObservation['shell'];
   };
   console: {
     backend: PtyStartupBackend;
     connection: 'pending' | 'entered' | 'returned' | 'failed';
     outputConnectionDisposed: boolean;
-    osState: 'unobserved';
+    osState: 'unobserved' | PtyOsObservation['console'];
   };
   worker: {
     threadId: number;
@@ -221,7 +340,7 @@ export interface PtyStartupNativeSnapshot {
     errorObserved: boolean;
     writerError: boolean;
     exitCode: number | null;
-    osState: 'unobserved';
+    osState: 'unobserved' | PtyOsObservation['worker'];
   };
   transport: {
     capture: 'installed' | 'missing';
@@ -248,7 +367,12 @@ export type PtyStartupObservation =
   | { stage: 'native-connect-failed' }
   | { stage: 'native-shell-exit'; shellPid: number | null; exitCode: number }
   | { stage: 'worker-exit'; exitCode: number }
-  | { stage: 'observer-unavailable'; reason: 'unsupported-node-pty-shape' };
+  | { stage: 'observer-unavailable'; reason: 'unsupported-node-pty-shape' }
+  | {
+      stage: 'os-snapshot';
+      observation: PtyOsObservation;
+      transport: PtyStartupNativeSnapshot['transport'] | null;
+    };
 
 type PtyStartupHostObservation =
   | PtyStartupObservation
@@ -301,6 +425,7 @@ export interface PtyStartupTraceOptions {
 let nextStartupTraceId = 0;
 
 export interface SetupPtyHostDeps {
+  phaseTrace?: PtyPhaseTrace;
   startupTrace?: PtyStartupTraceOptions;
   parentPort: PtyHostParentPort | null;
   spawn: SpawnPty;
@@ -849,27 +974,83 @@ function createConptyCursorSyncGate(
   };
 }
 
+function markStartupPhase(
+  phaseTrace: PtyPhaseTrace,
+  ptyId: string,
+  attempt: number,
+  observation: PtyStartupHostObservation,
+): void {
+  switch (observation.stage) {
+    case 'lookup-start':
+      phaseTrace.mark('shell-resolution', 'begin', { ptyId });
+      return;
+    case 'lookup-complete':
+      phaseTrace.mark('shell-resolution', 'end', { ptyId, rung: observation.rung });
+      return;
+    case 'spawn-start':
+      phaseTrace.mark('pty-spawn', 'begin', { ptyId, attempt, backend: observation.backend });
+      return;
+    case 'spawn-return':
+      phaseTrace.mark('pty-spawn', 'end', { ptyId, attempt, backend: observation.backend });
+      return;
+    case 'spawn-failed':
+      phaseTrace.mark('pty-spawn', 'error', { ptyId, attempt, backend: observation.backend });
+      return;
+    case 'first-output':
+      phaseTrace.mark('pty-first-output', 'point', {
+        ptyId,
+        currentSession: observation.currentSession,
+      });
+      return;
+    case 'first-forward':
+      phaseTrace.mark('pty-first-forward', 'point', { ptyId });
+      return;
+    case 'terminal-exit':
+      phaseTrace.mark('pty-exit', 'point', { ptyId, exitCode: observation.exitCode });
+      return;
+    case 'snapshot':
+    case 'worker-online':
+    case 'worker-ready-received':
+    case 'data-pipe-connected':
+    case 'worker-error':
+    case 'native-connect-enter':
+    case 'native-connect-return':
+    case 'native-connect-failed':
+    case 'native-shell-exit':
+    case 'worker-exit':
+    case 'observer-unavailable':
+    case 'os-snapshot':
+      return;
+    default: {
+      const _exhaustive: never = observation;
+      void _exhaustive;
+    }
+  }
+}
+
 export function setupPtyHost(deps: SetupPtyHostDeps): PtyHostHandle {
   const env = deps.env ?? (process.env as Record<string, string | undefined>);
+  const phaseTrace = deps.phaseTrace;
   const platform = deps.platform ?? process.platform;
   const sessions = new Map<string, PtyProcessLike>();
-  const startupTraces = deps.startupTrace
-    ? new WeakMap<
-        PtyProcessLike,
-        {
-          emit(
-            observation:
-              | PtyStartupObservation
-              | { stage: 'terminal-exit'; exitCode: number | undefined },
-          ): void;
-          snapshot(reason: PtyStartupSnapshotReason): void;
-          receive(data: string, currentSession: boolean): void;
-          forward(data: string): void;
-          exited(): void;
-          dispose(): void;
-        }
-      >()
-    : undefined;
+  const startupTraces =
+    deps.startupTrace || phaseTrace
+      ? new WeakMap<
+          PtyProcessLike,
+          {
+            emit(
+              observation:
+                | PtyStartupObservation
+                | { stage: 'terminal-exit'; exitCode: number | undefined },
+            ): void;
+            snapshot(reason: PtyStartupSnapshotReason): void;
+            receive(data: string, currentSession: boolean): void;
+            forward(data: string): void;
+            exited(): void;
+            dispose(): void;
+          }
+        >()
+      : undefined;
 
   function snapshot(pty: PtyProcessLike, reason: PtyStartupSnapshotReason): void {
     startupTraces?.get(pty)?.snapshot(reason);
@@ -958,25 +1139,38 @@ export function setupPtyHost(deps: SetupPtyHostDeps): PtyHostHandle {
               ...observation,
             });
           };
-    emit?.({ stage: 'lookup-start' });
-    const resolution = resolveShellWithDetails(env, {
-      platform,
-      override: message.shell,
-      overrideInvalidReason: message.shellInvalidReason,
-      userInfoShell: deps.userInfoShell,
-      shellExists: deps.shellExists,
-      pathProbe:
-        platform === 'win32'
-          ? (command, probeEnv) => {
-              if (traceId !== undefined)
-                lookup = cachedWindowsPaths.has(command) ? 'cache' : 'probe';
-              return probeWindowsShellPath(command, probeEnv);
-            }
-          : deps.pathProbe,
-      listDirectory: deps.listDirectory,
-      logger: deps.logger,
-    });
-    emit?.({ stage: 'lookup-complete', lookup, rung: resolution.rung });
+    const observe =
+      emit === undefined && phaseTrace === undefined
+        ? undefined
+        : (observation: PtyStartupHostObservation, observedAttempt = attempt): void => {
+            emit?.(observation, observedAttempt);
+            if (phaseTrace) markStartupPhase(phaseTrace, ptyId, observedAttempt, observation);
+          };
+    observe?.({ stage: 'lookup-start' });
+    let resolution: ShellResolution;
+    try {
+      resolution = resolveShellWithDetails(env, {
+        platform,
+        override: message.shell,
+        overrideInvalidReason: message.shellInvalidReason,
+        userInfoShell: deps.userInfoShell,
+        shellExists: deps.shellExists,
+        pathProbe:
+          platform === 'win32'
+            ? (command, probeEnv) => {
+                if (traceId !== undefined)
+                  lookup = cachedWindowsPaths.has(command) ? 'cache' : 'probe';
+                return probeWindowsShellPath(command, probeEnv);
+              }
+            : deps.pathProbe,
+        listDirectory: deps.listDirectory,
+        logger: deps.logger,
+      });
+    } catch (error) {
+      phaseTrace?.mark('shell-resolution', 'error', { ptyId });
+      throw error;
+    }
+    observe?.({ stage: 'lookup-complete', lookup, rung: resolution.rung });
     if (resolution.invalidOverride) {
       const reason = resolution.invalidOverrideReason ?? 'invalid-value';
       deps.logger?.warn({
@@ -1082,26 +1276,27 @@ export function setupPtyHost(deps: SetupPtyHostDeps): PtyHostHandle {
     };
     let observation: PtyStartupObservedProcess | undefined;
     const spawnAttempt = (options: PtySpawnOptions): PtyProcessLike => {
-      if (traceId === undefined || startedAt === undefined || emit === undefined)
-        return deps.spawn(shell, shellArgs, options);
+      if (observe === undefined) return deps.spawn(shell, shellArgs, options);
       attempt += 1;
       const backend: PtyStartupBackend =
         platform === 'win32' ? (options.useConptyDll ? 'bundled' : 'inbox') : 'posix';
-      emit({ stage: 'spawn-start', backend });
+      observe({ stage: 'spawn-start', backend });
       try {
         const next = () => deps.spawn(shell, shellArgs, options);
         const observedAttempt = attempt;
-        observation = deps.startupTrace?.aroundSpawn?.(next, {
-          traceId,
-          attempt,
-          startedAt,
-          backend,
-          emit: (entry) => emit(entry, observedAttempt),
-        }) ?? { pty: next() };
-        emit({ stage: 'spawn-return', backend });
+        observation = (traceId === undefined || startedAt === undefined || emit === undefined
+          ? undefined
+          : deps.startupTrace?.aroundSpawn?.(next, {
+              traceId,
+              attempt,
+              startedAt,
+              backend,
+              emit: (entry) => emit(entry, observedAttempt),
+            })) ?? { pty: next() };
+        observe({ stage: 'spawn-return', backend });
         return observation.pty;
       } catch (error) {
-        emit({
+        observe({
           stage: 'spawn-failed',
           backend,
           reason:
@@ -1145,16 +1340,16 @@ export function setupPtyHost(deps: SetupPtyHostDeps): PtyHostHandle {
         ),
       );
     }
-    if (emit !== undefined) {
+    if (observe !== undefined) {
       let receivedBytes = 0;
       let forwardedBytes = 0;
       let terminalExitObserved = false;
       let received = false;
       let forwarded = false;
       startupTraces?.set(pty, {
-        emit,
+        emit: observe,
         snapshot(reason) {
-          emit({
+          observe({
             stage: 'snapshot',
             reason,
             receivedBytes,
@@ -1168,14 +1363,14 @@ export function setupPtyHost(deps: SetupPtyHostDeps): PtyHostHandle {
           receivedBytes += Buffer.byteLength(data);
           if (!received) {
             received = true;
-            emit({ stage: 'first-output', currentSession });
+            observe({ stage: 'first-output', currentSession });
           }
         },
         forward(data) {
           forwardedBytes += Buffer.byteLength(data);
           if (!forwarded) {
             forwarded = true;
-            emit({ stage: 'first-forward' });
+            observe({ stage: 'first-forward' });
           }
         },
         exited() {
@@ -1301,6 +1496,7 @@ export function setupPtyHost(deps: SetupPtyHostDeps): PtyHostHandle {
     }
     switch (message.type) {
       case 'create':
+        phaseTrace?.mark('message-received', 'point', { ptyId: message.ptyId });
         handleCreate(message);
         break;
       case 'input':
@@ -1329,6 +1525,8 @@ export function setupPtyHost(deps: SetupPtyHostDeps): PtyHostHandle {
         break;
     }
   });
+
+  if (deps.parentPort) phaseTrace?.mark('listener-ready', 'point');
 
   return {
     snapshotStartup(): void {
@@ -1376,24 +1574,31 @@ if ((process as NodeJS.Process & { parentPort?: unknown }).parentPort) {
       info: (data, message) => console.info(message ?? '[pty-host] info', data),
     };
     let flushLogger = () => {};
+    utilityPhaseTrace?.mark('logger-import', 'begin');
     try {
       const { flushDesktopLogger, getLogger } = await import('../main/desktop-logger.ts');
       log = getLogger('pty-host');
       flushLogger = flushDesktopLogger;
+      utilityPhaseTrace?.mark('logger-import', 'end');
     } catch (err) {
+      utilityPhaseTrace?.mark('logger-import', 'error');
       const code = (err as { code?: unknown } | null)?.code;
       console.warn('[pty-host] logger unavailable; using console fallback', {
         code: typeof code === 'string' ? code : 'unknown',
       });
     }
     let spawn: SpawnPty;
+    utilityPhaseTrace?.mark('native-import', 'begin');
     try {
       ({ spawn } = await import('node-pty'));
+      utilityPhaseTrace?.mark('native-import', 'end');
     } catch (err) {
+      utilityPhaseTrace?.mark('native-import', 'error');
       installPtyImportFailureReply(parentPort, err, log);
       return;
     }
     const handle = setupPtyHost({
+      phaseTrace: utilityPhaseTrace,
       parentPort,
       spawn,
       exitHost: (code) => process.exit(code),

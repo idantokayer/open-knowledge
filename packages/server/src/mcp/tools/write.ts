@@ -6,6 +6,7 @@ import {
   type FrontmatterPatch,
   instantiateDoc,
   normalizeBridge,
+  type ProblemType,
   parseFrontmatterYaml,
   SKILL_AUTHORING_WARNING_CODES,
   serializeFrontmatterMap,
@@ -45,6 +46,7 @@ import {
   CANONICAL_COMPONENT_GUIDANCE,
   docExtensionOnDisk,
   documentResultBaseShape,
+  errorTextWithDetail,
   HOCUSPOCUS_NOT_RUNNING_ERROR,
   httpPost,
   httpPut,
@@ -57,6 +59,7 @@ import {
   previewUrlOutputField,
   previewUrlSourceField,
   ROUTED_CWD_DESCRIPTION,
+  requestFailureText,
   resolveProjectServerContext,
   serverRequestFailure,
   summaryArgSchema,
@@ -122,6 +125,7 @@ type WriteOneResult =
       position: string;
       fromTemplate?: string;
       extensionNote?: string;
+      createdByPosition?: 'append' | 'prepend';
       templateHint?: readonly { name: string; description?: string }[];
       raw: WriteApiResult;
     }
@@ -138,6 +142,10 @@ export function frontmatterIgnoredNote(
     return `Note: a \`---\` frontmatter block in this \`${position}\` payload was ignored — frontmatter is written only with \`position: "replace"\`. To change frontmatter, use \`edit({ document: { path, frontmatter } })\` (patch) or \`write({ document: { path, content, position: "replace" } })\` (full rewrite).`;
   }
   return `Note: this \`${position}\` payload opens with a \`---\` fence pair, but what is between the fences is not a YAML mapping, so it was written as BODY text (fence lines included) rather than treated as frontmatter. If you meant a thematic break, that is the correct outcome — \`***\` or \`___\` avoids the ambiguity. If you meant to set frontmatter, the YAML did not parse: use \`edit({ document: { path, frontmatter } })\` (patch) or \`write({ document: { path, content, position: "replace" } })\` (full rewrite).`;
+}
+
+function createdByPositionNote(docName: string, position: 'append' | 'prepend'): string {
+  return `Created new document "${docName}" — no document existed at this path, so \`${position}\` started a new one. If you meant to add to an existing document, the path is wrong (paths are relative to the content root): remove this one with \`delete({ document: "${docName}" })\` and retry at the intended path.`;
 }
 
 function emptyAppendNoOpNote(position: string, markdown: string | undefined): string | null {
@@ -184,6 +192,15 @@ export function composeWithFrontmatter(
   const yamlBody = serializeFrontmatterMap(merged);
   if (yamlBody === '') return { ok: true, markdown: cleanBody };
   return { ok: true, markdown: withFences(yamlBody) + cleanBody };
+}
+
+const FRONTMATTER_PATCH_REJECTED_BEFORE_APPLY: ReadonlySet<unknown> = new Set<ProblemType>([
+  'urn:ok:error:invalid-request',
+  'urn:ok:error:invalid-frontmatter-patch',
+]);
+
+function frontmatterPatchAppliedNothing(result: { [key: string]: unknown }): boolean {
+  return result.committed === false || FRONTMATTER_PATCH_REJECTED_BEFORE_APPLY.has(result.type);
 }
 
 async function writeOneDoc(
@@ -310,11 +327,13 @@ async function writeOneDoc(
     ...agentIdentityFields(identity),
   });
   if (!result.ok) {
-    const detail =
-      typeof result.detail === 'string' && result.detail.length > 0 ? result.detail : '';
-    const retryAfter =
-      typeof result.retryAfterSeconds === 'number'
-        ? ` Retry after ${result.retryAfterSeconds}s.`
+    const offsetBasis =
+      result.type === 'urn:ok:error:invalid-request' && result.contentControlAdmission === true
+        ? spec.template !== undefined
+          ? ' Any markdown offset refers to generated template Markdown after substitution.'
+          : hasFrontmatter
+            ? ' Any markdown offset refers to composed Markdown including frontmatter.'
+            : ' Any markdown offset refers to document.content as forwarded.'
         : '';
     const recovery =
       result.type === CONCURRENT_OVERWRITE_REFUSED_TYPE
@@ -323,7 +342,7 @@ async function writeOneDoc(
     return {
       docName,
       ok: false,
-      error: `${detail ? `${String(result.error)} (${detail})` : String(result.error)}${retryAfter}${recovery}`,
+      error: `${requestFailureText(result)}${offsetBasis}${recovery}`,
     };
   }
 
@@ -337,16 +356,23 @@ async function writeOneDoc(
       return {
         docName,
         ok: false,
-        error: `document created from template but frontmatter failed: ${String(fmResult.error)}`,
+        error: frontmatterPatchAppliedNothing(fmResult)
+          ? `document created from template "${spec.template}", but its frontmatter patch was refused, so the document exists without that frontmatter: ${requestFailureText(fmResult)} Apply the frontmatter alone with edit({ document: { path: "${docName}", frontmatter } }); do not repeat the templated write.`
+          : `document created from template "${spec.template}", but its frontmatter patch failed, and this response does not show whether the frontmatter was applied: ${requestFailureText(fmResult)} Re-read the document before changing it; do not repeat the templated write.`,
       };
     }
   }
 
   const extensionNote = extensionIgnoredNote(requestedExt, existingExt, docName);
+  const createdByPosition =
+    !docExists && (effectivePosition === 'append' || effectivePosition === 'prepend')
+      ? effectivePosition
+      : undefined;
   return {
     docName,
     ok: true,
     position: effectivePosition,
+    ...(createdByPosition ? { createdByPosition } : {}),
     ...(spec.template !== undefined ? { fromTemplate: spec.template } : {}),
     ...(extensionNote ? { extensionNote } : {}),
     ...(templateHint ? { templateHint } : {}),
@@ -433,7 +459,10 @@ async function handleTemplate(
     ...agentIdentityFields(deps.identityRef?.current),
   });
   if (!result.ok) {
-    return textResult(`Error: ${result.error}`, true);
+    return textResult(
+      errorTextWithDetail(result, 'Any body offset refers to the full submitted template.content.'),
+      true,
+    );
   }
   const created = result.created === true;
   const path = typeof result.path === 'string' ? result.path : undefined;
@@ -585,9 +614,11 @@ async function handleSkillWrite(
       true,
     );
   }
+  const normalizedFiles: typeof files = [];
   for (const f of files) {
     const resolved = resolveSkillFilePath(f.path);
     if (!resolved.ok) return textResult(`Error: ${resolved.error}`, true);
+    normalizedFiles.push({ ...f, path: resolved.path });
   }
 
   const fileResults: Array<{
@@ -612,7 +643,7 @@ async function handleSkillWrite(
     if (skillMdResult.isError) return skillMdResult;
   }
 
-  for (const f of files) {
+  for (const f of normalizedFiles) {
     const r = await writeSkillFile(url, {
       name: skill.name,
       scope: skill.scope,
@@ -699,7 +730,11 @@ async function handleBatch(
       return `No change to ${spec.path} — empty ${r.position}, document unchanged.`;
     }
     const d = docOut[i];
-    const baseParts = [`Wrote ${spec.path} (${r.position}).`];
+    const baseParts = [
+      r.createdByPosition
+        ? createdByPositionNote(r.docName, r.createdByPosition)
+        : `Wrote ${spec.path} (${r.position}).`,
+    ];
     if (d?.ok && d.warnings) {
       baseParts.push(...formatAdvisoryBriefs(d.warnings));
     }
@@ -763,10 +798,12 @@ async function handleSingleDoc(
 
   const noOpNote = emptyAppendNoOpNote(w.position, spec.content);
   const lines: string[] = [
-    noOpNote ??
-      (w.fromTemplate !== undefined
-        ? `Written successfully (instantiated from template "${w.fromTemplate}").`
-        : `Written successfully (${w.position}).`),
+    w.createdByPosition
+      ? createdByPositionNote(w.docName, w.createdByPosition)
+      : (noOpNote ??
+        (w.fromTemplate !== undefined
+          ? `Written successfully (instantiated from template "${w.fromTemplate}").`
+          : `Written successfully (${w.position}).`)),
   ];
   const fmNote = frontmatterIgnoredNote(w.position, spec.content);
   if (fmNote) lines.push(fmNote);
@@ -810,7 +847,9 @@ export function register(server: ServerInstance, deps: WriteDeps): void {
     content: z
       .string()
       .optional()
-      .describe('The full Markdown body. Mutually exclusive with `template`.'),
+      .describe(
+        'The full Markdown body. C0 controls allow only TAB, LF and CR; remove others or use printable escapes. Mutually exclusive with `template`.',
+      ),
     extension: DocExtensionArg.optional(),
     template: z
       .string()
@@ -850,7 +889,11 @@ export function register(server: ServerInstance, deps: WriteDeps): void {
         template: z
           .object({
             path: z.string().describe(TEMPLATE_PATH_DESCRIBE),
-            content: z.string().describe(TEMPLATE_CONTENT_DESCRIBE),
+            content: z
+              .string()
+              .describe(
+                `${TEMPLATE_CONTENT_DESCRIBE} C0 controls allow only TAB, LF and CR; remove others or use printable escapes.`,
+              ),
             frontmatter: z
               .object({
                 title: z
@@ -880,7 +923,12 @@ export function register(server: ServerInstance, deps: WriteDeps): void {
               .describe(
                 `${SKILL_DESCRIPTION_DESCRIBE} Optional when writing ONLY \`files\` into an existing skill (omit to leave SKILL.md untouched).`,
               ),
-            body: z.string().optional().describe(SKILL_BODY_DESCRIBE),
+            body: z
+              .string()
+              .optional()
+              .describe(
+                `${SKILL_BODY_DESCRIBE} C0 controls allow only TAB, LF and CR; remove others or use printable escapes.`,
+              ),
             files: z
               .array(
                 z.object({
@@ -889,7 +937,11 @@ export function register(server: ServerInstance, deps: WriteDeps): void {
                     .describe(
                       'Skill-relative path, e.g. "references/tiers.md" or "assets/logo.svg". Must stay inside the skill dir.',
                     ),
-                  content: z.string().describe('Full text of the bundle file.'),
+                  content: z
+                    .string()
+                    .describe(
+                      'Full text of the bundle file, including any frontmatter. For .md/.mdx paths, C0 controls allow only TAB, LF and CR; remove others or use printable escapes.',
+                    ),
                 }),
               )
               .optional()
@@ -935,7 +987,7 @@ export function register(server: ServerInstance, deps: WriteDeps): void {
           })
           .optional()
           .describe(
-            'Single-document write result. Always present on a successful single-doc write — it carries `brokenLinks` (possibly `[]`) plus any `brokenLinkSuppression`/`summary`/`hints`/`warnings`. Read `brokenLinkSuppression` before concluding anything from an empty `brokenLinks`: when it is present, a project policy withheld findings and none of them is yours to repair.',
+            'Single-document write result. Always present on a successful single-doc write — it carries `brokenLinks` (possibly `[]`) plus any `brokenLinkSuppression`/`summary`/`hints`/`warnings`. Read `brokenLinkSuppression` and `warnings` before concluding anything from an empty `brokenLinks`: a suppression means a project policy withheld findings that are not yours to repair; a `link-check-deferred` warning means links were not checked yet.',
           ),
         folder: z
           .object({
@@ -999,7 +1051,7 @@ export function register(server: ServerInstance, deps: WriteDeps): void {
         documents: looseObjectArray
           .optional()
           .describe(
-            'Batch write: per-doc result `{ docName, ok, position?, previewUrl?, warnings?, brokenLinks, brokenLinkSuppression?, error? }`. `brokenLinks` (possibly `[]`) is present on each successful entry, same as a single-doc write — and, same as a single-doc write, an empty list means every link resolves only on entries carrying no `brokenLinkSuppression`.',
+            'Batch write: per-doc result `{ docName, ok, position?, previewUrl?, warnings?, brokenLinks, brokenLinkSuppression?, error? }`. `brokenLinks` (possibly `[]`) is present on each successful entry, same as a single-doc write — and, same as a single-doc write, an empty list means every link resolves only on entries carrying no `brokenLinkSuppression` and no `link-check-deferred` warning (links not checked yet because the server is still starting or busy).',
           ),
         previewUrl: previewUrlOutputField.optional(),
         previewUrlSource: previewUrlSourceField,

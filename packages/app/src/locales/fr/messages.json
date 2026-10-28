@@ -43,6 +43,9 @@
     ],
     "-bFGPF": ["Modification suivante"],
     "-dNlfM": ["Dernière modification annulée sur ", ["docName"]],
+    "-eFr9g": [
+      "OpenKnowledge sur cet ordinateur est passé à une autre version, mais cet onglet exécute toujours l'ancienne."
+    ],
     "-g6KIS": ["Lien non reconnu"],
     "-kKdCC": [["imported"], " compétences installées depuis ", ["0"]],
     "-kbIAr": ["Liens et images"],
@@ -53,6 +56,9 @@
     ],
     "-l6jM7": ["Démarrez un chat avec le bouton ＋ ou lancez un agent depuis une page."],
     "-lCAuQ": ["Chargement du graphe"],
+    "-nA68n": [
+      "Ajoutez un jeton d'accès pour un serveur GitLab, Gitea, Bitbucket, Azure DevOps ou git auto-hébergé. Sans jeton, git utilise les identifiants qu'il a déjà enregistrés pour cet hôte ; avec un jeton, OpenKnowledge utilise le jeton à la place."
+    ],
     "-o5XAG": [
       "Envoyé en privé à l'équipe OpenKnowledge, avec votre note et la version de l'application. Jamais publié publiquement."
     ],
@@ -69,6 +75,11 @@
     ],
     "-rMxuf": ["L'agent a manqué de mémoire."],
     "-slrNR": ["Bascule une liste de tâches."],
+    "-u0gMq": [
+      "Ce contenu ne peut pas être analysé comme du YAML ou du JSON — vérifiez la ligne ",
+      ["0"],
+      "."
+    ],
     "-uaQnI": ["Aucun worktree ni branche correspondant."],
     "-yOx8u": ["Enregistrement des modifications…"],
     "-yPBXI": ["Choisir un fichier"],
@@ -276,10 +287,12 @@
     "1njn7W": ["Clair"],
     "1nke1r": ["Ouvrir ", ["0"], " sur GitHub (s'ouvre dans un nouvel onglet)"],
     "1oSHI0": ["Impossible d'installer ", ["skillName"], " : ", ["0"]],
+    "1ouiTz": ["Image ", ["identity"], " exclue. Accéder à la référence."],
     "1pdLQw": ["Image introuvable"],
     "1qpGKz": [
       "Impossible d’enregistrer les modifications. Essayez à nouveau de modifier une couleur."
     ],
+    "1rsUiG": ["Impossible d'ajouter le vidage de plantage à ce rapport."],
     "1ruosn": ["OpenKnowledge"],
     "1t_NnN": ["Rejeter"],
     "1u-mAI": [
@@ -289,6 +302,7 @@
     "1vczDE": ["Ouvrir ", ["displayName"], " Desktop"],
     "1vn0CI": ["Réponse du serveur invalide"],
     "1xui0Q": ["Échec du chargement des fichiers locaux"],
+    "1yHVE-": ["Ajout"],
     "2-3Mlu": ["Impossible de détacher ", ["name"]],
     "20LVKb": [
       "Quelque chose d'extérieur à ce chat a demandé au processus de l'agent de s'arrêter (",
@@ -494,6 +508,9 @@
     "3zDeFb": ["Rumination…"],
     "3zyg_A": ["Motifs d'exclusion"],
     "4-Phgi": ["Afficher ou masquer les agents"],
+    "40dUmM": [
+      "Impossible de désactiver la maintenance de l'index, car la section Open Knowledge de .gitattributes a été modifiée ou est incomplète. Supprimez cette section, puis réessayez."
+    ],
     "42QMZH": ["requêtes"],
     "438Fca": ["Clonage réussi, mais le projet n'a pas pu être ouvert."],
     "43qzxu": ["DevOps"],
@@ -563,6 +580,15 @@
       "Intégration HTML en bac à sable — écrivez du HTML, voyez l'aperçu se rendre en direct."
     ],
     "4nj6n8": ["/api/config a renvoyé HTTP ", ["code"]],
+    "4p8Baj": [
+      "Jeton enregistré pour ",
+      ["login"],
+      " sur ",
+      ["host"],
+      ". Pour le supprimer, exécutez <0>ok auth signout --host ",
+      ["host"],
+      "</0>."
+    ],
     "4pDZ2N": [
       "« ",
       ["0"],
@@ -585,6 +611,9 @@
     "5-FeN2": ["URL de partage"],
     "5-o4kO": ["Fichiers markdown uniquement"],
     "50ORFs": ["Réinitialiser ", ["0"], " à la valeur par défaut"],
+    "50gx7V": [
+      "Choisissez si la configuration OpenKnowledge de ce projet, y compris ses connexions aux outils IA et le mode de synchronisation de la Valeur par défaut partagée, est enregistrée avec le projet pour que vos coéquipiers l'obtiennent aussi, ou conservée uniquement sur votre ordinateur."
+    ],
     "54Y6Fg": ["Impossible de charger les modèles. Réessayez plus tard."],
     "56WWtu": ["Impossible de charger les packs de démarrage : ", ["error"]],
     "56xUL1": ["Nom de la propriété"],
@@ -666,6 +695,7 @@
     ],
     "5_j-DA": ["Forcer la fermeture du terminal"],
     "5aahsI": ["rien (", ["0"], " n'est pas un motif valide)"],
+    "5afD3A": ["À propos et mises à jour"],
     "5b3WD-": ["OpenKnowledge a enregistré un point de contrôle"],
     "5e1Dri": ["Le libellé de menu par lequel les agents choisissent ce modèle (obligatoire)."],
     "5ecEGe": [
@@ -853,6 +883,9 @@
     "7C9JcA": [
       "Le chemin du projet OpenKnowledge de cette branche sort du worktree. Le worktree a été créé, mais pas ouvert."
     ],
+    "7Crqsa": [
+      "OpenKnowledge ne recherche ni ne télécharge les mises à jour de lui-même. Rechercher les mises à jour reste disponible lorsque vous voulez une version plus récente."
+    ],
     "7FA2iI": ["Impossible de lire les commentaires en attente d'envoi — rien n'a été envoyé."],
     "7FamGZ": ["Aller à la ligne"],
     "7Fkcej": ["+ Ajouter ", ["addChildName"]],
@@ -886,13 +919,7 @@
     "7YRrJ9": [
       "Disponible dans l'application de bureau OpenKnowledge. Depuis un terminal, utilisez<0> ok config-sharing status</0> / <1>share</1> / <2>unshare</2>."
     ],
-    "7_I248": [
-      "Le dépôt distant git de ce projet se trouve sur ",
-      ["host"],
-      ", qu’OpenKnowledge ne reconnaît pas comme un hôte GitHub. Si ",
-      ["host"],
-      " exécute GitHub Enterprise Server, ajoutez-le dans Hôtes GitHub Enterprise Server ci-dessous, puis redémarrez OpenKnowledge."
-    ],
+    "7ZpNC-": ["gh"],
     "7_bFEL": ["Faites glisser ", ["patternText"], " pour réorganiser"],
     "7a0YcF": ["Appuyez sur <0>Espace</0> ou touchez le blob pour commencer"],
     "7aNk5D": ["OpenKnowledge a modifié ", ["subject"]],
@@ -926,7 +953,9 @@
     "7l15X4": ["échec"],
     "7lFX_h": ["Réorienter maintenant"],
     "7m3Ade": ["installations :"],
+    "7mxVbK": ["Télécharger et installer les mises à jour automatiquement"],
     "7qRHf0": ["Installer pour Claude Chat et Cowork"],
+    "7sNhEz": ["Nom d'utilisateur"],
     "7uBlRT": [
       "Copie l'élément de l'arborescence ayant le focus pour que Coller puisse le dupliquer."
     ],
@@ -939,7 +968,6 @@
     ],
     "80c4-P": ["Code copié dans le presse-papiers"],
     "81H_23": ["Ajouter des propriétés"],
-    "851WA-": ["Cela se configure dans Paramètres > Outils IA et CLI"],
     "87GMKe": ["Exposer ce projet au réseau ?"],
     "881Uwh": ["Supprimer le tableau sélectionné"],
     "89SLQ-": ["Aperçus de liens externes et cartes de références GitHub"],
@@ -960,6 +988,7 @@
       " — ce dossier n'est pas cette compétence. Renommez ou supprimez l'une des deux pour résoudre le problème."
     ],
     "8HxtjY": ["Cette langue n'est pas disponible pour la correction orthographique."],
+    "8I3MkQ": ["version"],
     "8Jm2EP": ["Bascule les niveaux de titre 1 à 6."],
     "8L0EPw": ["ou collez un jeton"],
     "8OGgNM": ["Ouvre ou ferme la recherche de l'éditeur visuel."],
@@ -1064,6 +1093,9 @@
       ["trimmed"],
       " ». Continuez à saisir pour en créer une."
     ],
+    "9U-7Xv": [
+      "La synchronisation automatique est activée, mais il n'y a pas encore de dépôt distant avec lequel synchroniser. Elle démarrera dès qu'un dépôt distant sera connecté."
+    ],
     "9UQ730": ["Cloner"],
     "9V0W-R": [
       "Ajoute la compétence OpenKnowledge à l'<0>application Claude Desktop</0> pour qu'elle soit disponible dans les sessions Chat et Cowork."
@@ -1094,6 +1126,8 @@
     "9bCiQ8": ["Aucune page ne manque de liens entrants dans le graphe."],
     "9bG48P": ["Envoi en cours"],
     "9clcD5": ["Ouvrir les documents étiquetés #", ["chip"]],
+    "9djC8C": ["Connectez un compte GitHub pour parcourir et publier des dépôts GitHub."],
+    "9eQiRf": ["GitHub CLI"],
     "9euN0m": [
       [
         "count",
@@ -1139,6 +1173,9 @@
     "9x-lMu": ["Dans ce dépôt — les collaborateurs reçoivent les copies via git."],
     "9xCnv8": ["Masquer Terminal"],
     "9zb2WA": ["Connexion"],
+    "A1JMsI": [
+      "Rechargez cet onglet pour le mettre à jour. Vos modifications sont enregistrées avant le rechargement."
+    ],
     "A1taO8": ["Rechercher"],
     "A50vr3": ["Utilisez uniquement des lettres minuscules, des chiffres et <0>-</0>."],
     "A5CYnd": ["Lien cassé"],
@@ -1207,7 +1244,6 @@
       " dans ",
       ["parentLabel"]
     ],
-    "AeXO77": ["Compte"],
     "AgoIW4": [
       ["source"],
       " : ",
@@ -1220,6 +1256,7 @@
       ["detail"]
     ],
     "AhoGwP": ["Configurer les intégrations OpenKnowledge"],
+    "Ai2U7L": ["Hôte"],
     "AiNMQ7": [
       "Ce projet n'existe que sur cet ordinateur. Connectez-le à GitHub pour le sauvegarder et le partager avec d'autres personnes."
     ],
@@ -1291,6 +1328,9 @@
     ],
     "BQKHuL": ["Redémarrer le terminal"],
     "BQu9Pg": ["Lien symbolique"],
+    "BRtKwG": [
+      "Pour connecter des outils IA sans projet, utilisez Fichier > Configurer les intégrations OpenKnowledge…"
+    ],
     "BUyQnq": ["Impossible de redémarrer le serveur. Essayez `ok start` dans ce dossier."],
     "BVkqD9": [
       "La maintenance de l'index est suspendue car un autre attribut Git contrôle index.md. Mettez à jour .gitattributes pour que les chemins index.md définis utilisent merge=union, puis réessayez."
@@ -1314,6 +1354,9 @@
       "Annulez, rétablissez, ou parcourez les changements de sélection dans le volet Modifier la source ou dans un champ de propriété de type code."
     ],
     "BlLxpG": ["Rechercher des compétences"],
+    "BmHzMW": [
+      "Certains modèles peuvent ne pas apparaître, car cette base de connaissances contient trop de dossiers pour être entièrement parcourue. Pour voir les modèles d'un dossier, ouvrez son menu dans l'arborescence et choisissez « Nouveau à partir d'un modèle »."
+    ],
     "BowKyI": ["Afficher les détails"],
     "Bv5a9_": ["Statistiques de la sélection"],
     "BwKH4d": ["Applications externes"],
@@ -1475,6 +1518,9 @@
     ],
     "DMLE5q": ["La réparation automatique de MCP a échoué"],
     "DMeaxi": ["Téléchargement de ", ["0"], " ", ["1"], "…"],
+    "DMwy6X": [
+      "Il ajoute aussi les arrêts d'OpenKnowledge pour manque de mémoire consignés dans le journal système la semaine dernière, sans le nom de la machine, l'identifiant du compte ni les chemins de dossiers."
+    ],
     "DNkveC": ["Options de colonne"],
     "DPfwMq": ["Terminé"],
     "DTI-fp": [
@@ -1517,6 +1563,7 @@
     "DqyItq": [
       "Journaux OpenKnowledge de plusieurs projets. Aucun projet n’est ouvert ; les journaux du serveur de projet ne sont donc pas inclus."
     ],
+    "DrKYv7": ["Dossier du projet : <0>", ["projectDir"], "</0>"],
     "DsDwR-": [
       [
         "0",
@@ -1561,9 +1608,6 @@
     "E2Mv-X": ["Copier la source"],
     "E4XYYH": ["Activer le terminal pour ce projet"],
     "E5WeIy": ["Rouvre le dernier onglet d'éditeur fermé."],
-    "E6lrpp": [
-      "Gérez le compte GitHub qu'OpenKnowledge utilise pour parcourir et synchroniser vos dépôts."
-    ],
     "E7BhZn": ["Note vierge"],
     "E8NbNG": ["Impossible de charger les arbres de travail."],
     "E91VZY": ["Ouvrir dans une nouvelle fenêtre"],
@@ -1577,7 +1621,6 @@
     "EEYbdt": ["Publier"],
     "EFfGAv": ["Ce message est déjà parti : votre modification n’a pas été appliquée."],
     "EHu0x2": ["Synchronisation en cours"],
-    "EJuO7B": ["Connectez un compte GitHub pour parcourir et synchroniser vos dépôts."],
     "EKwNEe": [
       "Les embeddings en cache appartiennent au point de terminaison et au modèle qui les ont produits, donc ceci reconstruit l'index depuis zéro."
     ],
@@ -1737,6 +1780,9 @@
     "FgRAvd": ["Journaux et informations système"],
     "Fhp4Gn": ["Voir le plugin"],
     "Fim5F3": ["embeddings"],
+    "FioJgb": [
+      "Reconnexion requise pour continuer la synchronisation. Ajoutez un jeton pour cet hôte dans les Paramètres, ou remplacez celui qui est enregistré."
+    ],
     "FiyNln": ["Aller au texte sélectionné dans la propriété"],
     "FjkaiT": ["Zoom arrière"],
     "Fjz6aJ": ["Envoyer dans un nouveau chat"],
@@ -1855,9 +1901,6 @@
     "GesfyX": [["shown"], " et ", ["more"], " de plus"],
     "Gfr4fu": ["Le serveur ne peut pas ouvrir de documents"],
     "GhjUB_": ["Reconnecté"],
-    "Gi8Akx": [
-      "Aucun agent n'est encore configuré — pour joindre des fichiers, ajoutez un agent intégré à l'app dans Connexions des agents."
-    ],
     "GidGkh": ["Mettre à jour depuis la source"],
     "GifIjR": [
       "La compétence « ",
@@ -1914,6 +1957,9 @@
       "Cette configuration est partagée avec ",
       ["peers"],
       ", et OpenKnowledge ne peut pas la modifier d'ici. Dissociez d'abord le dossier dans Skills Studio."
+    ],
+    "HADdBA": [
+      "La synchronisation maintient la copie de cet ordinateur à jour avec votre dépôt distant Git. Les paramètres partagés ci-dessous déterminent ce que reçoivent vos coéquipiers lorsqu'ils ouvrent le projet."
     ],
     "HAkEqR": ["Fichiers récents"],
     "HAvHev": ["Mise à jour automatique désactivée pour « ", ["name"], " »"],
@@ -1999,6 +2045,7 @@
     "I5AfhE": ["État de synchronisation indisponible — serveur injoignable."],
     "I6gXOa": ["Chemin"],
     "I7Exsw": ["Suivez-nous sur X"],
+    "I7F-p1": ["Emplacements de couleur manquants (", ["0"], ") : ", ["1"]],
     "I7y_vn": ["Relancer l'audit du projet"],
     "IA1wNb": [
       "L'application Claude Desktop n'a pas ouvert le fichier. Est-elle installée ? (",
@@ -2170,6 +2217,7 @@
     "KIIamL": [
       "OpenKnowledge créera des commits et les poussera automatiquement vers votre dépôt distant. Si vous ne voulez pas de commits automatiques dans votre historique git, n'activez pas la synchronisation automatique."
     ],
+    "KJ_eAL": ["Exclu"],
     "KOZud0": [
       "Construis une base de connaissances d'étude concurrentielle. Commence par une page de synthèse, puis ajoute des pages liées entre elles pour chaque concurrent, leurs produits et leurs tarifs, ainsi que les sources derrière chaque affirmation."
     ],
@@ -2229,6 +2277,9 @@
     ],
     "Kx881F": [["0"], " a été restauré."],
     "KziH2K": ["Rapide"],
+    "L-crEu": [
+      "git n'a pas pu s'authentifier auprès de cet hôte. Vérifiez la clé SSH ou les identifiants enregistrés que git utilise pour lui."
+    ],
     "L-rMC9": ["Réinitialiser à la valeur par défaut"],
     "L1BQTH": [["0"], " n'est pas encore installé — ouverture de sa page de téléchargement."],
     "L1ZE3M": ["Statistiques du document"],
@@ -2251,6 +2302,9 @@
       "Présentez un document sous forme de diaporama dans sa propre fenêtre. Ajoutez <0>slides: true</0> au frontmatter d'un document, puis ouvrez-le avec l'action Slidev. Le rendu est assuré par la CLI Slidev, qu'OpenKnowledge ne fournit pas."
     ],
     "L4Cdd9": ["ou créez un nouveau fichier <0/>"],
+    "L5wak0": [
+      "Il ajoute aussi les plantages et blocages qu'a consignés Windows pour OpenKnowledge la semaine dernière, sans chemins de fichiers, ainsi que les heures de chaque arrêt, redémarrage, coupure de courant et alerte de mémoire insuffisante de cet ordinateur pendant cette semaine, quelle qu'en soit la cause."
+    ],
     "L6Hhh6": ["(racine)"],
     "L6Ud-t": ["Impossible de charger les conflits. Rechargez pour réessayer."],
     "L7NFTZ": [
@@ -2294,6 +2348,7 @@
       ]
     ],
     "LKOLNn": ["Aucun agent IA installé"],
+    "LMUw1U": ["Application"],
     "LMVNT6": [["agentName"], " a besoin que vous vous connectiez."],
     "LPAv9E": ["il y a ", ["days"], " j"],
     "LPLWpO": ["Le contenu du tableau n'est pas une scène Excalidraw valide."],
@@ -2303,6 +2358,9 @@
     "LRgZAt": [["owner"], "/", ["name"], " existe déjà"],
     "LSuMte": [["0"], " sur ", ["totalCount"]],
     "LTeJuX": ["Basculer en plein écran"],
+    "LVWA9A": [
+      "L'authentification a échoué pour cet hôte git. Ajoutez un jeton pour lui dans les Paramètres, ou remplacez celui qui est enregistré."
+    ],
     "LXIm4m": ["Fenetre de contexte"],
     "LXdWeS": ["Titre de section moyen."],
     "LXfNU-": ["Navigation et suggestions"],
@@ -2379,9 +2437,6 @@
     "LzM_ga": ["Filtrer les compétences"],
     "M0jOcG": ["Voir dans la source markdown"],
     "M1OfV9": ["Diagnostic de source suivant"],
-    "M3ytY_": [
-      "Cela ressemble à la racine d'un disque (par ex. C:\\). Créer un projet ici analysera tout le disque."
-    ],
     "M5_9s2": ["Envoi du rapport"],
     "M5mfAe": ["Ajouter une étiquette"],
     "M6mvVi": ["Copier le chemin relatif"],
@@ -2459,6 +2514,7 @@
     "Mj8R8K": ["Impossible d'installer la compétence : ", ["0"]],
     "MmDDWK": ["Ouverts récemment"],
     "Mnavhe": ["Propriétés de ", ["propPanelDescriptorLabel"]],
+    "MpZRQy": ["Git"],
     "MqQoV-": [
       "Décrivez ce que vous voulez construire, partez d'un fichier vierge, ou générez à partir d'un modèle."
     ],
@@ -2487,9 +2543,6 @@
     "N2eHWq": ["Bloc de code"],
     "N3_ozB": ["Pivots"],
     "N40H-G": ["Tout"],
-    "N55YNr": [
-      "Choisissez si la configuration OpenKnowledge de ce projet, y compris ses connexions aux outils IA, est enregistrée avec le projet pour que vos coéquipiers l'obtiennent aussi, ou conservée uniquement sur votre ordinateur."
-    ],
     "N5rzKJ": ["Supprimer ", ["0"], " compétences"],
     "N6j2JH": ["Modifier ", ["0"]],
     "N7Lau6": ["Valider et synchroniser"],
@@ -2578,6 +2631,11 @@
     "NuH1jp": ["Dépôt public"],
     "Nv3mUj": ["Afficher les options avancées"],
     "NvOvTi": ["Créer dans <0>", ["dirDisplay"], "</0>"],
+    "NwHa_3": [
+      "Aucun agent n'est encore configuré — pour joindre des fichiers, ajoutez un agent intégré à l'app dans ",
+      ["agentConnectionsLabel"],
+      "."
+    ],
     "Nwbs0q": ["Ne pas afficher"],
     "NxW-md": ["Redimensionner ", ["handleKey"]],
     "NzFvyK": ["Session terminée — annulation impossible"],
@@ -2638,8 +2696,14 @@
     "OOIVJo": ["« ", ["0"], " » désinstallé de ", ["1"]],
     "OOLsBh": [["0"], " partagent ce dossier."],
     "OPOiKn": ["Règles de contenu"],
+    "OP_8go": [
+      "Impossible de désactiver la maintenance de l'index, car Open Knowledge n'a pas pu atteindre le serveur du projet. Réessayez lorsque le projet se reconnectera."
+    ],
     "OTF92M": ["Libellé <0>(texte affiché, facultatif)</0>"],
     "OVjNeX": ["Terminal ", ["0"]],
+    "OWs-8P": [
+      "Un jeton ajouté ici ne s'applique qu'aux dépôts distants HTTPS, et le dépôt distant de ce projet n'utilise pas HTTPS."
+    ],
     "OX2Neh": ["Code en ligne"],
     "OXb_Df": ["Contenu des paramètres"],
     "OXdGnd": ["Problèmes"],
@@ -2648,6 +2712,7 @@
     "OdmsFg": ["Échec de la suppression de l'élément"],
     "OeAl1e": ["par ex. assets/uploads"],
     "OfhWJH": ["Réinitialiser"],
+    "OgvwrM": ["Chargement de l'état de synchronisation"],
     "Ohpzub": ["Commenter ce bloc de code ou interroger l’IA à son sujet"],
     "Oi56Cu": ["Journal de nettoyage"],
     "OiHJdA": [
@@ -2723,6 +2788,7 @@
     "PWh9Ii": ["Appliquer les modifications"],
     "PWqtgd": ["Chargement du chat"],
     "PXaT32": ["Le serveur a renvoyé une réponse de cibles de compétences incomplète."],
+    "PXg8xK": ["Impossible de lire vos paramètres utilisateur"],
     "PYmp-0": ["Importer comme modèle"],
     "PZKdTd": ["Rapport sans titre"],
     "PZn2LP": ["Conserver la source"],
@@ -2767,6 +2833,7 @@
       ["filePath"],
       ". Explique ce que je dois comparer dans la vue des conflits d’OpenKnowledge ; je choisirai et appliquerai la résolution là-bas."
     ],
+    "Q14Keq": ["Bitbucket"],
     "Q1mtyd": ["Masquer la barre latérale"],
     "Q5fqMz": ["Erreur de connexion — réessayez"],
     "Q6hhn8": ["Préférences"],
@@ -2832,6 +2899,7 @@
         { "one": ["#", " élément"], "many": ["#", " éléments"], "other": ["#", " éléments"] }
       ]
     ],
+    "Qe6_xF": ["à propos"],
     "QeREu8": ["Renommé"],
     "QfFBdJ": ["Le nom de fichier du modèle (sans `.md`)."],
     "Qft6eW": ["Déplacer ", ["0"], " vers Global"],
@@ -2951,6 +3019,7 @@
     "RXYvxn": ["Cette option ne peut pas être modifiée automatiquement."],
     "RY6Bq1": ["Ouvrir ", ["targetNoun"], " partagé"],
     "RZXTlY": ["Correction automatique (", ["count"], ")"],
+    "R_U8x8": ["« ", ["name"], " »"],
     "R_U_A4": ["Ajoutez un motif de fichier ou de dossier, par ex. guides/**/*"],
     "RaPMZv": ["Raccourcis clavier disponibles dans l'éditeur et l'espace de travail."],
     "RaUKLu": ["Contrôle à distance"],
@@ -2979,6 +3048,7 @@
       "</0> pour calculer les embeddings de votre contenu. Stockée uniquement sur cette machine (dans <1>~/.ok/secrets.yml</1>), jamais dans le projet."
     ],
     "Rj01Fz": ["Liens"],
+    "RkXlPZ": ["GitHub"],
     "RlCInP": ["Commandes slash"],
     "RmBY0A": ["Aucun dépôt distant git"],
     "RnrnTe": ["Déjà configuré — ok est disponible dans votre terminal"],
@@ -3002,6 +3072,7 @@
       " a été déplacé, renommé ou supprimé dans votre copie locale, et ce changement n'est pas encore synchronisé."
     ],
     "S-7ej_": ["Impossible de marquer ce commentaire pour envoi."],
+    "S1sFIQ": ["Ce contenu ne peut pas être analysé comme du YAML ou du JSON."],
     "S33tz3": ["Non connecté"],
     "S3qu11": ["C'était un essai ou un projet ponctuel"],
     "S48xcO": ["en attente"],
@@ -3071,6 +3142,7 @@
     "SiUUCS": ["Occurrence suivante"],
     "SkMZlS": ["Impossible de supprimer <0>", ["targetGitPath"], "</0> : ", ["removeGitError"]],
     "SkTkKV": ["L'agent ne s'arrête pas. L'arrêt forcé ferme ce chat et quitte l'agent."],
+    "SkUcEr": ["Jeton d'accès"],
     "Ske_wc": [
       "Les plugins utilisateur sont propres à cet appareil — activez-les ou désactivez-les ici. Chaque plugin activé obtient sa propre page sous Plugins dans la barre latérale des paramètres."
     ],
@@ -3210,6 +3282,9 @@
       ["shareBranch"],
       "</0>. Changez de branche et mettez à jour pour l'ouvrir."
     ],
+    "UcTm1A": [
+      "Fourni par la CLI GitHub (<0>gh</0>) sur cet ordinateur. Pour changer de compte ou vous déconnecter, exécutez <1>gh auth</1> dans un terminal."
+    ],
     "UceXfW": [
       ["boldName"],
       " fait partie du plugin <0>",
@@ -3285,6 +3360,9 @@
     ],
     "VFQXPl": [
       "Les aperçus de liens externes affichent une carte avec le nom du site, le titre de la page et sa description au survol d'un lien."
+    ],
+    "VIrNh0": [
+      "Certaines modifications ne sont pas encore parvenues au serveur, l'onglet n'a donc pas été rechargé. Vos modifications sont toujours là."
     ],
     "VJaBca": ["Choisir un dossier de compétence"],
     "VL6VsE": ["Accepter l’actuel"],
@@ -3465,16 +3543,13 @@
     "X3MMeA": ["Aucun de ces problèmes n'a de correction automatique."],
     "X59Fx2": ["Impossible d'ouvrir ce document dans Slidev."],
     "X7ShnN": ["Ouvrir le panneau des agents"],
-    "X7u0xR": [["0"], " modèles disponibles"],
     "X8kjQX": ["Se réauthentifier auprès de GitHub"],
     "X9VpsP": ["Chargement du contenu du dossier"],
+    "XA9uvc": ["OpenKnowledge recherche et télécharge les mises à jour en arrière-plan."],
     "XAnapw": ["Règle de fusion Git"],
     "XAyxsa": ["Extraire une branche distante"],
     "XBBZnv": ["La cible du lien « ", ["shown"], " » ne correspond à aucun document existant."],
     "XBgr2S": ["Copier ici"],
-    "XBpH6-": [
-      "OpenKnowledge n’a trouvé aucun nom d’hôte dans le dépôt distant git de ce projet : impossible de savoir à quel serveur GitHub se connecter."
-    ],
     "XDzAnp": ["S'ouvre dans un nouvel onglet"],
     "XF1kgP": ["Tout ce qui provient de ", ["source"], " est déjà à jour"],
     "XGKy1z": ["Impossible d'afficher l'image"],
@@ -3483,6 +3558,7 @@
     "XJOV1Y": ["Activité"],
     "XK5cbh": ["Avance dans l'historique de navigation d'OpenKnowledge."],
     "XNBGZw": ["Message non envoyé : ", ["0"]],
+    "XN_sSd": ["Mises à jour automatiques"],
     "XNdXMR": [
       ["dependent"],
       " a besoin de ",
@@ -3592,6 +3668,7 @@
     "Y5la_5": ["Installer dans"],
     "Y6PKd1": ["Retirer ", ["name"], " des projets récents"],
     "Y6SK9K": ["Afficher la source"],
+    "Y7DcwM": ["Cela se configure dans Paramètres > ", ["agentConnectionsLabel"]],
     "Y8ViJx": [
       "Une version plus récente a peut-être été déployée depuis l'ouverture de cet onglet."
     ],
@@ -3706,6 +3783,9 @@
     "Z8KDox": ["Saisissez un nom de dossier (par ex. brain)."],
     "Z8lGw6": ["Partager"],
     "Z8nach": ["Échec de l'envoi : ", ["0"]],
+    "Z9s6k8": [
+      "Cet onglet est encore en train de se reconnecter à OpenKnowledge, il n'a donc pas été rechargé. Réessayez dans un instant."
+    ],
     "ZBF9fn": ["Gérer les dossiers de compétences"],
     "ZBZEkP": ["Capture prise avant cette boîte de dialogue, avec le pointeur marqué."],
     "ZBxvV3": ["Nouveau terminal"],
@@ -3727,9 +3807,6 @@
     "ZW2yR_": ["Ajouter un chemin personnalisé"],
     "ZW3mlR": ["Mode de rendu des différences"],
     "ZWgr0b": ["Dans un sous-dossier"],
-    "ZWolSV": [
-      "Vous avez choisi la racine du système de fichiers (/). Créer un projet ici analysera chaque fichier de cette machine — assurez-vous que c'est bien ce que vous voulez."
-    ],
     "ZWwYwM": ["Branche de base"],
     "ZWxfrc": ["propriétés du dossier effacées"],
     "ZWyHmq": ["Ce projet"],
@@ -3776,6 +3853,9 @@
     ],
     "ZvzbDF": ["Ajoutez-le directement à ce projet."],
     "ZwpggY": ["OpenKnowledge a lu les paramètres du projet"],
+    "Zysl7r": [
+      "Le mode de synchronisation avec lequel vos coéquipiers démarrent la première fois qu'ils ouvrent ce projet. Il est enregistré dans les paramètres OpenKnowledge du projet ; il ne leur parvient donc que si le Partage de la configuration ci-dessous est réglé sur Partagé."
+    ],
     "_0JUKX": ["Le signalement de bugs nécessite l'application de bureau OpenKnowledge."],
     "_2cM9E": ["récent"],
     "_3S4Ql": [
@@ -3808,6 +3888,11 @@
       "</1>."
     ],
     "_9rYSZ": ["intégration MCP de ", ["names"], " réparée"],
+    "_BOsQt": [
+      "Version ",
+      ["label"],
+      ". Ses paramètres et ses données sont conservés à part des autres applications OpenKnowledge."
+    ],
     "_Bix3-": ["Occurrences de ", ["localizedFirstMessage"]],
     "_CWM2I": ["Sélectionner un élément de liste"],
     "_DwR-n": ["Création…"],
@@ -3836,9 +3921,6 @@
     "_Pmhxt": ["… sortie antérieure tronquée"],
     "_PnPuw": [["0"], " pris depuis ", ["1"], "."],
     "_QwkMu": ["Aucun chemin correspondant"],
-    "_RcqUM": [
-      "Vous avez choisi votre répertoire personnel. OpenKnowledge indexera tout ce qu'il contient — c'est volumineux et cela peut faire remonter des fichiers personnels."
-    ],
     "_SDGzH": ["Continuer dans le navigateur"],
     "_SkqfM": ["Accepter l’entrant"],
     "_TDESN": [
@@ -3963,6 +4045,9 @@
       "Les paramètres d'aperçu des liens ne sont pas encore chargés — réessayez dans un instant"
     ],
     "axQ1h6": ["Vous souhaitez ajouter quelque chose ? (facultatif)"],
+    "azrR7I": [
+      "Le nom d'utilisateur que git envoie avec le jeton. Certains hôtes attendent une valeur fixe : saisissez <0>x-bitbucket-api-token-auth</0> pour un jeton d'API Bitbucket, <1>x-token-auth</1> pour un jeton d'accès de dépôt ou d'espace de travail Bitbucket, ou <2>oauth2</2> pour GitLab. Pour Gitea, utilisez votre nom d'utilisateur Gitea. Azure DevOps accepte n'importe quelle valeur."
+    ],
     "b18t0_": ["Fermer les différences"],
     "b1FDss": ["Défiler jusqu'au début"],
     "b2ezG_": ["Les deux conservés — « ", ["0"], " » est désormais une compétence à part entière"],
@@ -4005,6 +4090,7 @@
       ["templateCount", "plural", { "one": ["modèle"], "many": ["modèles"], "other": ["modèles"] }]
     ],
     "bbJ-VR": ["Zoom arrière"],
+    "bc7aCh": ["Connecté à ", ["host"], " en tant que @", ["login"]],
     "bcDHUM": [["descriptorLabel"], " — erreur de rendu, source modifiable ci-dessous"],
     "bcjYUA": ["Replier ou déplier la source"],
     "bcm0pR": ["l'agent ouvert"],
@@ -4067,6 +4153,11 @@
     ],
     "bwoxGI": ["Vous devez vous connecter"],
     "bwy8Y7": ["Sur <0>", ["address"], "</0>"],
+    "bzjcwc": [
+      "Aucun outil IA détecté pour l'instant. Une fois que vous en installez un, connectez-le depuis Paramètres > ",
+      ["agentConnectionsLabel"],
+      "."
+    ],
     "bzsK8N": [
       "Lit la palette de rédaction pour que les nouveaux documents suivent le style du projet"
     ],
@@ -4096,6 +4187,7 @@
       " chargera chaque extension qui s'y trouve, pas seulement celle d'Open Knowledge, et les deux subsistent jusqu'à ce que vous retiriez Open Knowledge de ce projet."
     ],
     "c9-Pi9": [["source"], " · source skills.sh"],
+    "c9C7DQ": ["Impossible d'enregistrer ce paramètre. Réessayez."],
     "cCd8Bs": ["Couper"],
     "cD3aew": [
       "Le recalcul des embeddings se fait au fil des recherches, donc la couverture repart de zéro et se remplit peu à peu."
@@ -4344,6 +4436,17 @@
     "dw_dUJ": ["Échec de la duplication du chemin"],
     "dx-TwN": ["Audit du projet en cours"],
     "dyfMJN": ["Code copié"],
+    "e-SEoZ": [
+      [
+        "0",
+        "plural",
+        {
+          "one": ["Au moins ", "#", " modèle trouvé"],
+          "many": ["Au moins ", "#", " modèles trouvés"],
+          "other": ["Au moins ", "#", " modèles trouvés"]
+        }
+      ]
+    ],
     "e-pP6g": [
       "Cette liste n'est peut-être pas à jour — dernière lecture ",
       ["staleRelative"],
@@ -4363,6 +4466,7 @@
     "e8zRrb": ["Afficher les fichiers"],
     "e8zYa8": ["Impossible d'ouvrir ", ["shareBranch"], " dans un worktree. Réessayez."],
     "e9sHSO": ["Reprenez là où vous vous étiez arrêté"],
+    "eAYJMv": ["jeton"],
     "eBGWcy": [
       "Les outils Open Knowledge ne sont pas disponibles, car le dossier du projet est introuvable, inaccessible ou a changé. Vérifiez son emplacement et ses autorisations, puis réessayez."
     ],
@@ -4387,6 +4491,7 @@
       ["names"],
       ". Chaque original a été vérifié comme inchangé : supprimez ces copies, puis réessayez le déplacement."
     ],
+    "eJR1Ns": ["Enregistrement de vos modifications avant le rechargement…"],
     "eJitUk": ["Envoyer depuis l'ordinateur"],
     "eKGK4A": ["Rechercher dans l’historique des chats"],
     "eKThTQ": ["Échec de la réorganisation"],
@@ -4441,6 +4546,9 @@
     "emgiet": ["Contenu faisant autorité ; reproduit tel quel partout où il est référencé."],
     "enPTnx": ["ligne ", ["displayLine"]],
     "eolhcI": ["Lecture de l'arbre de travail"],
+    "epGMvx": [
+      "Impossible de joindre le serveur OpenKnowledge, les options de synchronisation sont donc masquées. Elles apparaîtront ici dès que l'état de synchronisation sera chargé ; fermer puis rouvrir les Paramètres relance aussi la tentative."
+    ],
     "eps54V": ["Supprimé"],
     "epuNYK": [
       "Marque un bloc comme source de vérité. Les miroirs situés ailleurs se mettent à jour en direct pendant que vous le modifiez."
@@ -4582,6 +4690,18 @@
         }
       ]
     ],
+    "g2E_It": ["Déjà connecté à : ", ["replacingToolList"]],
+    "g3ouZB": [
+      [
+        "0",
+        "plural",
+        {
+          "one": ["#", " modèle disponible"],
+          "many": ["#", " modèles disponibles"],
+          "other": ["#", " modèles disponibles"]
+        }
+      ]
+    ],
     "g4XBm0": ["Petit titre de section."],
     "g4e0hS": ["Demander à ", ["agentName"]],
     "g58Kwy": [
@@ -4688,7 +4808,13 @@
     "gp3I7-": ["Avant de synchroniser, définissez votre identité pour les commits git :"],
     "gpbKxw": ["La validation des liens est indisponible."],
     "gqk-3R": [["0"], " déplacé vers ", ["destination"], "."],
+    "gssxm9": [
+      "La cible du lien « ",
+      ["shown"],
+      " » existe, mais .gitignore ou .okignore l’exclut. Réincluez-la, ou son dossier, avec une règle « ! » dans .okignore."
+    ],
     "gtEbeW": ["Surlignage"],
+    "gtuaAV": ["Ce contenu a été analysé, mais ce n’est pas un thème base16."],
     "guidance.mcp.managed-file": [
       "Écrit un petit fichier passerelle que ",
       ["agent"],
@@ -4771,7 +4897,6 @@
     "hFmYGU": ["Les fichiers de thème liés ne sont pas pris en charge"],
     "hGmuTc": ["Documents étiquetés #", ["tagDocsName"]],
     "hHMv6l": ["Supprimer le bloc"],
-    "hHQHPX": [["label"], " utilise des données d’application isolées"],
     "hIQkLb": ["Nouvelle discussion"],
     "hItdtk": ["Parcourir le dossier"],
     "hLKfZe": ["Utiliser plutôt un jeton"],
@@ -4906,6 +5031,7 @@
     "iTylMl": ["Modèles"],
     "iUwpZI": ["Pas d'espaces — utilisez <0>-</0> à la place."],
     "iXTp5j": ["Portée : "],
+    "iXYzwf": ["Instance de l’application : ", ["label"], ", v", ["version"]],
     "iXs0kt": ["La liste de compétences ne correspond pas à son schéma."],
     "iYUTsI": ["Cette source regroupe plusieurs compétences — choisissez-en une, puis importez."],
     "iZCZmF": [
@@ -5020,12 +5146,14 @@
       "Intègre une page externe dans une iframe en ligne (docs, démos, Figma, CodeSandbox)."
     ],
     "jTUxaN": ["Activer Auto (Tirer seulement)"],
+    "jTVuAv": ["Fermez cet aperçu, puis ouvrez le dossier pour envoyer des fichiers"],
     "jVe0gf": ["Joindre des commentaires : ", ["count"]],
     "jWwQo6": ["lot"],
     "jWzDfC": ["Vérification des outils IA dont vous disposez"],
     "jZ_E5M": ["Échec de la récupération — consultez les journaux du serveur pour les détails."],
     "j_Z6g7": ["Valeur par défaut partagée"],
     "jbSG8V": ["Afficher les fichiers (", ["sidebarShortcutLabel"], ")"],
+    "jbhCDS": ["Autres hôtes Git"],
     "jcEoUi": ["Déplacer vers le panneau de droite"],
     "jdGUeI": ["Impossible de créer le modèle : ", ["error"]],
     "jeCFV7": ["Déplacer vers un nouveau volet à droite"],
@@ -5148,6 +5276,9 @@
     "kj9pAE": ["Création de la page"],
     "kjlQ9D": ["devient un lien symbolique"],
     "kjrq_8": ["Plus d'informations"],
+    "kkd4bu": [
+      "Impossible de désactiver la maintenance de l'index, car Open Knowledge n'a pas pu mettre à jour la règle de fusion Git. Vérifiez Git et .gitattributes, puis réessayez."
+    ],
     "kknhfj": ["Aucune modification"],
     "kkux8f": ["Impossible de supprimer ", ["0"], ". Réessayez."],
     "klPS-L": ["Fichier d'origine — avant les modifications de cet agent."],
@@ -5187,6 +5318,11 @@
     "l46MqT": ["Onglet suivant"],
     "l5J_HM": [
       "Saisissez une requête, puis appuyez sur <0>↵</0> pour chercher dans vos pages par le sens."
+    ],
+    "l60gJd": [
+      "Certaines modifications ne sont pas encore parvenues au serveur, l'onglet n'a donc pas été rechargé. Ouvrez ",
+      ["docs"],
+      " pour les enregistrer, puis rechargez."
     ],
     "l6GfXr": ["Démarrage"],
     "l6kpzR": [
@@ -5284,6 +5420,9 @@
     ],
     "lrhetp": ["+ ", ["overflow"], " de plus"],
     "lwCV5v": ["Impossible d'ouvrir ", ["0"], " pour modification : ", ["1"]],
+    "lwvkBP": [
+      "Il ajoute aussi les erreurs de connexion à l'affichage qu'OpenKnowledge a écrites dans votre journal utilisateur la semaine dernière, chaque message étant tronqué à 200 caractères."
+    ],
     "lyWa43": ["Pages isolées au niveau du projet"],
     "lzmtKp": ["Échec du chargement des propriétés du dossier : ", ["message"]],
     "lzsa2d": ["Copier l'erreur"],
@@ -5299,6 +5438,7 @@
     "m2T1Xj": ["Étiquette #", ["tagValue"], ", ", ["uses"]],
     "m3ocfn": ["Écrit une entrée dans"],
     "m6YGpY": ["Le contenu du panneau actif de l'onglet sélectionné s'affiche ici."],
+    "m6znp-": ["mise à jour"],
     "mAzs2H": ["Désactiver ", ["file"]],
     "mBK8zm": [
       "/",
@@ -5409,9 +5549,6 @@
       "Les dépôts que vous avez déjà clonés peuvent continuer à se synchroniser via les identifiants enregistrés par git, même après votre déconnexion."
     ],
     "msqUNq": ["Des dossiers et des modèles prêts à l'emploi pour démarrer rapidement."],
-    "msuDyW": [
-      "Définissez la synchronisation par défaut pour les utilisateurs qui ouvrent ce projet pour la première fois. Ce réglage est validé dans votre dépôt."
-    ],
     "mwMF9u": ["Ouvre la recherche CodeMirror en mode éditeur de source."],
     "mxGJVE": ["Changer de worktree…"],
     "mxY24F": [
@@ -5489,6 +5626,7 @@
     "ni5Vqi": ["(un nom de dossier seul doit être suivi de /** pour correspondre à son contenu)"],
     "njBeMm": ["Les deux"],
     "njU86j": ["La propriété « ", ["trimmed"], " » existe déjà"],
+    "nlVYlU": ["Ce n’est pas une couleur hexadécimale : ", ["0"]],
     "nmwqWS": ["Sans réponse"],
     "nnhrHd": [
       "Excluez des Problèmes, des indicateurs de l’explorateur de fichiers, des diagnostics de l’éditeur, des audits et des avis d’écriture des agents les liens rompus écrits dans un fichier log.md ou log.mdx, quelle que soit la profondeur du dossier. C’est le fichier dans lequel le lien est écrit qui compte, et non celui qu’il cible, et LOG.md reste un document ordinaire. Le panneau Liens et l’éditeur continuent de les afficher."
@@ -5516,9 +5654,6 @@
     ],
     "nwtY4N": ["Une erreur s'est produite"],
     "nxlOpL": ["OpenKnowledge utilise ce compte GitHub."],
-    "ny6vNn": [
-      "OpenKnowledge utilise un compte GitHub fourni par la CLI gh. Il n'y a pas d'identifiant OpenKnowledge distinct à déconnecter."
-    ],
     "nzHlj8": ["Fermer ", ["0"]],
     "nzaV6Q": ["Miniatures des pages"],
     "o-XJ9D": ["Modifier"],
@@ -5601,6 +5736,7 @@
       ["0"],
       " — quelque chose en dehors d'OK l'a modifié depuis. L'état affiché est celui du disque maintenant ; votre prochain Lien symbolique/Dissocier l'emportera."
     ],
+    "p5kgYT": ["Les mises à jour automatiques ne sont pas disponibles pour le moment."],
     "p7Utw8": ["Ce n’est pas un thème base16"],
     "p98xmP": ["S'applique à"],
     "p9sdCy": ["Nouveau motif d'exclusion"],
@@ -5632,6 +5768,7 @@
     "pI_bKs": ["<0>Espace</0> pour sauter · <1>↓</1> pour s’accroupir"],
     "pJ7XCo": ["Cette page ne référence aucun fichier ou image local."],
     "pMPnZv": [["deleted"], " compétences supprimées"],
+    "pNy87H": ["Cette mise à jour n'est plus prête à être installée."],
     "pOo4Aa": ["Texte brut"],
     "pPiV8s": ["Activer Auto (Tirer et Pousser)"],
     "pSF7TJ": ["Impossible de lire cet emplacement de checkout."],
@@ -5688,6 +5825,9 @@
       ["0", "plural", { "one": ["Dossier"], "many": ["Dossiers"], "other": ["Dossiers"] }]
     ],
     "pd0UH2": ["Aligner à droite"],
+    "pd6t3G": [
+      "Gérez les comptes et les jetons d'accès qu'OpenKnowledge utilise pour se connecter à vos hôtes git."
+    ],
     "peq20S": [
       "Le navigateur n'est pas disponible dans ce chat, car il n'a pas pu être configuré. Le journal d'OpenKnowledge contient les détails."
     ],
@@ -5698,6 +5838,7 @@
     "phM8Kh": ["Dépôt trouvé, mais le projet n'a pas pu être ouvert. Veuillez réessayer."],
     "pha01Y": ["Pages du projet sans arête entrante dans le graphe."],
     "pkAft1": ["La recherche a échoué."],
+    "pkC8Fi": ["Fichier ", ["identity"], " exclu. Accéder à la référence."],
     "pkmXTp": [["agentName"], " est prêt"],
     "pmUArF": ["Espace de travail"],
     "poAsUN": ["aucun agent — enregistrées, installées nulle part"],
@@ -5741,6 +5882,11 @@
     "q63KUv": ["Ajouter MCP et la compétence"],
     "q7F5am": ["titre"],
     "q8aCbb": ["Deux versions de « ", ["0"], " » — source contre ", ["editor"]],
+    "qAC6UE": [
+      "La cible de l’image « ",
+      ["shown"],
+      " » existe, mais .gitignore ou .okignore l’exclut. Réincluez-la, ou son dossier, avec une règle « ! » dans .okignore."
+    ],
     "qAQVSD": ["La réponse des titres de page n'était pas du JSON"],
     "qAhFeg": [
       ["userName"],
@@ -5824,6 +5970,7 @@
     ],
     "qi1F96": ["Afficher dans l'Explorateur de fichiers"],
     "qiRoLb": ["Résume tout ce que j'ai changé cette semaine"],
+    "qimTXH": ["OpenKnowledge ne peut pas se connecter à GitHub pour ce projet."],
     "qioCwA": ["Aller à la page ", ["pageNumber"]],
     "qjHMHf": ["Échec de la désactivation de la synchronisation — ", ["detail"]],
     "qkqG0b": ["Prendre la version amont"],
@@ -5849,6 +5996,9 @@
     "r51jLC": ["Fichier enregistré et application Claude Desktop ouverte"],
     "r57GiQ": [["agentName"], " s'est arrêté de manière inattendue."],
     "r6ncaO": ["Fermer l'onglet"],
+    "r6riWv": [
+      "Il ajoute aussi les rapports de mémoire insuffisante écrits par macOS la semaine dernière qui citent des processus d'OpenKnowledge, avec la mémoire utilisée par chacun et l'indication que macOS l'a arrêté ou non."
+    ],
     "r6y-jM": ["Avertissement"],
     "r7IaYp": ["Open Knowledge Format conseils"],
     "r7tQuq": ["Votre rapport est enregistré sur cet ordinateur, rien n'a donc été perdu."],
@@ -5864,6 +6014,9 @@
     "rENNI6": ["URL de partage non valide."],
     "rFL-yb": ["Modifier une copie"],
     "rFTdVq": ["Afficher dans l'Explorateur"],
+    "rFbQzX": [
+      "OpenKnowledge continue de réessayer et les affichera dès que le fichier pourra être lu."
+    ],
     "rFmBG3": ["Thème de couleurs"],
     "rFskYz": [
       "S'applique à tous les projets de cette machine, dans les chats Claude Code et Codex du panneau Agents démarrés après l'activation. L'agent peut ouvrir des pages, cliquer, saisir du texte et prendre des captures d'écran dans sa propre fenêtre Google Chrome avec un profil vierge. Nécessite que Google Chrome et Node.js soient installés. Chaque action du navigateur demande votre approbation, sans option pour toujours l'autoriser, sauf si le mode de l'agent lui-même ou ses paramètres d'autorisation ignorent les approbations."
@@ -5885,6 +6038,9 @@
     "rQAQus": ["Impossible d'enregistrer le modèle : ", ["error"]],
     "rQRrkB": ["hier"],
     "rSoi6g": [["displayName"], " (", ["bin"], ") n'est pas installé ni présent dans votre PATH."],
+    "rSsp-5": [
+      "Open Knowledge n'a pas pu atteindre le serveur du projet pour vérifier la maintenance de l'index. L'état sera mis à jour lorsque le projet se reconnectera."
+    ],
     "rUNOLA": [
       "La recherche sémantique n’est pas disponible avec la configuration actuelle du fournisseur d’embeddings. Consultez Paramètres → Recherche."
     ],
@@ -5892,6 +6048,9 @@
     "rVxu1k": ["Aucune page ne renvoie encore ici."],
     "rXz97P": ["Liste numérotée d'éléments."],
     "rZ9HZq": ["À faire"],
+    "rZFxkH": [
+      "Saisissez le nom d'hôte auquel git se connecte, avec un :port facultatif et sans schéma ni chemin, par exemple git.example.com."
+    ],
     "rZVMkf": ["Champ de remplacement de l'éditeur visuel actif"],
     "radOpL": ["Image ", ["identity"], ". Accéder à la référence."],
     "rageVb": ["HTML personnalisé avec un volet d'aperçu en direct (iframe en bac à sable)."],
@@ -6080,9 +6239,6 @@
     "tHKQ6j": ["Renommage"],
     "tKlWWY": ["Émoji"],
     "tLX6LY": ["OpenKnowledge a écrit un document"],
-    "tLd2qa": [
-      "Aucun outil IA détecté pour l'instant. Une fois que vous en installez un, connectez-le depuis Paramètres > Outils IA et CLI."
-    ],
     "tM5uzl": [
       "Les familles de provenance, de confiance et de cycle de vie : sources, generated, verified, status et stale_after. Chaque champ est facultatif et l'absence n'est jamais une erreur."
     ],
@@ -6120,6 +6276,9 @@
     "tlGXxX": ["Auto (Tirer seulement)"],
     "tnG-m6": ["La synchronisation automatique est en pause — connectez-vous pour la reprendre."],
     "toyw51": ["Contrôles du diagramme Mermaid"],
+    "tpOnU9": [
+      "OpenKnowledge n'a aucun identifiant enregistré pour cet hôte. Ajoutez un jeton dans les Paramètres, ou laissez git utiliser les identifiants dont il dispose déjà."
+    ],
     "tqQBwN": ["Les scripts sont affichés pour relecture, jamais exécutés."],
     "troubleshooting.claude-desktop.per-tool-approval": [
       ["agent"],
@@ -6238,6 +6397,9 @@
     "uL_Wx8": ["Le terminal s'est arrêté de façon inattendue."],
     "uM6jnS": ["Échec de la restauration"],
     "uNGmQn": ["Impossible d'exécuter le test. Vérifiez qu'OpenKnowledge fonctionne toujours."],
+    "uNkJ8H": [
+      "Ce mode provient de la Valeur par défaut partagée du projet, ci-dessous. Choisissez un mode pour définir le vôtre sur cet ordinateur."
+    ],
     "uO9WLl": ["Pousser"],
     "uOKoBM": [
       "Remplace l'entrée ",
@@ -6248,6 +6410,9 @@
     "uQNW00": ["HEAD détachée — extrayez une branche pour reprendre"],
     "uQewpR": [
       "Impossible de redémarrer le serveur — il s'exécute sous un autre compte. Redémarrez votre ordinateur pour le libérer, puis rouvrez ce projet."
+    ],
+    "uQhfwT": [
+      "Impossible de désactiver la maintenance de l'index, car les paramètres du projet n'ont pas pu être enregistrés. Vérifiez les autorisations du fichier de projet, puis réessayez."
     ],
     "uUCrBv": ["lien symbolique"],
     "uVbUP8": ["Paramètres…"],
@@ -6303,6 +6468,7 @@
       ]
     ],
     "ur2XSb": ["Éditeur visuel"],
+    "uraHF0": ["GitLab"],
     "uuoHOU": ["La commande a échoué."],
     "uwzRx4": [
       "Ajustez la taille et le délai d'attente des requêtes d'indexation pour les serveurs d'embeddings lents ou limités en mémoire. La plupart des configurations devraient conserver les valeurs par défaut."
@@ -6318,6 +6484,7 @@
     "v2ZW0K": ["Activer le terminal"],
     "v2a04T": ["Règles markdownlint"],
     "v41fCm": ["Fichier introuvable"],
+    "v6Glry": ["Désactiver la synchronisation automatique"],
     "v75Em9": [
       [
         "uploadedCount",
@@ -6437,6 +6604,9 @@
     "vy_VIN": [
       "Suivi dans git — les mises à jour arrivent via votre dépôt (pull ou CI), pas par mise à jour automatique"
     ],
+    "w-Wt3H": [
+      "Reconnexion requise pour continuer la synchronisation. Vérifiez la clé SSH ou les identifiants enregistrés que git utilise pour cet hôte."
+    ],
     "w0YVAE": ["Afficher les nœuds de compétences"],
     "w3tVpc": [
       "Pas encore de liens. Ajoutez des liens wiki ou markdown pour construire un graphe."
@@ -6474,6 +6644,9 @@
     "wJijgU": ["Emplacement"],
     "wJo9oS": ["Fermer la recherche"],
     "wKJo7h": ["Le projet OpenKnowledge est absent à cet emplacement de checkout."],
+    "wLRCZ8": [
+      "Le serveur n'a pas pu lire l'état de synchronisation de ce projet, les options de synchronisation sont donc masquées. Elles apparaîtront ici dès que l'état de synchronisation sera chargé ; fermer puis rouvrir les Paramètres relance aussi la tentative."
+    ],
     "wQp1V3": ["Miroir de <0>", ["src"], "</0>"],
     "wQvvZY": ["Nouveau fichier de compétence"],
     "wRni1Z": ["Désactiver Slidev"],
@@ -6560,7 +6733,6 @@
     "x57cJf": ["Ouvrir le lien"],
     "xAlHfe": [["basename"], " — éditeur de texte"],
     "xBFg6z": ["Du plugin ", ["0"]],
-    "xBjIs7": ["La connexion GitHub n’est pas disponible pour ce projet"],
     "xCJdfg": ["Effacer"],
     "xCdTnb": ["Fermer le nouvel onglet"],
     "xD4Xm2": ["Récupérer"],
@@ -6572,6 +6744,9 @@
     "xG4tb6": ["Connexion perdue avec « ", ["docName"], " »."],
     "xG8Ish": ["Non planifié"],
     "xHGM4U": ["Masquer l'aperçu HTML"],
+    "xJ7qrb": [
+      "Aucun identifiant n'est enregistré pour cet hôte git. Ajoutez un jeton dans les Paramètres, ou laissez git utiliser les identifiants dont il dispose déjà."
+    ],
     "xK291b": ["Deux pages (impaires)"],
     "xKDsGS": ["Aller à la ligne ", ["0"], " dans ", ["1"]],
     "xKcXG6": [
@@ -6624,6 +6799,13 @@
     "xnWySt": ["Le nettoyage est peut-être encore en cours."],
     "xrVr_k": ["Impossible de créer la compétence : ", ["0"]],
     "xsZhu-": ["Numéro de page"],
+    "xsqOtX": [
+      "OpenKnowledge sur cet ordinateur est désormais en v",
+      ["serverVersion"],
+      ", mais cet onglet exécute toujours la v",
+      ["tabVersion"],
+      "."
+    ],
     "xtJgSe": ["Cette source regroupe plusieurs compétences — choisissez celle à importer."],
     "xvv5gL": ["Aperçu de la capture d’écran"],
     "xxRpzT": ["Slidev trouvé sur votre système."],
@@ -6673,7 +6855,17 @@
     "yLwx9e": [
       "C'est un répertoire parent qui est le lien symbolique — dissociez ce dossier-là pour récupérer celui-ci."
     ],
+    "yLyiQV": [
+      "Il manque au jeton enregistré les permissions dont cet hôte a besoin pour pousser."
+    ],
     "yMgL_E": ["Navigation dans le champ de recherche"],
+    "yNpyg4": [
+      "Version ",
+      ["label"],
+      ", v",
+      ["version"],
+      ". Ses paramètres et ses données sont conservés à part des autres applications OpenKnowledge."
+    ],
     "yOjRUV": ["Aucun outil IA détecté. Installez-en un pour utiliser cette compétence."],
     "yQE2r9": ["Chargement"],
     "yQyglE": ["Aucun document correspondant"],
@@ -6797,7 +6989,9 @@
     "zLGXna": ["Aucun pack de démarrage disponible."],
     "zLak8b": ["Activer le nouvel onglet"],
     "zMmwh4": ["Choisissez un thème ou créez le vôtre."],
+    "zP6U1P": ["Pas encore ajoutée à un outil IA."],
     "zWZBPx": ["Type modifié"],
+    "zXZJoN": ["Ajouter le jeton"],
     "zXj1rA": ["Rechercher par le sens"],
     "zYp8Sr": [
       "Un badge <0>Modifié</0> signale les règles que votre configuration définit explicitement — directement, ou héritées via <1>extends</1>. Les règles sans badge conservent leur état par défaut."
@@ -6805,6 +6999,17 @@
     "zZ_I5K": ["Ouvrir le menu du projet"],
     "z_4xza": [
       "Échec du chargement des documents. Appuyez sur <0>Échap</0> puis rouvrez pour réessayer."
+    ],
+    "z_wa6u": [
+      [
+        "count",
+        "plural",
+        {
+          "one": [["formattedCount"], " fichier markdown trouvé"],
+          "many": [["formattedCount"], " fichiers markdown trouvés"],
+          "other": [["formattedCount"], " fichiers markdown trouvés"]
+        }
+      ]
     ],
     "zaXlhf": [
       "Le bloc de propriétés en haut de ce document contient une erreur de mise en forme. Passez en mode source pour la corriger."
@@ -6815,6 +7020,9 @@
     "zkkEFa": ["Saisissez un nombre entier compris entre ", ["minimum"], " et ", ["maximum"], "."],
     "zkz0Fg": ["Configurer la synchronisation"],
     "zlErBl": ["La réponse d'erreur des titres de page ne respecte pas la RFC 9457"],
+    "zmQdP2": [
+      "Cet onglet n'a pas pu confirmer que vos modifications sont enregistrées, il n'a donc pas été rechargé. Vos modifications sont toujours là."
+    ],
     "zo3Dl7": ["Basculer les miniatures"],
     "zpfN9p": [
       "Pas encore de commentaires. Sélectionnez du texte dans le document pour en ajouter un."

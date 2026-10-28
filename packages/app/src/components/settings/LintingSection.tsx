@@ -1,12 +1,13 @@
+import type { ConfigBinding } from '@inkeep/open-knowledge-core/config/bind-config-doc';
+import { humanFormat } from '@inkeep/open-knowledge-core/config/errors';
+import type { ConfigPatch } from '@inkeep/open-knowledge-core/config/schema';
+import { OPENKNOWLEDGE_SKILLS_REPO } from '@inkeep/open-knowledge-core/constants/skills';
 import {
   type AppliesToPatternSummary,
   assertNeverOkfRuleGroupId,
   assertNeverOkfRuleId,
-  type ConfigBinding,
-  type ConfigPatch,
   type FrontmatterSchemaMapping,
   findZeroMatchAppliesToPatterns,
-  humanFormat,
   isFrontmatterSchemaAsset,
   isOkfRuleEnabled,
   type LintPluginId,
@@ -14,9 +15,8 @@ import {
   OKF_RULE_IDS,
   type OkfRuleGroupId,
   type OkfRuleId,
-  OPENKNOWLEDGE_SKILLS_REPO,
   summarizeAppliesTo,
-} from '@inkeep/open-knowledge-core';
+} from '@inkeep/open-knowledge-core/markdown/lint';
 import { Plural, Trans, useLingui } from '@lingui/react/macro';
 import {
   ArrowUpRight,
@@ -660,6 +660,7 @@ export function OkfPluginSection() {
           enabled={generatedIndexSettings.status?.enabled ?? generateIndex}
           gitState={generatedIndexSettings.status?.git.state}
           issue={generatedIndexSettings.issue}
+          requestedEnabled={generatedIndexSettings.requestedEnabled}
         />
         <Dialog open={confirmingGenerateIndex} onOpenChange={setConfirmingGenerateIndex}>
           <DialogContent
@@ -816,10 +817,12 @@ function GeneratedIndexSettingsNotice({
   enabled,
   gitState,
   issue,
+  requestedEnabled,
 }: {
   enabled: boolean;
   gitState?: 'not-applicable' | 'ready' | 'missing' | 'conflict' | 'unavailable';
   issue: GeneratedIndexSettingsIssue | null;
+  requestedEnabled: boolean | null;
 }) {
   const effectiveIssue =
     issue ??
@@ -841,7 +844,34 @@ function GeneratedIndexSettingsNotice({
         className="mt-0.5 size-4 shrink-0 text-amber-700 dark:text-amber-300"
       />
       <p>
-        {effectiveIssue === 'git-conflict' ? (
+        {issue !== null && requestedEnabled === false ? (
+          issue === 'git-conflict' ? (
+            <Trans>
+              Turning off index maintenance failed because the Open Knowledge section of
+              .gitattributes was edited or is incomplete. Remove that section, then try again.
+            </Trans>
+          ) : issue === 'config-write' ? (
+            <Trans>
+              Turning off index maintenance failed because the project setting could not be saved.
+              Check the project file permissions, then try again.
+            </Trans>
+          ) : issue === 'connection' ? (
+            <Trans>
+              Turning off index maintenance failed because Open Knowledge could not reach the
+              project server. Try again when the project reconnects.
+            </Trans>
+          ) : (
+            <Trans>
+              Turning off index maintenance failed because Open Knowledge could not update the Git
+              merge rule. Check Git and .gitattributes, then try again.
+            </Trans>
+          )
+        ) : issue === 'connection' && requestedEnabled === null ? (
+          <Trans>
+            Open Knowledge could not reach the project server to check index maintenance. The status
+            updates when the project reconnects.
+          </Trans>
+        ) : effectiveIssue === 'git-conflict' ? (
           <Trans>
             Index maintenance is paused because another Git attribute controls index.md. Update
             .gitattributes so the scoped index.md paths use merge=union, then try again.

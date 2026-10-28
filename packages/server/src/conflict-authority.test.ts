@@ -1,12 +1,15 @@
 import {
   chmodSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   rmSync,
   statSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -15,6 +18,7 @@ import { LOCAL_DIR } from '@inkeep/open-knowledge-core';
 import simpleGit from 'simple-git';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import * as Y from 'yjs';
+import { configureTestGitRepository } from '../../../test-support/configure-git-fixture.test-helper.ts';
 import {
   bindConflictAuthority,
   ConflictAuthority,
@@ -925,6 +929,31 @@ describe('ConflictAuthority resolve', () => {
     expect(rig.authority.count()).toBe(0);
   });
 
+  test("a reconcile 'delete' of an in-tree symlink removes the alias and keeps its target's bytes", async () => {
+    const realProjectDir = realpathSync(projectDir);
+    const target = join(realProjectDir, 'target.md');
+    const alias = join(realProjectDir, 'alias.md');
+    writeFileSync(target, 'TARGET\n', 'utf-8');
+    symlinkSync('target.md', alias);
+    const authority = new ConflictAuthority({
+      projectDir: realProjectDir,
+      contentDir: realProjectDir,
+      branch: 'main',
+      io: makeIo(),
+    });
+    authority.raise({
+      kind: 'reconcile',
+      file: 'alias.md',
+      reason: 'disk-markers',
+      stages: { base: 'B', ours: 'O', theirs: 'T' },
+    });
+
+    await authority.resolve('alias.md', 'delete');
+    expect(lstatSync(alias, { throwIfNoEntry: false })).toBeUndefined();
+    expect(readFileSync(target, 'utf-8')).toBe('TARGET\n');
+    expect(authority.count()).toBe(0);
+  });
+
   test('a host failure leaves the entry in place so the gate stays up', async () => {
     const rig = makeAuthority(
       makeIo({
@@ -974,6 +1003,7 @@ describe('ConflictAuthority working-tree resolve against a real repo', () => {
   ): Promise<{ blobSha: string; headSha: string }> {
     const git = simpleGit(projectDir);
     await git.init(['--initial-branch=main']);
+    configureTestGitRepository(projectDir);
     await git.raw('config', 'user.name', 'Test');
     await git.raw('config', 'user.email', 'test@test.com');
     writeFileSync(join(projectDir, file), remote, 'utf-8');
@@ -1124,6 +1154,7 @@ describe('ConflictAuthority resolve refuses markers on every strategy', () => {
   test("a working-tree 'theirs' whose pinned blob carries markers is refused before the write", async () => {
     const git = simpleGit(projectDir);
     await git.init(['--initial-branch=main']);
+    configureTestGitRepository(projectDir);
     await git.raw('config', 'user.name', 'Test');
     await git.raw('config', 'user.email', 'test@test.com');
     writeFileSync(join(projectDir, 'a.md'), MARKERED, 'utf-8');

@@ -1,8 +1,16 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { appendFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import { computeStablePromotion, realGit } from '../../scripts/compute-stable-version.mjs';
+import {
+  computeStablePromotion,
+  parseBumpVerdicts,
+  realGit,
+  recordBumpVerdicts,
+  serializeBumpVerdicts,
+  withBumpVerdicts,
+} from '../../scripts/compute-stable-version.mjs';
 import { gitCleanEnv } from '../../scripts/git-clean-env.mjs';
+import { createShippedFixCheck, refusalHeadline } from './shipped-fix-containment.mjs';
 
 const BETA_TAG_RE = /^v\d+\.\d+\.\d+-beta\.\d+$/;
 const STABLE_TAG_RE = /^v\d+\.\d+\.\d+$/;
@@ -164,6 +172,54 @@ export function resolveTier({ armed, verdict, standardTarget, fastTarget }) {
   return { tier, target: standardTarget, candidate: tier === 'fast' ? fastTarget : '' };
 }
 
+export function screenShippedFixes({
+  target,
+  fastTierCandidate,
+  dispatchWindowOpen,
+  evaluate,
+  log = () => {},
+}) {
+  let screenedTarget = target;
+  let screenedFast = fastTierCandidate;
+  if (target && dispatchWindowOpen) {
+    const verdict = evaluate(target);
+    if (!verdict.ok) {
+      log(
+        `::warning::Not dispatching ${target}: ${refusalHeadline(verdict, target)} ` +
+          'promote-stable would refuse it, and every older beta lacks the same fixes, so this tick dispatches nothing.',
+      );
+      screenedTarget = '';
+    }
+  }
+  if (fastTierCandidate) {
+    let verdict;
+    try {
+      verdict = evaluate(fastTierCandidate);
+    } catch (err) {
+      log(
+        `::warning::Fast tier REFUSED for ${fastTierCandidate}: the shipped-fix check could not decide (${err.message}). Falling back to the 24h tier.`,
+      );
+      return { target: screenedTarget, fastTierCandidate: '' };
+    }
+    if (!verdict.ok) {
+      log(
+        `::warning::Fast tier REFUSED for ${fastTierCandidate}: ${refusalHeadline(verdict, fastTierCandidate)} ` +
+          'promote-stable would refuse it, so it is not smoked.',
+      );
+      screenedFast = '';
+    }
+  }
+  return { target: screenedTarget, fastTierCandidate: screenedFast };
+}
+
+export function memoizeVerdicts(evaluate) {
+  const verdicts = new Map();
+  return (tag) => {
+    if (!verdicts.has(tag)) verdicts.set(tag, evaluate(tag));
+    return verdicts.get(tag);
+  };
+}
+
 function resolveLatestStableSha() {
   const out = execFileSync('git', ['tag', '--list', 'v*', '--sort=-version:refname'], {
     encoding: 'utf8',
@@ -279,14 +335,55 @@ export function makeResolveIssuesForUrl(apiKey) {
   };
 }
 
+export function readUnshippedBumps({ betaTags, isAlreadyShipped, git, log = () => {} }) {
+  const verdicts = new Map();
+  const reading = recordBumpVerdicts(git, verdicts);
+  for (const beta of betaTags) {
+    if (isAlreadyShipped(beta)) break;
+    try {
+      computeStablePromotion(beta, reading);
+    } catch (err) {
+      log(`::warning::Could not read the changeset bumps of ${beta}; its fast-tier verdict will degrade: ${err.message}`);
+    }
+  }
+  return verdicts;
+}
+
+function realBetaTags() {
+  return parseBetaTags(
+    execFileSync('git', ['tag', '--list', 'v*-beta.*', '--sort=-version:refname'], {
+      encoding: 'utf8',
+      env: gitCleanEnv(),
+    }),
+  );
+}
+
+function readBumpsMain() {
+  const verdicts = readUnshippedBumps({
+    betaTags: realBetaTags(),
+    isAlreadyShipped: makeRealIsAlreadyShipped(resolveLatestStableSha()),
+    git: realGit,
+    log: console.log,
+  });
+  console.log(`Read the bump of ${verdicts.size} changeset(s) across the unshipped betas.`);
+  if (process.env.GITHUB_OUTPUT) {
+    appendFileSync(process.env.GITHUB_OUTPUT, `bump_verdicts=${serializeBumpVerdicts(verdicts)}\n`);
+  }
+}
+
 async function main() {
+  if (process.argv[2] === '--read-bumps') {
+    readBumpsMain();
+    return;
+  }
+
+  const git =
+    process.env.BUMP_VERDICTS === undefined
+      ? realGit
+      : withBumpVerdicts(realGit, parseBumpVerdicts(process.env.BUMP_VERDICTS));
   const soakSeconds = Number(process.env.SOAK_SECONDS || '86400');
   const armed = process.env.FAST_TIER_ARMED === 'true';
-  const rawTags = execFileSync('git', ['tag', '--list', 'v*-beta.*', '--sort=-version:refname'], {
-    encoding: 'utf8',
-    env: gitCleanEnv(),
-  });
-  const betaTags = parseBetaTags(rawTags);
+  const betaTags = realBetaTags();
   const latestStableSha = resolveLatestStableSha();
   const isAlreadyShipped = makeRealIsAlreadyShipped(latestStableSha);
 
@@ -338,7 +435,7 @@ async function main() {
     fastTarget = fastCandidate.kind === 'select' ? fastCandidate.target : '';
     verdict = await evaluateFastTier({
       candidate: fastTarget,
-      computeDelta: (betaTag) => computeStablePromotion(betaTag, realGit),
+      computeDelta: (betaTag) => computeStablePromotion(betaTag, git),
       resolveChangesetPrUrl: makeResolveChangesetPrUrl(process.env.LINK_REPO || DEFAULT_LINK_REPO),
       resolveIssuesForUrl: makeResolveIssuesForUrl(process.env.LINEAR_API_KEY),
     });
@@ -350,11 +447,20 @@ async function main() {
     };
   }
 
-  const { tier: soakTier, target, candidate: fastTierCandidate } = resolveTier({
+  const resolved = resolveTier({
     armed,
     verdict,
     standardTarget,
     fastTarget,
+  });
+  const soakTier = resolved.tier;
+  const shippedFixCheck = createShippedFixCheck();
+  const { target, fastTierCandidate } = screenShippedFixes({
+    target: resolved.target,
+    fastTierCandidate: resolved.candidate,
+    dispatchWindowOpen: process.env.DISPATCH_WINDOW_OPEN !== 'false',
+    evaluate: memoizeVerdicts((tag) => shippedFixCheck.evaluate(tag)),
+    log: console.log,
   });
   if (fastTierCandidate) {
     console.log(
@@ -380,7 +486,7 @@ async function main() {
       process.env.GITHUB_OUTPUT,
       [
         `target=${target}`,
-        `tier=${selectionTier}`,
+        `tier=${target ? selectionTier : ''}`,
         `fast_tier_candidate=${fastTierCandidate}`,
         `soak_tier=${soakTier}`,
         `fast_armed=${armed}`,

@@ -2,6 +2,7 @@ import type {
   ApplyReport,
   BranchInfoResponse,
   CheckoutResponse,
+  ConfigPatch,
   CreateNewBannerKind,
   EditorId,
   HandoffFailureReason,
@@ -38,6 +39,7 @@ import type {
   CopyImageRequest,
   CopyImageResult,
   OkHeadBranchInfo as HeadBranchInfo,
+  OkAssetOpenResult,
   OkAssetUploadResult,
   OkChromeColors,
   OkDesktopConfig,
@@ -61,11 +63,14 @@ import type {
   OkSharingStatusResult,
   OkSlidesOpenResult,
   OkSlidesStatusResult,
+  OkStateSnapshot,
   OkTerminalDockState,
   OkTerminalDockStateUpdate,
   OkTerminalDockStateWriteResult,
   OkThemeSource,
-  OkUpdateChannel,
+  OkUpdateMode,
+  OkUserConfigPatchResult,
+  OkUserConfigSnapshot,
   OkSeedApplyOptions as SeedApplyOptions,
   OkSeedPlanOptions as SeedPlanOptions,
   SlidevOpenFailureReason,
@@ -177,14 +182,7 @@ export interface HandoffStatsLine {
 
 export type McpWiringEditorId = EditorId;
 
-type OnboardingWarningKind =
-  | 'root'
-  | 'home'
-  | 'home-documents'
-  | 'home-desktop'
-  | 'home-downloads'
-  | 'volumes-mount'
-  | 'drive-root';
+type OnboardingWarningKind = 'home-documents' | 'home-desktop' | 'home-downloads' | 'volumes-mount';
 
 type OnboardingGitState = 'present' | 'absent' | 'shell-only';
 
@@ -373,6 +371,31 @@ interface DialogOpenFolderOpts {
   readonly defaultPath?: string;
 }
 
+export type OkUpdateDispatchRequest =
+  | { readonly kind: 'relaunch-now' }
+  | { readonly kind: 'check-now' }
+  | { readonly kind: 'whats-new-dismiss'; readonly version: string }
+  | { readonly kind: 'downloaded-dismiss'; readonly version: string }
+  | { readonly kind: 'set-mode'; readonly mode: OkUpdateMode };
+
+export type OkUpdateSetModeFailure = 'unrecognized-mode' | 'persist-failed';
+
+export type OkUpdateDispatchResult =
+  | { readonly kind: 'relaunch-now' }
+  | { readonly kind: 'check-now' }
+  | { readonly kind: 'whats-new-dismiss' }
+  | { readonly kind: 'downloaded-dismiss' }
+  | { readonly kind: 'set-mode'; readonly ok: true; readonly mode: OkUpdateMode }
+  | { readonly kind: 'set-mode'; readonly ok: false; readonly reason: OkUpdateSetModeFailure }
+  | { readonly kind: 'unknown'; readonly ok: false; readonly reason: 'unrecognized-kind' };
+
+export type UserConfigDispatchRequest =
+  | { kind: 'set-language-preference'; preference: LanguagePreference }
+  | { kind: 'read' }
+  | { kind: 'subscribe' }
+  | { kind: 'unsubscribe' }
+  | { kind: 'patch'; patch: ConfigPatch };
+
 export const TYPED_IPC_MIGRATION_CHANNEL_CAP = 95;
 
 export interface RequestChannels {
@@ -390,9 +413,7 @@ export interface RequestChannels {
   'ok:shell:record-handoff': { args: [line: HandoffStatsLine]; result: undefined };
   'ok:shell:open-asset': {
     args: [relPath: string];
-    result:
-      | { ok: true }
-      | { ok: false; reason: 'extension-blocked' | 'path-escape' | 'not-found' | 'resolve-error' };
+    result: OkAssetOpenResult;
   };
   'ok:shell:reveal-asset': {
     args: [relPath: string];
@@ -550,25 +571,16 @@ export interface RequestChannels {
       | { ok: false; reason: 'no-project' | 'invalid-request' }
       | OkNoteWindowMainActionResult;
   };
-  'ok:update:relaunch-now': { args: []; result: undefined };
-  'ok:update:check-now': { args: []; result: undefined };
-  'ok:update:whats-new-dismiss': { args: [{ version: string }]; result: undefined };
-  'ok:state:query': {
-    args: [];
-    result: {
-      channel: OkUpdateChannel;
-      schemaIncompatibility: {
-        currentBuild: string;
-        persistedSchemaVersion: number;
-        maxSupported: number;
-      } | null;
-    };
+  'ok:update:dispatch': {
+    args: [request: OkUpdateDispatchRequest];
+    result: OkUpdateDispatchResult;
   };
+  'ok:state:query': { args: []; result: Required<OkStateSnapshot> };
   'ok:state:reset-incompatible': { args: []; result: undefined };
   'ok:theme:set-source': { args: [params: { source: OkThemeSource }]; result: { ok: true } };
-  'ok:locale:set-preference': {
-    args: [params: { preference: LanguagePreference }];
-    result: { ok: true };
+  'ok:user-config:dispatch': {
+    args: [request: UserConfigDispatchRequest];
+    result: { ok: true } | OkUserConfigSnapshot | OkUserConfigPatchResult;
   };
   'ok:theme:applied': {
     args: [opts?: { reducedTransparency?: boolean; chrome?: OkChromeColors }];

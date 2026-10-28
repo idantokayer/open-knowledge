@@ -22,6 +22,8 @@ interface LegacyIndexOptions {
   tagIndex?: TagIndex | null;
 }
 
+type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
+
 type LegacySignalChannel = (
   channel: 'files' | 'backlinks' | 'graph' | 'tags' | 'lint-config' | 'comments',
 ) => void;
@@ -35,6 +37,7 @@ export function createDerivedDocumentIndexApiPortStub(
     async recordDirectDelete() {},
     async recordDirectRename() {},
     async recordLinkRewrite() {},
+    isReady: () => true,
     async getBacklinks() {
       return [];
     },
@@ -85,6 +88,7 @@ function createLegacyDerivedIndexPort(
   backlinkIndex: BacklinkIndex | null | undefined,
   tagIndex: TagIndex | null | undefined,
   signalChannel: LegacySignalChannel | undefined,
+  pendingWrites: Set<Promise<unknown>>,
 ): DerivedDocumentIndexApiPort | undefined {
   if (!backlinkIndex && !tagIndex) return undefined;
 
@@ -107,7 +111,15 @@ function createLegacyDerivedIndexPort(
     backlinkIndex?.deleteDocument(documentName);
     tagIndex?.deleteDocument(documentName);
   };
-  const recordDirectMutations = async (
+  const recordDirectMutations = (
+    mutations: readonly DerivedDocumentIndexMutation[],
+  ): Promise<void> => {
+    const write = applyDirectMutations(mutations);
+    pendingWrites.add(write);
+    void write.finally(() => pendingWrites.delete(write)).catch(() => {});
+    return write;
+  };
+  const applyDirectMutations = async (
     mutations: readonly DerivedDocumentIndexMutation[],
   ): Promise<void> => {
     if (mutations.length === 0) return;
@@ -151,6 +163,7 @@ function createLegacyDerivedIndexPort(
 
   return {
     recordDirectMutations,
+    isReady: () => true,
     testOnly: {
       async resetDocumentForTest(documentName) {
         deleteAll(documentName);
@@ -231,7 +244,7 @@ function createLegacyDerivedIndexPort(
 }
 
 export function createApiExtension(
-  options: Omit<
+  options: DistributiveOmit<
     ApiExtensionOptions,
     | 'durabilityState'
     | 'derivedDocumentIndex'
@@ -242,6 +255,7 @@ export function createApiExtension(
   > &
     LegacyIndexOptions & {
       conflicts?: ApiExtensionOptions['conflicts'];
+      durabilityState?: DocumentDurabilityState;
       derivedDocumentIndex?: DerivedDocumentIndexApiPort;
       signalChannel?: LegacySignalChannel;
       getProjectConfigEpoch?: () => number;
@@ -252,6 +266,7 @@ export function createApiExtension(
     backlinkIndex,
     tagIndex,
     derivedDocumentIndex,
+    durabilityState = new DocumentDurabilityState(),
     getProjectConfigEpoch = () => 0,
     getLinkAdvisoryPolicy = () => ({
       links: DEFAULT_LINKS_VALIDATION,
@@ -259,6 +274,7 @@ export function createApiExtension(
     }),
     ...apiOptions
   } = options;
+  const pendingLegacyWrites = new Set<Promise<unknown>>();
   const extension = createApiExtensionBase({
     ...apiOptions,
     getProjectConfigEpoch,
@@ -266,18 +282,25 @@ export function createApiExtension(
     conflicts:
       options.conflicts ??
       createTestConflictAuthority(options.projectDir ?? options.contentDir, options.contentDir),
-    durabilityState: new DocumentDurabilityState(),
+    durabilityState,
     derivedDocumentIndex:
       derivedDocumentIndex ??
-      createLegacyDerivedIndexPort(backlinkIndex, tagIndex, options.signalChannel),
+      createLegacyDerivedIndexPort(
+        backlinkIndex,
+        tagIndex,
+        options.signalChannel,
+        pendingLegacyWrites,
+      ),
   });
   const legacyOnRequest = extension.onRequest?.bind(extension);
   return {
     ...extension,
     async onRequest(payload: { request: IncomingMessage; response: ServerResponse }) {
-      if (await extension.nativeApi.dispatch(payload.request, payload.response)) return;
-      // biome-ignore lint/suspicious/noExplicitAny: Hocuspocus `onRequest` has no exported payload type
-      await legacyOnRequest?.(payload as any);
+      if (!(await extension.nativeApi.dispatch(payload.request, payload.response))) {
+        // biome-ignore lint/suspicious/noExplicitAny: Hocuspocus `onRequest` has no exported payload type
+        await legacyOnRequest?.(payload as any);
+      }
+      await Promise.allSettled(pendingLegacyWrites);
     },
   };
 }

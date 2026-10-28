@@ -1,8 +1,8 @@
 import {
   getWikiLinkText,
   normalizeNullableString,
-  resolveWikiLinkTarget,
-} from '@inkeep/open-knowledge-core';
+} from '@inkeep/open-knowledge-core/extensions/wiki-link';
+import { resolveWikiLinkTarget } from '@inkeep/open-knowledge-core/utils/wiki-link-resolve';
 import { Trans, useLingui } from '@lingui/react/macro';
 import type { Editor } from '@tiptap/core';
 import { posToDOMRect } from '@tiptap/core';
@@ -60,9 +60,9 @@ interface EditWikiLinkDialogProps {
   target: string;
   alias: string | null;
   anchor: string | null;
-  pages: Set<string>;
-  assetPaths: Set<string>;
-  filePaths: Set<string>;
+  pages: ReadonlySet<string>;
+  assetPaths: ReadonlySet<string>;
+  filePaths: ReadonlySet<string>;
   loading: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (target: string, alias: string | null, anchor: string | null) => void;

@@ -1,4 +1,4 @@
-import { type ChildProcess, spawn } from 'node:child_process';
+import type { ChildProcess } from 'node:child_process';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -6,21 +6,31 @@ import type { ProblemType } from '@inkeep/open-knowledge-core';
 import { test as base } from '@playwright/test';
 import { resetContentToFixtureBaseline } from './content-reset.ts';
 import { gotoWhileLoadProgresses, requireDeadlineAt } from './load-progress.ts';
+import { type WorkerServing, workerServingFromEnv } from './prebuilt/prebuilt-serving.ts';
+import { checkServerLease, leaseWorkerServer, type ServerLease } from './reuse/lease-fixture.ts';
 import {
-  APP_PACKAGE_ROOT,
+  type BoundViteEndpoint,
+  beginViteStartup,
   checkCollabSync,
   closeServerLog,
-  getFreePort,
-  killGracefully,
+  createViteStartupRequest,
   openServerLog,
+  type PendingViteStartup,
   prepareViteCacheDir,
   requireBoundMs,
   type ServerLog,
   tailServerLog,
+  type ViteStartupRequest,
+  waitForBoundViteEndpoint,
   waitForHttpReady,
 } from './server-process.ts';
 import { declareSetupNonResult } from './setup-non-result.ts';
 import { removeAllDuringTeardown, runTeardownPhases } from './teardown-fs.ts';
+import {
+  acquireWorkerServer,
+  completeWorkerServerRelease,
+  killGracefully,
+} from './worker-server-lifetime.ts';
 
 interface ProblemError extends Error {
   status?: number;
@@ -74,10 +84,12 @@ export interface ApiHelpers {
 type WorkerFixtures = {
   workerServer: WorkerServer;
   workerServerEnv: Record<string, string>;
+  serverLease: ServerLease | undefined;
 };
 
 type TestFixtures = {
   api: ApiHelpers;
+  serverLeaseCheck: undefined;
 };
 
 export const WORKER_SERVER_BUDGET_TOTAL_MS = 240_000;
@@ -256,14 +268,21 @@ export async function checkApiConfig(baseURL: string, timeoutMs: number): Promis
   }
 }
 
-async function waitForServerReady(
-  baseURL: string,
-  port: number,
-  proc: ChildProcess,
-): Promise<void> {
-  await waitForHttpReady(baseURL, WORKER_SERVER_READINESS_BUDGET_MS, proc);
+export async function waitForServerReady(started: StartedWorkerServer): Promise<BoundViteEndpoint> {
+  const { pending } = started;
+  const { baseURL, port } = await waitForBoundViteEndpoint(
+    pending,
+    WORKER_SERVER_READINESS_BUDGET_MS,
+  );
+  await waitForHttpReady(
+    baseURL,
+    WORKER_SERVER_READINESS_BUDGET_MS,
+    pending.proc,
+    pending.startedAt,
+  );
   await checkApiConfig(baseURL, WORKER_SERVER_BUDGET_RESERVES.apiConfig);
   await checkCollabSync(port, WORKER_SERVER_BUDGET_RESERVES.collabSync);
+  return { baseURL, port };
 }
 
 async function settleBeforeDeadline<T>(
@@ -359,7 +378,7 @@ export async function warmupAppFirstLoad(
 
 export const REQUIRED_FIXTURE_ENTRY_NAMES = ['test-doc.md', 'sidebar-folder'] as const;
 
-const REQUIRED_FIXTURE_DOC_NAMES = ['test-doc', 'sidebar-folder/nested-doc'] as const;
+export const REQUIRED_FIXTURE_DOC_NAMES = ['test-doc', 'sidebar-folder/nested-doc'] as const;
 
 async function waitForSeededPagesSettled(baseURL: string, seededNames: string[]): Promise<void> {
   const missingSet = new Set(seededNames);
@@ -419,16 +438,34 @@ async function waitForSeededPagesSettled(baseURL: string, seededNames: string[])
   );
 }
 
-function seedRequiredFixtureFiles(contentDir: string): void {
+export function seedRequiredFixtureFiles(contentDir: string): void {
   writeFileSync(join(contentDir, 'test-doc.md'), '', 'utf-8');
   mkdirSync(join(contentDir, 'sidebar-folder'), { recursive: true });
   writeFileSync(join(contentDir, 'sidebar-folder', 'nested-doc.md'), '', 'utf-8');
   mkdirSync(join(contentDir, '.claude', 'skills'), { recursive: true });
 }
 
-interface StartedWorkerServer {
-  port: number;
-  baseURL: string;
+export function spawnWorkerDevServer(
+  request: ViteStartupRequest,
+  workerServerEnv: Readonly<Record<string, string>>,
+  contentDir: string,
+  viteCacheDir: string,
+  serverLog: ServerLog,
+  serving: WorkerServing = workerServingFromEnv(process.env),
+): ChildProcess {
+  return acquireWorkerServer(
+    request,
+    workerServerEnv,
+    contentDir,
+    viteCacheDir,
+    serverLog,
+    serving,
+    WORKER_SERVER_BUDGET_RESERVES.devServerReap,
+  );
+}
+
+export interface StartedWorkerServer {
+  pending: PendingViteStartup;
   contentDir: string;
   viteCacheDir: string;
   serverLog: ServerLog;
@@ -436,13 +473,19 @@ interface StartedWorkerServer {
 }
 
 function setupResidueOf(started: StartedWorkerServer): string {
-  return `the detached dev server on port ${started.port}, the content dir ${started.contentDir} and the vite cache dir ${started.viteCacheDir} are reaped and removed by whichever of the failure path and the teardown path this worker reaches`;
+  return `the detached dev server started with candidate port ${started.pending.request.candidatePort}, the content dir ${started.contentDir} and the vite cache dir ${started.viteCacheDir} are reaped and removed by whichever of the failure path and the teardown path this worker reaches`;
 }
 
 export const test = base.extend<TestFixtures, WorkerFixtures>({
   workerServerEnv: [{}, { scope: 'worker', option: true }],
+  serverLease: [leaseWorkerServer, { scope: 'worker', timeout: WORKER_SERVER_BUDGET_TOTAL_MS }],
+  serverLeaseCheck: [checkServerLease, { auto: true }],
   workerServer: [
-    async ({ workerServerEnv, browser }, use, workerInfo) => {
+    async ({ workerServerEnv, browser, serverLease }, use, workerInfo) => {
+      if (serverLease?.kind === 'leased') {
+        await use(serverLease.server);
+        return;
+      }
       const fixtureStartedAt = Date.now();
       const setupOverhead = openBudgetPhase(
         SETUP_OVERHEAD_PHASE_NAME,
@@ -451,10 +494,13 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       const releaseSetupResources: Array<() => void | Promise<void>> = [];
       let openedServerLog: ServerLog | undefined;
       let started: StartedWorkerServer | undefined;
+      let ownedProc: ChildProcess | undefined;
+      let endpoint: BoundViteEndpoint;
 
       try {
         started = await spendOnBudgetPhase(setupOverhead, async () => {
-          const port = await getFreePort();
+          const request = createViteStartupRequest('127.0.0.1');
+          releaseSetupResources.push(() => request.dispose());
 
           const contentDir = mkdtempSync(join(tmpdir(), `ok-w${workerInfo.workerIndex}-`));
           releaseSetupResources.push(() => removeAllDuringTeardown(contentDir));
@@ -468,21 +514,14 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
           openedServerLog = serverLog;
           releaseSetupResources.push(() => closeServerLog(serverLog));
 
-          const proc = spawn('pnpm', ['run', 'dev', '--host', '127.0.0.1'], {
-            cwd: APP_PACKAGE_ROOT,
-            detached: true,
-            env: {
-              ...process.env,
-              ...workerServerEnv,
-              VITE_PORT: String(port),
-              OK_TEST_CONTENT_DIR: contentDir,
-              OK_TEST_VITE_CACHE_DIR: viteCacheDir,
-              OK_TEST_SKIP_I18N_COMPILE: '1',
-              OK_TEST_GIT_ENABLED: '1',
-              NO_COLOR: process.env.NO_COLOR ?? '1',
-            },
-            stdio: ['ignore', serverLog.fd, 'inherit'],
-          });
+          const proc = spawnWorkerDevServer(
+            request,
+            workerServerEnv,
+            contentDir,
+            viteCacheDir,
+            serverLog,
+          );
+          ownedProc = proc;
           releaseSetupResources.push(() =>
             killGracefully(proc, WORKER_SERVER_BUDGET_RESERVES.devServerReap),
           );
@@ -492,8 +531,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
           });
 
           return {
-            port,
-            baseURL: `http://127.0.0.1:${port}`,
+            pending: beginViteStartup(request, proc),
             contentDir,
             viteCacheDir,
             serverLog,
@@ -504,10 +542,10 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         const residue = setupResidueOf(started);
         reportBudgetOverrun(setupOverhead, workerInfo.workerIndex, residue);
 
-        await waitForServerReady(started.baseURL, started.port, started.proc);
+        endpoint = await waitForServerReady(started);
         await warmupAppFirstLoad(
           browser,
-          started.baseURL,
+          endpoint.baseURL,
           setupOverhead,
           fixtureStartedAt + WORKER_SERVER_SETUP_STARVATION_LINE_MS,
         );
@@ -529,29 +567,45 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
           openedServerLog === undefined
             ? '--- no dev server log was open when this failure ended the setup ---'
             : `--- dev server log tail (${openedServerLog.path}) ---\n${tailServerLog(openedServerLog)}`;
+        try {
+          if (ownedProc !== undefined) await completeWorkerServerRelease(ownedProc);
+        } catch (cleanupErr) {
+          const completionFailure = `--- cleanup after this failure did not complete: ${cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr)} ---`;
+          drainFailure =
+            drainFailure === undefined
+              ? completionFailure
+              : `${drainFailure}\n${completionFailure}`;
+        }
         declareSetupNonResult(base.info(), reason);
         throw new Error(
           `${reason}${borrowed === undefined ? '' : `\n${borrowed}`}${drainFailure === undefined ? '' : `\n${drainFailure}`}\n${tail}`,
         );
       }
 
-      const { port, baseURL, contentDir, viteCacheDir, serverLog, proc } = started;
+      const { contentDir, viteCacheDir, serverLog, proc, pending } = started;
 
-      await use({ port, baseURL, contentDir });
+      await use({ ...endpoint, contentDir });
 
       const teardown = openBudgetPhase(TEARDOWN_PHASE_NAME, WORKER_SERVER_BUDGET_RESERVES.teardown);
-      try {
-        await killGracefully(proc, WORKER_SERVER_BUDGET_RESERVES.devServerReap);
-      } finally {
-        await spendOnBudgetPhase(teardown, () => {
-          closeServerLog(serverLog);
-          removeAllDuringTeardown(serverLog.path, contentDir, viteCacheDir);
-        });
-      }
+      await completeWorkerServerRelease(proc, async () => {
+        try {
+          await killGracefully(proc, WORKER_SERVER_BUDGET_RESERVES.devServerReap);
+        } finally {
+          await spendOnBudgetPhase(teardown, () => {
+            closeServerLog(serverLog);
+            removeAllDuringTeardown(
+              serverLog.path,
+              contentDir,
+              viteCacheDir,
+              pending.request.receiptDir,
+            );
+          });
+        }
+      });
       reportBudgetOverrun(
         teardown,
         workerInfo.workerIndex,
-        `the dev server was reaped and ${serverLog.path}, ${contentDir} and ${viteCacheDir} were removed before this report`,
+        `the dev server was reaped and ${serverLog.path}, ${contentDir}, ${viteCacheDir} and ${pending.request.receiptDir} were removed before this report`,
       );
     },
     { scope: 'worker', timeout: WORKER_SERVER_BUDGET_TOTAL_MS },

@@ -1,20 +1,22 @@
 // oxlint-disable ok/no-physical-direction-utility -- pre-rule backlog — physical margin/padding/inset utilities predate the rule; drain by swapping ml/mr → ms/me, pl/pr → ps/pe, left/right → start/end, then deleting this line. See https://github.com/inkeep/open-knowledge/blob/main/lint-plugins/ok-rules/README.md#no-physical-direction-utility
 
+import type { OkignoreBinding } from '@inkeep/open-knowledge-core/config/bind-okignore-doc';
+import { isDocumentOverOpenByteLimit } from '@inkeep/open-knowledge-core/constants/document-open';
+import type {
+  HandoffOutcome,
+  HandoffTarget,
+  InstallState,
+} from '@inkeep/open-knowledge-core/handoff';
 import {
   CreateFolderSuccessSchema,
   CreatePageSuccessSchema,
   DeletePathSuccessSchema,
   DuplicatePathSuccessSchema,
-  type HandoffOutcome,
-  type HandoffTarget,
-  type InstallState,
-  isDocumentOverOpenByteLimit,
-  type OkignoreBinding,
   RenamePathSuccessSchema,
   TrashCleanupSuccessSchema,
   UploadAssetSuccessSchema,
   WorkspaceSuccessSchema,
-} from '@inkeep/open-knowledge-core';
+} from '@inkeep/open-knowledge-core/schemas/api';
 import { plural, t } from '@lingui/core/macro';
 import { Trans, useLingui } from '@lingui/react/macro';
 import {
@@ -131,7 +133,6 @@ import {
   hasSupportedDocumentExtension,
   validateAndCoerceRenameDestination,
 } from '@/components/file-tree-rename-validation';
-import { revealActiveRow } from '@/components/file-tree-reveal';
 import {
   previewTabIdForTreePath,
   resolveFileTreeSelection,
@@ -1101,19 +1102,27 @@ export function FileTree({ ref }: { ref?: Ref<FileTreeHandle | null> }) {
     selectedFolderPath,
     navigationPath: activeNavigationPath,
   } = resolveFileTreeSelection(activeTarget, isNewTabActive ? null : activeDocName);
-  const baseActiveTreePath = selectedFilePath
-    ? docNameToTreePath(
-        selectedFilePath,
-        documents.find(
-          (d): d is DocumentEntry => isDocumentEntry(d) && d.docName === selectedFilePath,
-        )?.docExt,
-      )
+  const baseActiveTreeSelection: { treePath: string; selectionId: string } | null = selectedFilePath
+    ? {
+        treePath: docNameToTreePath(
+          selectedFilePath,
+          documents.find(
+            (d): d is DocumentEntry => isDocumentEntry(d) && d.docName === selectedFilePath,
+          )?.docExt,
+        ),
+        selectionId: docTabId(selectedFilePath),
+      }
     : selectedFolderPath
-      ? folderPathToTreeDirectoryPath(selectedFolderPath)
+      ? {
+          treePath: folderPathToTreeDirectoryPath(selectedFolderPath),
+          selectionId: folderTabId(selectedFolderPath),
+        }
       : activeTarget?.kind === 'asset'
-        ? activeTarget.assetPath
+        ? { treePath: activeTarget.assetPath, selectionId: assetTabId(activeTarget.assetPath) }
         : null;
+  const baseActiveTreePath = baseActiveTreeSelection?.treePath ?? null;
   const activeTreePath = creationDirCleared ? null : baseActiveTreePath;
+  const activeSelectionId = baseActiveTreeSelection?.selectionId ?? null;
 
   const handoffInstallStates = useInstalledAgents().states;
   const { dispatch: dispatchHandoff } = useHandoffDispatch();
@@ -1527,6 +1536,7 @@ export function FileTree({ ref }: { ref?: Ref<FileTreeHandle | null> }) {
     activeAncestorTreePathsSignature,
     suppressSelectionRef,
     treePathsSignature,
+    { activeSelectionId, ready: !loading },
   );
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: setCreationDirCleared is a stable state setter; baseActiveTreePath is the sole trigger.
@@ -1538,12 +1548,6 @@ export function FileTree({ ref }: { ref?: Ref<FileTreeHandle | null> }) {
     creationDirClearedRef.current = creationDirCleared;
     for (const listener of handleListenersRef.current) listener();
   }, [creationDirCleared]);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: activeAncestorTreePathsSignature + treePathsSignature are re-run triggers — the row's visible index shifts when ancestors expand or the tree repopulates.
-  useEffect(() => {
-    if (loading || !activeTreePath) return;
-    revealActiveRow(model, activeTreePath);
-  }, [activeTreePath, activeAncestorTreePathsSignature, treePathsSignature, loading, model]);
 
   useEffect(() => {
     return model.subscribe(() => {
@@ -2644,37 +2648,53 @@ export function FileTree({ ref }: { ref?: Ref<FileTreeHandle | null> }) {
 
   const handleImportTemplateEvent = useEffectEvent(handleImportTemplate);
 
-  async function hardDeleteTargets(targets: readonly FileTreeTarget[]): Promise<boolean> {
+  async function hardDeleteTargets(targets: readonly FileTreeTarget[]): Promise<void> {
     const deletedDocNames: string[] = [];
     const deletedFolderPaths: string[] = [];
     const successfulTargets: FileTreeTarget[] = [];
-    for (const target of targets) {
-      const kind = target.kind;
-      setBusyPath(target.path);
-      const res = await fetch('/api/delete-path', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kind, path: target.path }),
-      });
-      const parsed = await parseServerResponse(res, t`Failed to delete path`);
-      if (!parsed.ok) {
-        if (successfulTargets.length > 0) {
-          await applyDeleteAftermath(successfulTargets, deletedDocNames, deletedFolderPaths);
+    async function deleteSequentially(): Promise<string | null> {
+      for (const target of targets) {
+        const kind = target.kind;
+        setBusyPath(target.path);
+        const res = await fetch('/api/delete-path', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind, path: target.path }),
+        });
+        const parsed = await parseServerResponse(res, t`Failed to delete path`);
+        if (!parsed.ok) {
+          return parsed.title;
         }
-        toast.error(parsed.title);
-        return false;
+        const success = parseSuccessOrWarn(DeletePathSuccessSchema, parsed.body, 'delete-path', {
+          deletedDocNames: [],
+        });
+        deletedDocNames.push(...success.deletedDocNames);
+        if (kind === 'folder') {
+          deletedFolderPaths.push(target.path);
+        }
+        successfulTargets.push(target);
       }
-      const success = parseSuccessOrWarn(DeletePathSuccessSchema, parsed.body, 'delete-path', {
-        deletedDocNames: [],
-      });
-      deletedDocNames.push(...success.deletedDocNames);
-      if (kind === 'folder') {
-        deletedFolderPaths.push(target.path);
-      }
-      successfulTargets.push(target);
+      return null;
     }
-    await applyDeleteAftermath(successfulTargets, deletedDocNames, deletedFolderPaths);
-    return true;
+    async function applyCompletedDeletions(deletionFailed: boolean) {
+      if (successfulTargets.length === 0) return;
+      try {
+        await applyDeleteAftermath(successfulTargets, deletedDocNames, deletedFolderPaths);
+      } catch (aftermathError) {
+        if (!deletionFailed) throw aftermathError;
+        console.warn('[FileTree] delete aftermath failed:', aftermathError);
+      }
+    }
+    return deleteSequentially().then(
+      async (failureTitle) => {
+        await applyCompletedDeletions(failureTitle !== null);
+        if (failureTitle !== null) toast.error(failureTitle);
+      },
+      async (deleteError: unknown) => {
+        await applyCompletedDeletions(true);
+        throw deleteError;
+      },
+    );
   }
 
   async function trashTargetsViaShell(
@@ -2819,16 +2839,14 @@ export function FileTree({ ref }: { ref?: Ref<FileTreeHandle | null> }) {
         }
         setBusyPath(null);
       } else {
-        const ok = await hardDeleteTargets(deleteTargets);
+        await hardDeleteTargets(deleteTargets);
         setBusyPath(null);
-        if (!ok) resetModelToDocuments();
       }
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err);
       console.warn('[FileTree] delete failed:', err);
       toast.error(t`Could not complete delete`, { description: detail });
       setBusyPath(null);
-      resetModelToDocuments();
     }
   }
 
@@ -2842,15 +2860,13 @@ export function FileTree({ ref }: { ref?: Ref<FileTreeHandle | null> }) {
     if (targetsToHardDelete.length === 0) return;
     setBusyPath(targetsToHardDelete[0]?.path ?? null);
     try {
-      const ok = await hardDeleteTargets(targetsToHardDelete);
+      await hardDeleteTargets(targetsToHardDelete);
       setBusyPath(null);
-      if (!ok) resetModelToDocuments();
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err);
       console.warn('[FileTree] hard-delete fallback failed:', err);
       toast.error(t`Could not complete delete`, { description: detail });
       setBusyPath(null);
-      resetModelToDocuments();
     }
   }
 

@@ -29,6 +29,7 @@ import {
   UPDATE_CHECK_INTERVAL_MS,
   UPDATE_CHECK_JITTER_MS,
   UPDATE_CHECK_WEDGED_MESSAGE,
+  UPDATE_DOWNLOAD_FAILED_MESSAGE,
   type UpdaterLike,
   versionAtLeast,
 } from '../../src/main/auto-updater.ts';
@@ -38,6 +39,10 @@ import {
   evaluateSchemaCompatibility,
   MAX_SUPPORTED_SCHEMA_VERSION,
 } from '../../src/main/state-store.ts';
+import {
+  replayUpdateNoticesOnEveryLoad,
+  type UpdateNoticeReplayTarget,
+} from '../../src/main/update-notice-replay.ts';
 import type { SendableWebContents } from '../../src/shared/ipc-send.ts';
 
 interface SendTarget {
@@ -350,7 +355,7 @@ describe('startAutoUpdater — initial configuration (parent §8.10 LOCKED)', ()
   test('linux: relaunch-now is the install-commit point — it arms attemptedInstall', async () => {
     const { rig } = makeRig({ platform: 'linux' });
     rig.updater.emit('update-downloaded', { version: '0.3.2' });
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     expect(rig.updater.quitAndInstall).toHaveBeenCalledTimes(1);
     expect(rig.state.attemptedInstall).toBe('0.3.2');
     expect(rig.state.attemptedInstallSurfacedCount).toBe(0);
@@ -781,6 +786,7 @@ describe('startAutoUpdater — initial configuration (parent §8.10 LOCKED)', ()
       kind: 'available',
       currentVersion: '0.68.0-beta.2',
       latestVersion: '0.68.13-beta.5',
+      download: 'background',
     });
   });
 
@@ -837,7 +843,7 @@ describe('startAutoUpdater — initial configuration (parent §8.10 LOCKED)', ()
     });
     const headers = rig.updater.requestHeaders;
 
-    rig.ipc.invoke('ok:update:check-now');
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
     await expect(handle.checkForUpdatesNow()).resolves.toBeUndefined();
 
     expect(rig.updater.checkForUpdates).toHaveBeenCalledTimes(1);
@@ -886,7 +892,7 @@ describe('startAutoUpdater — initial configuration (parent §8.10 LOCKED)', ()
         updater.checkForUpdates = vi.fn(() => new Promise<undefined>(() => {}));
       },
     });
-    rig.ipc.invoke('ok:update:check-now');
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
     expect(rig.logger.info).toHaveBeenCalledWith(
       'check already in flight, reusing the pending promise',
       {
@@ -899,7 +905,7 @@ describe('startAutoUpdater — initial configuration (parent §8.10 LOCKED)', ()
       },
     );
     rig.now = new Date(rig.now.getTime() + UPDATE_CHECK_DEADLINE_MS - 1);
-    rig.ipc.invoke('ok:update:check-now');
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
     expect(manualCheckPhases(rig)).toEqual(['started', 'started']);
     expect(rig.dispatches).toContain('check-now-already-pending');
     expect(showCheckNowResult).not.toHaveBeenCalled();
@@ -936,7 +942,7 @@ describe('startAutoUpdater — initial configuration (parent §8.10 LOCKED)', ()
       { ms: MANUAL_CHECK_WATCHDOG_MS },
     );
     expect(manualCheckPhases(rig)).toEqual(['started', 'started', 'settled']);
-    rig.ipc.invoke('ok:update:check-now');
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
     expect(showCheckNowResult).toHaveBeenCalledTimes(2);
     expect(showCheckNowResult).toHaveBeenLastCalledWith({
       kind: 'error',
@@ -985,7 +991,7 @@ describe('startAutoUpdater — initial configuration (parent §8.10 LOCKED)', ()
       });
 
       fireTimerFor(rig.clock, UPDATE_CHECK_INTERVAL_MS);
-      rig.ipc.invoke('ok:update:check-now');
+      rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
       rig.updater.emit('error', error);
       expect(rig.updater.checkForUpdates).toHaveBeenCalledTimes(2);
       expect(rig.updater.setFeedURL).toHaveBeenCalledTimes(2);
@@ -1063,7 +1069,7 @@ describe('startAutoUpdater — initial configuration (parent §8.10 LOCKED)', ()
     });
     await Promise.resolve();
     rig.updater.checkForUpdates.mockImplementation(() => rejectAfterErrorEvent(rig.updater, error));
-    rig.ipc.invoke('ok:update:check-now');
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
     await new Promise((resolve) => setTimeout(resolve, 0));
     const log = level === 'warn' ? rig.logger.warn : rig.logger.debug;
     expect(
@@ -1077,7 +1083,7 @@ describe('startAutoUpdater — initial configuration (parent §8.10 LOCKED)', ()
       ],
     ]);
     expect(rig.updater.setFeedURL).toHaveBeenCalledTimes(1);
-    rig.ipc.invoke('ok:update:check-now');
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(
       log.mock.calls.filter(
@@ -1100,7 +1106,7 @@ describe('staging age — how long the update sat before the install was request
     rig.now = new Date('2026-04-21T12:00:00.000Z');
     rig.updater.emit('update-downloaded', { version: '0.3.2' });
     rig.now = new Date('2026-04-21T12:00:02.060Z');
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
 
     expect(rig.state.attemptedInstallStagingAgeMs).toBe(2060);
     expect(rig.logger.info).toHaveBeenCalledWith(
@@ -1116,7 +1122,7 @@ describe('staging age — how long the update sat before the install was request
     rig.now = new Date('2026-04-21T12:00:00.000Z');
     rig.updater.emit('update-downloaded', { version: '0.3.2' });
     rig.now = new Date('2026-04-21T11:59:57.000Z');
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
 
     expect(rig.state.attemptedInstallStagingAgeMs).toBeNull();
   });
@@ -1151,7 +1157,7 @@ describe('staging age — how long the update sat before the install was request
     session.now = new Date('2026-04-21T12:00:00.000Z');
     session.updater.emit('update-downloaded', { version: '0.3.2' });
     session.now = new Date('2026-04-21T12:00:02.060Z');
-    await session.ipc.invoke('ok:update:relaunch-now');
+    await session.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     expect(session.state.attemptedInstallStagingAgeMs).toBe(2060);
 
     session.now = new Date('2026-04-21T13:00:00.000Z');
@@ -1241,7 +1247,7 @@ describe('cross-channel veto on update-available', () => {
   test('menu-driven check: cross-channel offer remaps to not-available + does not download', () => {
     const showCheckNowResult = vi.fn(() => {});
     const { rig } = makeRig({ appVersion: '0.5.0-beta.5', showCheckNowResult });
-    rig.ipc.invoke('ok:update:check-now');
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
     rig.updater.emit('update-available', { version: '0.5.0' });
     expect(showCheckNowResult).toHaveBeenCalledWith({
       kind: 'not-available',
@@ -1851,8 +1857,8 @@ describe('boot-time failed-install detection', () => {
     expect(rig.dispatches).toContain('install-failed-on-boot' as DispatchKind);
   });
 
-  test('retry budget exhausted → gives up, clears the record incl. pending marker', () => {
-    const { rig } = makeRig({
+  test('retry budget exhausted → tombstones the version and keeps the staged build installable', () => {
+    const { rig, handle } = makeRig({
       attemptedInstall: '0.17.0-beta.1',
       attemptedInstallHandoffAt: COMMITTED_LONG_AGO,
       versionPendingInstall: '0.17.0-beta.1',
@@ -1863,8 +1869,10 @@ describe('boot-time failed-install detection', () => {
     expect(rig.captured.filter((c) => c.channel === 'ok:update:relaunch-failed')).toHaveLength(0);
     expect(rig.state.attemptedInstall).toBeNull();
     expect(rig.state.attemptedInstallSurfacedCount).toBe(0);
-    expect(rig.state.versionPendingInstall).toBeNull();
-    expect(rig.state.stagedInstallerPath).toBeNull();
+    expect(rig.state.gaveUpOnVersion).toBe('0.17.0-beta.1');
+    expect(rig.state.versionPendingInstall).toBe('0.17.0-beta.1');
+    expect(rig.state.stagedInstallerPath).toBe('/tmp/staged-giveup.deb');
+    expect(handle.getPendingUpdate()).toBeNull();
     expect(rig.dispatches).toContain('install-failed-giveup' as DispatchKind);
     expect(rig.dispatches).not.toContain('install-failed-on-boot' as DispatchKind);
   });
@@ -2182,7 +2190,8 @@ describe('boot-time failed-install detection — install still in flight', () =>
     rig.now = STAGED_AT;
     rig.updater.emit('update-downloaded', { version: overrides.attempted ?? ATTEMPTED });
     rig.now = overrides.committedAt ?? HANDED_OFF_AT;
-    if (via === 'relaunch-click') await rig.ipc.invoke('ok:update:relaunch-now');
+    if (via === 'relaunch-click')
+      await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     else if (via === 'plain-quit') handle.recordInstallHandoffOnQuit();
     return rig.state;
   }
@@ -2356,7 +2365,7 @@ describe('boot-time failed-install detection — install still in flight', () =>
     expect(reoffered.dispatches).toContain('install-never-committed-reoffered' as DispatchKind);
 
     reoffered.now = new Date(STAGED_AT.getTime() + 24 * HOUR + MINUTE);
-    await reoffered.ipc.invoke('ok:update:relaunch-now');
+    await reoffered.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     expect(reoffered.state.attemptedInstallHandoffAt).not.toBeNull();
 
     const reclaim = vi.fn();
@@ -2814,7 +2823,7 @@ describe('multi-window delivery: relaunch banner and "updated to" notice both re
   test('manual check started and settled phases reach every open window', async () => {
     const { rig } = makeRig({ extraWindowCount: 2 });
     expect(rig.windows).toHaveLength(3);
-    rig.ipc.invoke('ok:update:check-now');
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
     rig.updater.emit('update-not-available', { version: '0.3.1' });
     await new Promise((resolve) => setTimeout(resolve, 0));
     for (const win of rig.windows) {
@@ -2872,14 +2881,9 @@ describe('multi-window delivery: relaunch banner and "updated to" notice both re
 });
 
 describe('release-notes cross-window dismiss + late-window delivery', () => {
-  test('registers the whats-new-dismiss IPC handler', () => {
-    const { rig } = makeRig();
-    expect(rig.ipc.handlers.has('ok:update:whats-new-dismiss')).toBe(true);
-  });
-
   test('whats-new-dismiss re-broadcasts ok:update:whats-new-dismissed to every window', () => {
     const { rig } = makeRig({ extraWindowCount: 2 });
-    rig.ipc.invoke('ok:update:whats-new-dismiss', { version: '0.3.1' });
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'whats-new-dismiss', version: '0.3.1' });
     for (const win of rig.windows) {
       const dismissed = win.filter((c) => c.channel === 'ok:update:whats-new-dismissed');
       expect(dismissed).toHaveLength(1);
@@ -2903,13 +2907,13 @@ describe('release-notes cross-window dismiss + late-window delivery', () => {
   test('getActiveWhatsNew returns null after the notice is dismissed', () => {
     const { rig, handle } = makeRig({ lastSeenVersion: '0.3.0', appVersion: '0.3.1' });
     expect(handle.getActiveWhatsNew()).not.toBeNull();
-    rig.ipc.invoke('ok:update:whats-new-dismiss', { version: '0.3.1' });
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'whats-new-dismiss', version: '0.3.1' });
     expect(handle.getActiveWhatsNew()).toBeNull();
   });
 
   test('a stale dismiss for an older version leaves a newer live notice intact', () => {
     const { rig, handle } = makeRig({ lastSeenVersion: '0.3.0', appVersion: '0.3.1' });
-    rig.ipc.invoke('ok:update:whats-new-dismiss', { version: '0.3.0' });
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'whats-new-dismiss', version: '0.3.0' });
     expect(handle.getActiveWhatsNew()).toMatchObject({ version: '0.3.1' });
   });
 });
@@ -3057,22 +3061,22 @@ describe('periodic check singleton + jitter (AC10, D10)', () => {
   });
 });
 
-describe('ok:update:relaunch-now IPC handler (AC18)', () => {
-  test('registers the handler on startup', () => {
+describe('relaunch-now dispatch (AC18)', () => {
+  test('registers the single ok:update:dispatch handler on startup', () => {
     const { rig } = makeRig();
-    expect(rig.ipc.handlers.has('ok:update:relaunch-now')).toBe(true);
+    expect(rig.ipc.handlers.has('ok:update:dispatch')).toBe(true);
   });
 
   test('handler invocation WITH versionPendingInstall calls autoUpdater.quitAndInstall', async () => {
     const { rig } = makeRig({ versionPendingInstall: '0.3.2' });
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     expect(rig.updater.quitAndInstall).toHaveBeenCalledTimes(1);
     expect(rig.dispatches).toContain('relaunch-now' as DispatchKind);
   });
 
   test('handler invocation WITHOUT versionPendingInstall is ignored (Finding #5 guard)', () => {
     const { rig } = makeRig({ versionPendingInstall: null });
-    rig.ipc.invoke('ok:update:relaunch-now');
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     expect(rig.updater.quitAndInstall).not.toHaveBeenCalled();
     expect(rig.dispatches).not.toContain('relaunch-now' as DispatchKind);
     expect(rig.logger.warn).toHaveBeenCalled();
@@ -3081,7 +3085,7 @@ describe('ok:update:relaunch-now IPC handler (AC18)', () => {
   test('broadcasts ok:update:relaunching to EVERY open window so all swap in lockstep', async () => {
     const { rig } = makeRig({ versionPendingInstall: '0.3.2', extraWindowCount: 2 });
     expect(rig.windows).toHaveLength(3);
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     for (const win of rig.windows) {
       const relaunching = win.filter((c) => c.channel === 'ok:update:relaunching');
       expect(relaunching).toHaveLength(1);
@@ -3095,9 +3099,9 @@ describe('ok:update:relaunch-now IPC handler (AC18)', () => {
     rig.updater.quitAndInstall = vi.fn(() => {
       throw new Error('SQRLInstallerErrorDomain Code=-9');
     });
-    await expect(Promise.resolve(rig.ipc.invoke('ok:update:relaunch-now'))).rejects.toThrow(
-      'SQRLInstallerErrorDomain Code=-9',
-    );
+    await expect(
+      Promise.resolve(rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' })),
+    ).rejects.toThrow('SQRLInstallerErrorDomain Code=-9');
     expect(rig.state.versionPendingInstall).toBe('0.3.2');
     for (const win of rig.windows) {
       expect(win.filter((c) => c.channel === 'ok:update:relaunching')).toHaveLength(1);
@@ -3113,13 +3117,13 @@ describe('ok:update:relaunch-now IPC handler (AC18)', () => {
     }
     expect(rig.dispatches).toContain('relaunch-failed-rearm' as DispatchKind);
     rig.updater.quitAndInstall = vi.fn(() => {});
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     expect(rig.updater.quitAndInstall).toHaveBeenCalledTimes(1);
   });
 
   test('does NOT broadcast ok:update:relaunching when nothing is pending (gated)', () => {
     const { rig } = makeRig({ versionPendingInstall: null, extraWindowCount: 2 });
-    rig.ipc.invoke('ok:update:relaunch-now');
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     for (const win of rig.windows) {
       expect(win.filter((c) => c.channel === 'ok:update:relaunching')).toHaveLength(0);
     }
@@ -3157,14 +3161,14 @@ describe('ok:update:relaunch-now IPC handler (AC18)', () => {
         debug: vi.fn(() => {}),
       },
     });
-    await ipc.invoke('ok:update:relaunch-now');
+    await ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     expect(relaunchingSeenAtTeardown).toBe(1);
   });
 
-  test('destroy() removes the IPC handler', () => {
+  test('destroy() removes the ok:update:dispatch handler', () => {
     const { rig, handle } = makeRig();
     handle.destroy();
-    expect(rig.ipc.handlers.has('ok:update:relaunch-now')).toBe(false);
+    expect(rig.ipc.handlers.has('ok:update:dispatch')).toBe(false);
   });
 
   test('teardown and survivor sweep fire before quitAndInstall in that order', async () => {
@@ -3201,14 +3205,14 @@ describe('ok:update:relaunch-now IPC handler (AC18)', () => {
         debug: vi.fn(() => {}),
       },
     });
-    await ipc.invoke('ok:update:relaunch-now');
+    await ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     expect(calls).toEqual(['prepareForRelaunch', 'sweepUpdateSurvivors', 'quitAndInstall']);
   });
 
   test('prepareForRelaunch does NOT fire when versionPendingInstall is null', () => {
     const prepareForRelaunch = vi.fn(() => {});
     const { rig } = makeRig({ versionPendingInstall: null, prepareForRelaunch });
-    rig.ipc.invoke('ok:update:relaunch-now');
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     expect(prepareForRelaunch).not.toHaveBeenCalled();
     expect(rig.updater.quitAndInstall).not.toHaveBeenCalled();
   });
@@ -3218,7 +3222,7 @@ describe('ok:update:relaunch-now IPC handler (AC18)', () => {
       throw new Error('teardown bug');
     });
     const { rig } = makeRig({ versionPendingInstall: '0.3.2', prepareForRelaunch });
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     expect(prepareForRelaunch).toHaveBeenCalledTimes(1);
     expect(rig.updater.quitAndInstall).toHaveBeenCalledTimes(1);
     expect(rig.logger.warn).toHaveBeenCalled();
@@ -3229,7 +3233,7 @@ describe('ok:update:relaunch-now IPC handler (AC18)', () => {
       throw new Error('process query failed');
     });
     const { rig } = makeRig({ versionPendingInstall: '0.3.2', sweepUpdateSurvivors });
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     expect(sweepUpdateSurvivors).toHaveBeenCalledTimes(1);
     expect(rig.updater.quitAndInstall).toHaveBeenCalledTimes(1);
     expect(rig.logger.warn).toHaveBeenCalled();
@@ -3245,7 +3249,7 @@ describe('ok:update:relaunch-now IPC handler (AC18)', () => {
     }));
     const { rig } = makeRig({ versionPendingInstall: '0.3.2', sweepUpdateSurvivors });
 
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
 
     expect(rig.updater.quitAndInstall).toHaveBeenCalledTimes(1);
     expect(rig.logger.warn).toHaveBeenCalledWith(
@@ -3261,7 +3265,7 @@ describe('async relaunch failure — error event + no-quit watchdog', () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(rig.clock.lastMs).toBe(UPDATE_CHECK_INTERVAL_MS);
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     expect(rig.clock.lastMs).toBe(RELAUNCH_WATCHDOG_MS);
     expect(rig.clock.lastCallback).not.toBeNull();
   });
@@ -3271,7 +3275,7 @@ describe('async relaunch failure — error event + no-quit watchdog', () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(rig.clock.lastMs).toBe(UPDATE_CHECK_INTERVAL_MS);
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     expect(rig.state.versionPendingInstall).toBeNull();
     fireTimerFor(rig.clock, RELAUNCH_WATCHDOG_MS);
     expect(rig.state.versionPendingInstall).toBe('0.3.2');
@@ -3292,7 +3296,7 @@ describe('async relaunch failure — error event + no-quit watchdog', () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(rig.clock.lastMs).toBe(UPDATE_CHECK_INTERVAL_MS);
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     rig.updater.emit('error', new Error('ShipIt swap failed'));
     expect(rig.state.versionPendingInstall).toBe('0.3.2');
     for (const win of rig.windows) {
@@ -3318,7 +3322,7 @@ describe('async relaunch failure — error event + no-quit watchdog', () => {
     rig.updater.quitAndInstall = vi.fn(() => {
       rig.updater.emit('error', new Error('pkexec: authorization could not be obtained'));
     });
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     expect(rig.state.versionPendingInstall).toBe('0.3.2');
     for (const win of rig.windows) {
       const failed = win.filter((c) => c.channel === 'ok:update:relaunch-failed');
@@ -3337,7 +3341,7 @@ describe('async relaunch failure — error event + no-quit watchdog', () => {
     const { rig } = makeRig({ versionPendingInstall: '0.3.2' });
     await Promise.resolve();
     await Promise.resolve();
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     rig.updater.emit('error', Object.assign(new Error('HTTP 500'), { code: 'HTTP_ERROR_500' }));
     expect(rig.dispatches).toContain('error-classified' as DispatchKind);
     expect(rig.dispatches.filter((d) => d === 'relaunch-error-event')).toHaveLength(1);
@@ -3348,7 +3352,7 @@ describe('async relaunch failure — error event + no-quit watchdog', () => {
     const { rig } = makeRig({ versionPendingInstall: '0.3.2' });
     await Promise.resolve();
     await Promise.resolve();
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     rig.updater.emit('error', new Error(''));
     const failed = rig.captured.filter((c) => c.channel === 'ok:update:relaunch-failed');
     expect(failed).toHaveLength(1);
@@ -3363,7 +3367,7 @@ describe('async relaunch failure — error event + no-quit watchdog', () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(rig.clock.lastMs).toBe(UPDATE_CHECK_INTERVAL_MS);
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     fireTimerFor(rig.clock, RELAUNCH_WATCHDOG_MS);
     rig.updater.emit('error', new Error('ShipIt swap failed (late)'));
     expect(rig.state.versionPendingInstall).toBe('0.3.2');
@@ -3410,7 +3414,7 @@ describe('async relaunch failure — error event + no-quit watchdog', () => {
     });
     await Promise.resolve();
     await Promise.resolve();
-    await ipc.invoke('ok:update:relaunch-now');
+    await ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     failWrites = true;
     fireTimerFor(clock, RELAUNCH_WATCHDOG_MS);
     expect(state.versionPendingInstall).toBeNull();
@@ -3433,7 +3437,7 @@ describe('async relaunch failure — error event + no-quit watchdog', () => {
 
   test('watchdog NOT armed when isPackaged=false (dev quitAndInstall no-op is not a failure)', async () => {
     const { rig } = makeRig({ versionPendingInstall: '0.3.2', isPackaged: false });
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     expect(rig.clock.lastCallback).toBeNull();
     rig.updater.emit('error', new Error('dev error'));
     expect(rig.captured.filter((c) => c.channel === 'ok:update:relaunch-failed')).toHaveLength(0);
@@ -3444,24 +3448,19 @@ describe('async relaunch failure — error event + no-quit watchdog', () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(rig.clock.lastMs).toBe(UPDATE_CHECK_INTERVAL_MS);
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     expect(rig.clock.lastCallback).not.toBeNull();
     handle.destroy();
     expect(rig.clock.lastCallback).toBeNull();
   });
 });
 
-describe('ok:update:check-now IPC handler', () => {
-  test('registers the handler on startup', () => {
-    const { rig } = makeRig();
-    expect(rig.ipc.handlers.has('ok:update:check-now')).toBe(true);
-  });
-
+describe('check-now dispatch', () => {
   test('handler invocation calls updater.checkForUpdates', async () => {
     const { rig } = makeRig();
     await Promise.resolve();
     rig.updater.checkForUpdates.mockClear();
-    rig.ipc.invoke('ok:update:check-now');
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
     expect(rig.updater.checkForUpdates).toHaveBeenCalledTimes(1);
   });
 
@@ -3471,8 +3470,8 @@ describe('ok:update:check-now IPC handler', () => {
     rig.updater.checkForUpdates = vi.fn(() => new Promise(() => {}));
     rig.updater.checkForUpdates.mockClear();
 
-    rig.ipc.invoke('ok:update:check-now');
-    rig.ipc.invoke('ok:update:check-now');
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
 
     expect(rig.updater.checkForUpdates).toHaveBeenCalledTimes(1);
     expect(manualCheckPhases(rig)).toEqual(['started', 'started']);
@@ -3486,7 +3485,7 @@ describe('ok:update:check-now IPC handler', () => {
     const { rig } = makeRig({ versionPendingInstall: null });
     await Promise.resolve();
     rig.updater.checkForUpdates.mockClear();
-    rig.ipc.invoke('ok:update:check-now');
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
     expect(rig.updater.checkForUpdates).toHaveBeenCalledTimes(1);
   });
 
@@ -3502,13 +3501,7 @@ describe('ok:update:check-now IPC handler', () => {
     const { rig } = makeRig();
     await Promise.resolve();
     rig.updater.checkForUpdates = vi.fn(() => Promise.reject(new Error('network down')));
-    expect(() => rig.ipc.invoke('ok:update:check-now')).not.toThrow();
-  });
-
-  test('destroy() removes the check-now IPC handler', () => {
-    const { rig, handle } = makeRig();
-    handle.destroy();
-    expect(rig.ipc.handlers.has('ok:update:check-now')).toBe(false);
+    expect(() => rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' })).not.toThrow();
   });
 });
 
@@ -3526,7 +3519,7 @@ describe('check-now → showCheckNowResult feedback dispatch', () => {
           updater.checkForUpdates = vi.fn(() => pending.promise);
         },
       });
-      rig.ipc.invoke('ok:update:check-now');
+      rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
       rig.now = new Date(rig.now.getTime() + UPDATE_CHECK_DEADLINE_MS);
       fireTimerFor(rig.clock, UPDATE_CHECK_DEADLINE_MS);
       expect(showCheckNowResult).not.toHaveBeenCalled();
@@ -3534,7 +3527,12 @@ describe('check-now → showCheckNowResult feedback dispatch', () => {
       rig.updater.emit(event, { version: '0.5.0' });
       expect(showCheckNowResult).toHaveBeenCalledExactlyOnceWith(
         event === 'update-available'
-          ? { kind: 'available', currentVersion: '0.4.0', latestVersion: '0.5.0' }
+          ? {
+              kind: 'available',
+              currentVersion: '0.4.0',
+              latestVersion: '0.5.0',
+              download: 'background',
+            }
           : { kind: 'not-available', currentVersion: '0.4.0' },
       );
       expect(manualCheckPhases(rig)).toEqual(['started', 'settled']);
@@ -3563,7 +3561,7 @@ describe('check-now → showCheckNowResult feedback dispatch', () => {
           updater.checkForUpdates = vi.fn(() => pending.promise);
         },
       });
-      rig.ipc.invoke('ok:update:check-now');
+      rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
       rig.now = new Date(rig.now.getTime() + UPDATE_CHECK_DEADLINE_MS);
       fireTimerFor(rig.clock, UPDATE_CHECK_DEADLINE_MS);
       expect(showCheckNowResult).not.toHaveBeenCalled();
@@ -3620,7 +3618,7 @@ describe('check-now → showCheckNowResult feedback dispatch', () => {
         expect(rig.captured.filter((c) => c.channel === 'ok:update:stuck-hint')).toHaveLength(0);
         expect(rig.state.stuckHintShown).toBe(false);
         rig.now = new Date(rig.now.getTime() + 2);
-        rig.ipc.invoke('ok:update:check-now');
+        rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
       }
       expect(rig.captured.filter((c) => c.channel === 'ok:update:stuck-hint')).toEqual([
         { channel: 'ok:update:stuck-hint', payload: { downloadUrl: STUCK_HINT_DOWNLOAD_URL } },
@@ -3667,7 +3665,7 @@ describe('check-now → showCheckNowResult feedback dispatch', () => {
       proxyFallbackTried: false,
     });
     expect(showCheckNowResult).not.toHaveBeenCalled();
-    rig.ipc.invoke('ok:update:check-now');
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
     expect(showCheckNowResult).toHaveBeenCalledTimes(1);
     expect(showCheckNowResult).toHaveBeenCalledWith({
       kind: 'error',
@@ -3717,7 +3715,7 @@ describe('check-now → showCheckNowResult feedback dispatch', () => {
           });
         },
       });
-      rig.ipc.invoke('ok:update:check-now');
+      rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
       expect(showCheckNowResult).not.toHaveBeenCalled();
       rig.now = new Date(rig.now.getTime() + UPDATE_CHECK_DEADLINE_MS);
       if (outcome === 'destroy') {
@@ -3787,7 +3785,7 @@ describe('check-now → showCheckNowResult feedback dispatch', () => {
       rig.updater.checkForUpdates.mockImplementation(() =>
         rejectAfterErrorEvent(rig.updater, error),
       );
-      rig.ipc.invoke('ok:update:check-now');
+      rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
       await new Promise((resolve) => setTimeout(resolve, 0));
       expect(showCheckNowResult).toHaveBeenCalledTimes(1);
       expect(showCheckNowResult).toHaveBeenCalledWith(
@@ -3835,7 +3833,7 @@ describe('check-now → showCheckNowResult feedback dispatch', () => {
         }
         throw new Error('unexpected updater feed');
       });
-      rig.ipc.invoke('ok:update:check-now');
+      rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
       await new Promise((resolve) => setTimeout(resolve, 0));
       if (outcome === 'dispatch-throw') {
         expect(rig.logger.error).toHaveBeenCalledWith('proxy-feed fallback checkForUpdates threw', {
@@ -3882,7 +3880,7 @@ describe('check-now → showCheckNowResult feedback dispatch', () => {
         const reuseLogsBeforeClick = rig.logger.info.mock.calls.filter(
           ([message]) => message === 'check already in flight, reusing the pending promise',
         ).length;
-        rig.ipc.invoke('ok:update:check-now');
+        rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
         expect(showCheckNowResult).not.toHaveBeenCalled();
         expect(rig.updater.checkForUpdates).toHaveBeenCalledTimes(2);
         expect(rig.dispatches).toContain('check-now-already-pending');
@@ -3946,7 +3944,7 @@ describe('check-now → showCheckNowResult feedback dispatch', () => {
         );
         expect(rig.clock.clearTimeout).not.toHaveBeenCalledWith(deadlineHandle);
         const feedCalls = rig.updater.setFeedURL.mock.calls.length;
-        rig.ipc.invoke('ok:update:check-now');
+        rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
         expect(manualCheckPhases(rig)).toEqual([
           'started',
           'started',
@@ -4032,7 +4030,7 @@ describe('check-now → showCheckNowResult feedback dispatch', () => {
         throw new Error('unexpected updater feed');
       });
 
-      rig.ipc.invoke('ok:update:check-now');
+      rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
       await new Promise((resolve) => setTimeout(resolve, 0));
       expect(showCheckNowResult).not.toHaveBeenCalled();
       finishRetry.resolve(undefined);
@@ -4044,6 +4042,7 @@ describe('check-now → showCheckNowResult feedback dispatch', () => {
           kind: 'available',
           currentVersion: '0.4.0',
           latestVersion: '0.4.1',
+          download: 'background',
         });
         expect(showCheckNowResult).not.toHaveBeenCalledWith(
           expect.objectContaining({ kind: 'not-available' }),
@@ -4086,7 +4085,7 @@ describe('check-now → showCheckNowResult feedback dispatch', () => {
       rejectAfterErrorEvent(rig.updater, proxyError),
     );
 
-    rig.ipc.invoke('ok:update:check-now');
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(showCheckNowResult).toHaveBeenCalledTimes(1);
     expect(showCheckNowResult).toHaveBeenCalledWith({ kind: 'error', message: proxyError.message });
@@ -4108,7 +4107,7 @@ describe('check-now → showCheckNowResult feedback dispatch', () => {
           ? Promise.reject(new Error('network unavailable'))
           : Promise.resolve(null),
       );
-      rig.ipc.invoke('ok:update:check-now');
+      rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
       const [watchdogHandle, watchdog] = liveTimerFor(rig.clock, MANUAL_CHECK_WATCHDOG_MS);
       expect(watchdog.state).toBe('live');
 
@@ -4119,7 +4118,10 @@ describe('check-now → showCheckNowResult feedback dispatch', () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
       expect(rig.clock.clearTimeout).toHaveBeenCalledWith(watchdogHandle);
       expect(manualCheckPhases(rig)).toEqual(['started', 'settled']);
-      expect(showCheckNowResult).toHaveBeenCalledTimes(outcome === 'resolve' ? 0 : 1);
+      expect(showCheckNowResult).toHaveBeenCalledTimes(1);
+      if (outcome === 'resolve') {
+        expect(showCheckNowResult).toHaveBeenCalledWith({ kind: 'updater-inactive' });
+      }
       showCheckNowResult.mockClear();
       watchdog.cb();
       expect(showCheckNowResult).not.toHaveBeenCalled();
@@ -4131,7 +4133,7 @@ describe('check-now → showCheckNowResult feedback dispatch', () => {
     const showCheckNowResult = vi.fn(() => {});
     const { rig, handle } = makeRig({ showCheckNowResult, isPackaged: false });
     rig.updater.checkForUpdates = vi.fn(() => new Promise(() => {}));
-    rig.ipc.invoke('ok:update:check-now');
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
     const [watchdogHandle, watchdog] = liveTimerFor(rig.clock, MANUAL_CHECK_WATCHDOG_MS);
     handle.destroy();
     expect(rig.clock.clearTimeout).toHaveBeenCalledWith(watchdogHandle);
@@ -4148,7 +4150,7 @@ describe('check-now → showCheckNowResult feedback dispatch', () => {
         throw dialogError;
       },
     });
-    rig.ipc.invoke('ok:update:check-now');
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
     const [watchdogHandle] = liveTimerFor(rig.clock, MANUAL_CHECK_WATCHDOG_MS);
 
     expect(() => rig.updater.emit('update-not-available', { version: '0.3.1' })).not.toThrow();
@@ -4160,19 +4162,49 @@ describe('check-now → showCheckNowResult feedback dispatch', () => {
     );
   });
 
+  test('an inactive updater shows the updater-inactive result and allows another manual check', async () => {
+    const showCheckNowResult = vi.fn(() => {});
+    const { rig } = makeRig({ showCheckNowResult });
+    await Promise.resolve();
+    let phasesAtDialog: Array<'started' | 'settled'> = [];
+    showCheckNowResult.mockImplementation(() => {
+      phasesAtDialog = manualCheckPhases(rig);
+    });
+    rig.updater.checkForUpdates = vi.fn(() => Promise.resolve(null));
+
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
+    const [watchdogHandle, watchdog] = liveTimerFor(rig.clock, MANUAL_CHECK_WATCHDOG_MS);
+    expect(manualCheckPhases(rig)).toEqual(['started']);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(phasesAtDialog).toEqual(['started', 'settled']);
+    expect(showCheckNowResult).toHaveBeenCalledTimes(1);
+    expect(showCheckNowResult).toHaveBeenCalledWith({ kind: 'updater-inactive' });
+    expect(rig.clock.clearTimeout).toHaveBeenCalledWith(watchdogHandle);
+    watchdog.cb();
+    expect(showCheckNowResult).toHaveBeenCalledTimes(1);
+
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
+    expect(rig.updater.checkForUpdates).toHaveBeenCalledTimes(2);
+    expect(manualCheckPhases(rig)).toEqual(['started', 'settled', 'started']);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(manualCheckPhases(rig)).toEqual(['started', 'settled', 'started', 'settled']);
+    expect(showCheckNowResult).toHaveBeenCalledTimes(2);
+    expect(showCheckNowResult).toHaveBeenLastCalledWith({ kind: 'updater-inactive' });
+  });
+
   test('a verdict-less check settles silently and allows another manual check', async () => {
     const showCheckNowResult = vi.fn(() => {});
     const { rig } = makeRig({ showCheckNowResult });
     await Promise.resolve();
-    rig.updater.checkForUpdates = vi.fn(() => Promise.resolve(null));
+    rig.updater.checkForUpdates = vi.fn(() => Promise.resolve(undefined));
 
-    rig.ipc.invoke('ok:update:check-now');
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
     expect(manualCheckPhases(rig)).toEqual(['started']);
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(manualCheckPhases(rig)).toEqual(['started', 'settled']);
     expect(showCheckNowResult).not.toHaveBeenCalled();
 
-    rig.ipc.invoke('ok:update:check-now');
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
     expect(rig.updater.checkForUpdates).toHaveBeenCalledTimes(2);
     expect(manualCheckPhases(rig)).toEqual(['started', 'settled', 'started']);
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -4188,7 +4220,7 @@ describe('check-now → showCheckNowResult feedback dispatch', () => {
     showCheckNowResult.mockImplementation(() => {
       phasesAtDialog = manualCheckPhases(rig);
     });
-    rig.ipc.invoke('ok:update:check-now');
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
     expect(manualCheckPhases(rig)).toEqual(['started']);
     rig.updater.emit('update-not-available', { version: '0.4.0-beta.13' });
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -4211,7 +4243,7 @@ describe('check-now → showCheckNowResult feedback dispatch', () => {
     showCheckNowResult.mockImplementation(() => {
       phasesAtDialog = manualCheckPhases(rig);
     });
-    rig.ipc.invoke('ok:update:check-now');
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
     expect(manualCheckPhases(rig)).toEqual(['started']);
     rig.updater.emit('update-available', { version: '0.4.0-beta.14' });
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -4221,6 +4253,7 @@ describe('check-now → showCheckNowResult feedback dispatch', () => {
       kind: 'available',
       currentVersion: '0.4.0-beta.13',
       latestVersion: '0.4.0-beta.14',
+      download: 'background',
     });
     expect(manualCheckPhases(rig)).toEqual(['started', 'settled']);
   });
@@ -4232,7 +4265,7 @@ describe('check-now → showCheckNowResult feedback dispatch', () => {
     showCheckNowResult.mockImplementation(() => {
       phasesAtDialog = manualCheckPhases(rig);
     });
-    rig.ipc.invoke('ok:update:check-now');
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
     expect(manualCheckPhases(rig)).toEqual(['started']);
     rig.updater.emit('error', new Error('network timeout'));
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -4248,7 +4281,7 @@ describe('check-now → showCheckNowResult feedback dispatch', () => {
   test('ERR_UPDATER_CHANNEL_FILE_NOT_FOUND routes to not-available', () => {
     const showCheckNowResult = vi.fn(() => {});
     const { rig } = makeRig({ appVersion: '0.5.0-beta.21', showCheckNowResult });
-    rig.ipc.invoke('ok:update:check-now');
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
     const err = Object.assign(
       new Error(
         'Cannot find latest-mac.yml in the latest release artifacts (https://github.com/inkeep/open-knowledge/releases/download/v0.5.0-beta.22/latest-mac.yml): HttpError: 404',
@@ -4266,7 +4299,7 @@ describe('check-now → showCheckNowResult feedback dispatch', () => {
   test('other classified updater errors still surface kind=error (channel-file-not-found is the only narrow case)', () => {
     const showCheckNowResult = vi.fn(() => {});
     const { rig } = makeRig({ showCheckNowResult });
-    rig.ipc.invoke('ok:update:check-now');
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
     const err = Object.assign(new Error('zip missing'), {
       code: 'ERR_UPDATER_ZIP_FILE_NOT_FOUND',
     });
@@ -4288,7 +4321,7 @@ describe('check-now → showCheckNowResult feedback dispatch', () => {
   test('subsequent events after dispatch do NOT re-fire (single-shot per check-now)', () => {
     const showCheckNowResult = vi.fn(() => {});
     const { rig } = makeRig({ showCheckNowResult });
-    rig.ipc.invoke('ok:update:check-now');
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
     rig.updater.emit('update-not-available', { version: '0.4.0-beta.13' });
     rig.updater.emit('update-not-available', { version: '0.4.0-beta.13' });
     rig.updater.emit('error', new Error('next-cycle network error'));
@@ -4304,7 +4337,7 @@ describe('check-now → showCheckNowResult feedback dispatch', () => {
     showCheckNowResult.mockImplementation(() => {
       phasesAtDialog = manualCheckPhases(rig);
     });
-    rig.ipc.invoke('ok:update:check-now');
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
     expect(manualCheckPhases(rig)).toEqual(['started']);
     await new Promise((r) => setTimeout(r, 0));
     expect(phasesAtDialog).toEqual(['started', 'settled']);
@@ -4323,12 +4356,249 @@ describe('check-now → showCheckNowResult feedback dispatch', () => {
       code: 'ERR_UPDATER_CHANNEL_FILE_NOT_FOUND',
     });
     rig.updater.checkForUpdates = vi.fn(() => Promise.reject(err));
-    rig.ipc.invoke('ok:update:check-now');
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
     await new Promise((r) => setTimeout(r, 0));
     expect(showCheckNowResult).toHaveBeenCalledWith({
       kind: 'not-available',
       currentVersion: '0.5.0-beta.21',
     });
+  });
+});
+
+describe('a download that fails after the menu check said "available"', () => {
+  const offered = {
+    kind: 'available',
+    currentVersion: '0.4.0',
+    latestVersion: '0.5.0',
+    download: 'background',
+  } as const;
+  const downloadFailed = {
+    kind: 'download-failed',
+    latestVersion: '0.5.0',
+    message: UPDATE_DOWNLOAD_FAILED_MESSAGE,
+  } as const;
+
+  function assetMissing(): Error {
+    return Object.assign(new Error('Cannot find OpenKnowledge-amd64.deb in the latest release'), {
+      code: 'ERR_UPDATER_ASSET_NOT_FOUND',
+    });
+  }
+
+  test.each(['error-then-reject', 'reject-only'] as const)(
+    'shows a download-failed dialog after the available dialog (%s)',
+    async (failure) => {
+      const showCheckNowResult = vi.fn(() => {});
+      const { rig } = makeRig({
+        appVersion: '0.4.0',
+        platform: 'linux',
+        proxyFeed: { base: PROXY_BASE, channels: new Set(['latest']) },
+        showCheckNowResult,
+      });
+      await Promise.resolve();
+      rig.updater.downloadUpdate.mockImplementation(() =>
+        failure === 'error-then-reject'
+          ? rejectAfterErrorEvent(rig.updater, assetMissing())
+          : Promise.reject(assetMissing()),
+      );
+      rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
+      rig.updater.emit('update-available', { version: '0.5.0' });
+      expect(showCheckNowResult).toHaveBeenCalledExactlyOnceWith(offered);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(showCheckNowResult.mock.calls).toEqual([[offered], [downloadFailed]]);
+      expect(manualCheckPhases(rig)).toEqual(['started', 'settled']);
+      expect(rig.dispatches).toContain('check-now-download-failed-shown');
+    },
+  );
+
+  test('a synchronous asset-not-found throw from downloadUpdate reports only the download failure', async () => {
+    const showCheckNowResult = vi.fn(() => {});
+    const { rig } = makeRig({
+      appVersion: '0.4.0',
+      platform: 'linux',
+      proxyFeed: { base: PROXY_BASE, channels: new Set(['latest']) },
+      showCheckNowResult,
+    });
+    await Promise.resolve();
+    rig.updater.downloadUpdate.mockImplementation(() => {
+      throw assetMissing();
+    });
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
+    expect(() => rig.updater.emit('update-available', { version: '0.5.0' })).not.toThrow();
+    expect(showCheckNowResult).toHaveBeenCalledExactlyOnceWith(downloadFailed);
+    expect(manualCheckPhases(rig)).toEqual(['started', 'settled']);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(showCheckNowResult.mock.calls).toEqual([[downloadFailed]]);
+    expect(rig.dispatches.filter((kind) => kind === 'check-now-download-failed-shown')).toEqual([
+      'check-now-download-failed-shown',
+    ]);
+  });
+
+  test('two menu checks sharing one in-flight download report its failure once', async () => {
+    const showCheckNowResult = vi.fn(() => {});
+    const download = Promise.withResolvers<never>();
+    const { rig } = makeRig({
+      appVersion: '0.4.0',
+      platform: 'linux',
+      proxyFeed: { base: PROXY_BASE, channels: new Set(['latest']) },
+      showCheckNowResult,
+      updaterSetup: (updater) => {
+        updater.downloadUpdate = vi.fn(() => download.promise);
+      },
+    });
+    await Promise.resolve();
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
+    rig.updater.emit('update-available', { version: '0.5.0' });
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
+    rig.updater.emit('update-available', { version: '0.5.0' });
+    download.reject(assetMissing());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(showCheckNowResult.mock.calls).toEqual([[offered], [offered], [downloadFailed]]);
+  });
+
+  test('a menu check that joins a background download in flight reports its failure once', async () => {
+    const showCheckNowResult = vi.fn(() => {});
+    const download = Promise.withResolvers<never>();
+    const { rig } = makeRig({
+      appVersion: '0.4.0',
+      platform: 'linux',
+      proxyFeed: { base: PROXY_BASE, channels: new Set(['latest']) },
+      showCheckNowResult,
+      updaterSetup: (updater) => {
+        updater.downloadUpdate = vi.fn(() => download.promise);
+      },
+    });
+    await Promise.resolve();
+    rig.updater.emit('update-available', { version: '0.5.0' });
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
+    rig.updater.emit('update-available', { version: '0.5.0' });
+    expect(rig.updater.downloadUpdate).toHaveBeenCalledTimes(2);
+    download.reject(assetMissing());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(showCheckNowResult.mock.calls).toEqual([[offered], [downloadFailed]]);
+  });
+
+  test('a launch or periodic download failure stays log-only', async () => {
+    const showCheckNowResult = vi.fn(() => {});
+    const { rig } = makeRig({
+      appVersion: '0.4.0',
+      proxyFeed: { base: PROXY_BASE, channels: new Set(['latest']) },
+      showCheckNowResult,
+    });
+    await Promise.resolve();
+    rig.updater.downloadUpdate.mockImplementation(() =>
+      rejectAfterErrorEvent(rig.updater, assetMissing()),
+    );
+    rig.updater.emit('update-available', { version: '0.5.0' });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(rig.updater.downloadUpdate).toHaveBeenCalledTimes(1);
+    expect(showCheckNowResult).not.toHaveBeenCalled();
+    expect(rig.dispatches).not.toContain('check-now-download-failed-shown');
+  });
+
+  test('a failed download never arms the ready card or a pending install', async () => {
+    const showCheckNowResult = vi.fn(() => {});
+    const { rig } = makeRig({
+      appVersion: '0.4.0',
+      platform: 'linux',
+      proxyFeed: { base: PROXY_BASE, channels: new Set(['latest']) },
+      showCheckNowResult,
+    });
+    await Promise.resolve();
+    rig.updater.downloadUpdate.mockImplementation(() =>
+      rejectAfterErrorEvent(rig.updater, assetMissing()),
+    );
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
+    rig.updater.emit('update-available', { version: '0.5.0' });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
+    rig.updater.emit('update-available', { version: '0.5.0' });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(rig.captured.filter((entry) => entry.channel === 'ok:update:downloaded')).toEqual([]);
+    expect(rig.state.versionPendingInstall).toBeNull();
+    expect(rig.state.attemptedInstall).toBeNull();
+    expect(showCheckNowResult.mock.calls).toEqual([
+      [offered],
+      [downloadFailed],
+      [offered],
+      [downloadFailed],
+    ]);
+  });
+
+  test.each([
+    { retry: 'downloads', dialogs: [[offered]] },
+    { retry: 'not-available', dialogs: [[offered], [downloadFailed]] },
+    { retry: 'download-fails', dialogs: [[offered], [downloadFailed]] },
+    { retry: 'check-fails', dialogs: [[offered], [downloadFailed]] },
+  ] as const)(
+    'a proxy download failure waits for the GitHub retry before reporting (retry $retry)',
+    async ({ retry, dialogs }) => {
+      const showCheckNowResult = vi.fn(() => {});
+      const { rig } = makeRig({
+        appVersion: '0.4.0',
+        proxyFeed: { base: PROXY_BASE, channels: new Set(['latest']) },
+        showCheckNowResult,
+      });
+      await Promise.resolve();
+      const proxyDownloadError = Object.assign(new Error('proxy unavailable'), {
+        code: 'HTTP_ERROR_503',
+      });
+      rig.updater.checkForUpdates.mockImplementation(() => {
+        const feed = rig.updater.setFeedURL.mock.calls.at(-1)?.[0];
+        if (typeof feed !== 'object' || feed.provider !== 'github') {
+          return Promise.resolve(undefined);
+        }
+        if (retry === 'check-fails') {
+          return rejectAfterErrorEvent(
+            rig.updater,
+            Object.assign(new Error('GitHub unavailable'), { code: 'HTTP_ERROR_503' }),
+          );
+        }
+        return new Promise<undefined>((resolve) => setTimeout(resolve, 0)).then(() => {
+          rig.updater.emit(
+            retry === 'not-available' ? 'update-not-available' : 'update-available',
+            { version: '0.5.0' },
+          );
+          return undefined;
+        });
+      });
+      rig.updater.downloadUpdate.mockImplementation(() => {
+        if (rig.updater.downloadUpdate.mock.calls.length === 1) {
+          return rejectAfterErrorEvent(rig.updater, proxyDownloadError);
+        }
+        if (retry === 'download-fails') {
+          return rejectAfterErrorEvent(rig.updater, assetMissing());
+        }
+        rig.updater.emit('update-downloaded', { version: '0.5.0' });
+        return Promise.resolve([]);
+      });
+      rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
+      rig.updater.emit('update-available', { version: '0.5.0' });
+      for (let tick = 0; tick < 4; tick++) await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(rig.updater.setFeedURL).toHaveBeenCalledWith(
+        expect.objectContaining({ provider: 'github' }),
+      );
+      expect(showCheckNowResult.mock.calls).toEqual(dialogs);
+      expect(manualCheckPhases(rig)).toEqual(['started', 'settled']);
+    },
+  );
+
+  test('destroy before the download fails shows no dialog', async () => {
+    const showCheckNowResult = vi.fn(() => {});
+    const download = Promise.withResolvers<never>();
+    const { rig, handle } = makeRig({
+      appVersion: '0.4.0',
+      proxyFeed: { base: PROXY_BASE, channels: new Set(['latest']) },
+      showCheckNowResult,
+      updaterSetup: (updater) => {
+        updater.downloadUpdate = vi.fn(() => download.promise);
+      },
+    });
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
+    rig.updater.emit('update-available', { version: '0.5.0' });
+    handle.destroy();
+    download.reject(assetMissing());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(showCheckNowResult.mock.calls).toEqual([[offered]]);
   });
 });
 
@@ -4398,7 +4668,7 @@ describe('dev-mode guard (isPackaged=false)', () => {
       },
     });
     expect(rig.updater.checkForUpdates).not.toHaveBeenCalled();
-    rig.ipc.invoke('ok:update:check-now');
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
     expect(rig.updater.checkForUpdates).toHaveBeenCalledTimes(1);
     rig.now = new Date(rig.now.getTime() + UPDATE_CHECK_DEADLINE_MS);
     fireTimerFor(rig.clock, UPDATE_CHECK_DEADLINE_MS);
@@ -4522,7 +4792,7 @@ describe('destroy() teardown', () => {
         updater.checkForUpdates = vi.fn(() => new Promise(() => {}));
       },
     });
-    rig.ipc.invoke('ok:update:check-now');
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
     handle.destroy();
     expect(manualCheckPhases(rig)).toEqual(['started', 'settled']);
     const timerCount = rig.clock.setTimeout.mock.calls.length;
@@ -4772,8 +5042,8 @@ describe('Toast B persist-before-emit + whenRendererReady (Major #1)', () => {
 describe('relaunch-now idempotency (Major #2)', () => {
   test('second invocation sees the committed install → no second quitAndInstall', async () => {
     const { rig } = makeRig({ versionPendingInstall: '0.3.2' });
-    const first = rig.ipc.invoke('ok:update:relaunch-now');
-    const second = rig.ipc.invoke('ok:update:relaunch-now');
+    const first = rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
+    const second = rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     await Promise.all([first, second]);
     expect(rig.updater.quitAndInstall).toHaveBeenCalledTimes(1);
     expect(rig.dispatches).toContain('relaunch-double-invoke-blocked' as DispatchKind);
@@ -4806,7 +5076,9 @@ describe('relaunch-now idempotency (Major #2)', () => {
         debug: vi.fn(() => {}),
       },
     });
-    await expect(Promise.resolve(ipc.invoke('ok:update:relaunch-now'))).rejects.toThrow();
+    await expect(
+      Promise.resolve(ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' })),
+    ).rejects.toThrow();
     expect(updater.quitAndInstall).not.toHaveBeenCalled();
     expect(state.versionPendingInstall).toBe('0.3.2');
   });
@@ -5017,7 +5289,7 @@ describe('staged-cache reclaim — fires only once every install commitment is s
     expect(reclaim).not.toHaveBeenCalled();
   });
 
-  test('the giveup boot clears both gates but still skips the reclaim', () => {
+  test('the giveup boot keeps the staged build and skips the reclaim', () => {
     const reclaim = vi.fn(() => Promise.resolve());
     const { rig } = makeRig({
       attemptedInstall: '0.9.9',
@@ -5027,7 +5299,7 @@ describe('staged-cache reclaim — fires only once every install commitment is s
     });
     expect(rig.dispatches).toContain('install-failed-giveup' as DispatchKind);
     expect(rig.state.attemptedInstall).toBeNull();
-    expect(rig.state.versionPendingInstall).toBeNull();
+    expect(rig.state.versionPendingInstall).toBe('0.9.9');
     expect(reclaim).not.toHaveBeenCalled();
   });
 
@@ -5105,7 +5377,7 @@ describe('linux manual-install fallback', () => {
 
   test('no graphical auth → fallback dialog instead of quitAndInstall, staged state preserved', async () => {
     const { rig, fallback } = makeLinuxRig({ hasGraphicalAuth: false, extraWindowCount: 1 });
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     expect(rig.updater.quitAndInstall).not.toHaveBeenCalled();
     expect(rig.state.versionPendingInstall).toBe('0.3.2');
     expect(rig.state.attemptedInstall).toBeNull();
@@ -5126,7 +5398,7 @@ describe('linux manual-install fallback', () => {
 
   test('graphical auth present → normal quitAndInstall path, no fallback', async () => {
     const { rig, fallback, hasAuth } = makeLinuxRig({ hasGraphicalAuth: true });
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     expect(hasAuth).toHaveBeenCalled();
     expect(rig.updater.quitAndInstall).toHaveBeenCalledTimes(1);
     expect(fallback).not.toHaveBeenCalled();
@@ -5137,7 +5409,7 @@ describe('linux manual-install fallback', () => {
       hasGraphicalAuth: false,
       downloadedFile: '/x/OpenKnowledge.AppImage',
     });
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     expect(rig.updater.quitAndInstall).toHaveBeenCalledTimes(1);
     expect(fallback).not.toHaveBeenCalled();
   });
@@ -5146,7 +5418,7 @@ describe('linux manual-install fallback', () => {
     const { rig, fallback } = makeLinuxRig({ hasGraphicalAuth: true, extraWindowCount: 1 });
     await Promise.resolve();
     await Promise.resolve();
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     rig.updater.emit('error', new Error('Command pkexec exited with code 126'));
     expect(rig.state.versionPendingInstall).toBe('0.3.2');
     for (const win of rig.windows) {
@@ -5163,10 +5435,10 @@ describe('linux manual-install fallback', () => {
 
   test('retry after cancellation: the re-armed gate accepts a second relaunch-now', async () => {
     const { rig } = makeLinuxRig({ hasGraphicalAuth: true });
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     rig.updater.emit('error', new Error('Command pkexec exited with code 126'));
     expect(rig.state.versionPendingInstall).toBe('0.3.2');
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     expect(rig.updater.quitAndInstall).toHaveBeenCalledTimes(2);
   });
 
@@ -5174,7 +5446,7 @@ describe('linux manual-install fallback', () => {
     const { rig, fallback } = makeLinuxRig({ hasGraphicalAuth: true, extraWindowCount: 1 });
     await Promise.resolve();
     await Promise.resolve();
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     rig.updater.emit('error', new Error('Command pkexec exited with code 127'));
     expect(rig.state.versionPendingInstall).toBe('0.3.2');
     for (const win of rig.windows) {
@@ -5197,7 +5469,7 @@ describe('linux manual-install fallback', () => {
 
   test('sudo-without-tty failure (no graphical wrapper found mid-install) also offers the fallback', async () => {
     const { rig, fallback } = makeLinuxRig({ hasGraphicalAuth: true });
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     rig.updater.emit('error', new Error('Command sudo exited with code 1'));
     expect(fallback).toHaveBeenCalledTimes(1);
   });
@@ -5207,7 +5479,7 @@ describe('linux manual-install fallback', () => {
       hasGraphicalAuth: false,
       downloadedFile: '/home/u/.cache/ok-updater/pending/ok-0.3.2.x86_64.rpm',
     });
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     expect(fallback).toHaveBeenCalledWith(
       expect.objectContaining({
         packageKind: 'rpm',
@@ -5222,7 +5494,7 @@ describe('linux manual-install fallback', () => {
       emitDownloadEvent: false,
       stateStagedInstallerPath: STAGED_DEB,
     });
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     expect(rig.updater.quitAndInstall).not.toHaveBeenCalled();
     expect(fallback).toHaveBeenCalledWith({
       version: '0.3.2',
@@ -5239,7 +5511,7 @@ describe('linux manual-install fallback', () => {
       stateStagedInstallerPath: STAGED_DEB,
       stagedInstallerExists: () => false,
     });
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     expect(rig.updater.quitAndInstall).toHaveBeenCalledTimes(1);
     expect(fallback).not.toHaveBeenCalled();
   });
@@ -5272,7 +5544,7 @@ describe('linux manual-install fallback', () => {
       },
     });
     rig.updater.emit('update-downloaded', { version: '0.3.2', downloadedFile: STAGED_DEB });
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     expect(rig.updater.quitAndInstall).toHaveBeenCalledTimes(1);
     rig.updater.emit('error', new Error('Command pkexec exited with code 127'));
     expect(fallback).not.toHaveBeenCalled();
@@ -5339,7 +5611,7 @@ describe('same-version download guard', () => {
     expect(rig.updater.downloadUpdate).not.toHaveBeenCalled();
     expect(rig.dispatches).toContain('download-skipped-already-staged' as DispatchKind);
 
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     expect(rig.updater.quitAndInstall).toHaveBeenCalledTimes(1);
   });
 
@@ -5420,7 +5692,7 @@ describe('single-flight install handoff', () => {
       return Promise.resolve(undefined);
     });
 
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
 
     expect(rig.updater.downloadUpdate).not.toHaveBeenCalled();
     expect(rig.updater.quitAndInstall).toHaveBeenCalledTimes(1);
@@ -5452,13 +5724,14 @@ describe('single-flight install handoff', () => {
       stageInSession(rig, '0.3.2');
       showCheckNowResult.mockClear();
 
-      rig.ipc.invoke('ok:update:check-now');
+      rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
       rig.updater.emit('update-available', { version: '0.3.3' });
 
       expect(showCheckNowResult).toHaveBeenCalledWith({
         kind: 'available',
         currentVersion: '0.3.1',
         latestVersion: '0.3.3',
+        download: 'background',
       });
     },
   );
@@ -5486,7 +5759,7 @@ describe('single-flight install handoff', () => {
     stageInSession(rig, '0.3.2');
     showCheckNowResult.mockClear();
 
-    rig.ipc.invoke('ok:update:check-now');
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
     rig.updater.emit('update-available', { version: '0.3.3' });
 
     expect(showCheckNowResult).toHaveBeenCalledTimes(1);
@@ -5494,6 +5767,7 @@ describe('single-flight install handoff', () => {
       kind: 'ready-to-install',
       currentVersion: '0.3.1',
       stagedVersion: '0.3.2',
+      relaunch: 'available',
     });
   });
 
@@ -5507,7 +5781,7 @@ describe('single-flight install handoff', () => {
     stageInSession(rig, '0.3.2');
     showCheckNowResult.mockClear();
 
-    rig.ipc.invoke('ok:update:check-now');
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
     rig.updater.emit('update-available', { version: '0.3.2' });
 
     expect(rig.updater.downloadUpdate).not.toHaveBeenCalled();
@@ -5515,6 +5789,7 @@ describe('single-flight install handoff', () => {
       kind: 'ready-to-install',
       currentVersion: '0.3.1',
       stagedVersion: '0.3.2',
+      relaunch: 'available',
     });
   });
 
@@ -5531,7 +5806,7 @@ describe('single-flight install handoff', () => {
       stageInSession(rig, '0.3.2');
       showCheckNowResult.mockClear();
 
-      rig.ipc.invoke('ok:update:check-now');
+      rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
       rig.updater.emit('update-available', { version: '0.3.2' });
 
       expect(rig.updater.downloadUpdate).not.toHaveBeenCalled();
@@ -5539,6 +5814,7 @@ describe('single-flight install handoff', () => {
         kind: 'ready-to-install',
         currentVersion: '0.3.1',
         stagedVersion: '0.3.2',
+        relaunch: 'available',
       });
     },
   );
@@ -5553,9 +5829,9 @@ describe('single-flight install handoff', () => {
         throw new Error('installer refused the handoff');
       });
 
-      await expect(Promise.resolve(rig.ipc.invoke('ok:update:relaunch-now'))).rejects.toThrow(
-        'installer refused the handoff',
-      );
+      await expect(
+        Promise.resolve(rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' })),
+      ).rejects.toThrow('installer refused the handoff');
       expect(rig.state.versionPendingInstall).toBeNull();
       rig.failNextPersist = false;
       rig.updater.downloadUpdate.mockClear();
@@ -5569,7 +5845,7 @@ describe('single-flight install handoff', () => {
   test('on macOS a watchdog fire that cannot restore KEEPS the arm', async () => {
     const { rig } = makeRig({ versionPendingInstall: null });
     stageInSession(rig, '0.3.2');
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     rig.failNextPersist = true;
     fireTimerFor(rig.clock, RELAUNCH_WATCHDOG_MS);
     rig.failNextPersist = false;
@@ -5591,9 +5867,9 @@ describe('single-flight install handoff', () => {
       throw new Error('squirrel refused the handoff');
     });
 
-    await expect(Promise.resolve(rig.ipc.invoke('ok:update:relaunch-now'))).rejects.toThrow(
-      'squirrel refused the handoff',
-    );
+    await expect(
+      Promise.resolve(rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' })),
+    ).rejects.toThrow('squirrel refused the handoff');
     rig.failNextPersist = false;
     expect(rig.state.versionPendingInstall).toBeNull();
     rig.updater.downloadUpdate.mockClear();
@@ -5607,7 +5883,7 @@ describe('single-flight install handoff', () => {
   test('on macOS an in-flight error that cannot restore KEEPS the arm', async () => {
     const { rig } = makeRig({ versionPendingInstall: null });
     stageInSession(rig, '0.3.2');
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     rig.failNextPersist = true;
     rig.updater.emit('error', new Error('install failed'));
     rig.failNextPersist = false;
@@ -5628,9 +5904,9 @@ describe('single-flight install handoff', () => {
       throw new Error('squirrel refused the handoff');
     });
 
-    await expect(Promise.resolve(rig.ipc.invoke('ok:update:relaunch-now'))).rejects.toThrow(
-      'squirrel refused the handoff',
-    );
+    await expect(
+      Promise.resolve(rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' })),
+    ).rejects.toThrow('squirrel refused the handoff');
     expect(rig.state.versionPendingInstall).toBe('0.3.2');
     rig.updater.downloadUpdate.mockClear();
 
@@ -5655,7 +5931,7 @@ describe('single-flight install handoff', () => {
 describe('click-gated freshness check', () => {
   test('nothing newer → installs the staged build', async () => {
     const { rig } = makeRig({ versionPendingInstall: '0.3.2' });
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
 
     expect(rig.updater.checkForUpdates).toHaveBeenCalled();
     expect(rig.dispatches).toContain('relaunch-refresh-up-to-date' as DispatchKind);
@@ -5664,7 +5940,7 @@ describe('click-gated freshness check', () => {
 
   test('every window is told the click is fetching before the wait begins', async () => {
     const { rig } = makeRig({ versionPendingInstall: '0.3.2', extraWindowCount: 2 });
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
 
     for (const win of rig.windows) {
       const fetching = win.filter((c) => c.channel === 'ok:update:fetching-latest');
@@ -5681,7 +5957,7 @@ describe('click-gated freshness check', () => {
       return Promise.resolve(undefined);
     });
 
-    const pending = rig.ipc.invoke('ok:update:relaunch-now');
+    const pending = rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     await Promise.resolve();
     expect(rig.dispatches).toContain('relaunch-refresh-found-newer' as DispatchKind);
     expect(rig.updater.quitAndInstall).not.toHaveBeenCalled();
@@ -5697,7 +5973,7 @@ describe('click-gated freshness check', () => {
     const { rig } = makeRig({ versionPendingInstall: '0.3.2' });
     rig.updater.emit('update-available', { version: '0.3.3' });
 
-    const pending = rig.ipc.invoke('ok:update:relaunch-now');
+    const pending = rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     await Promise.resolve();
     expect(rig.updater.quitAndInstall).not.toHaveBeenCalled();
     expect(rig.dispatches).toContain('relaunch-awaited-in-flight-staging' as DispatchKind);
@@ -5712,7 +5988,7 @@ describe('click-gated freshness check', () => {
     const { rig } = makeRig({ versionPendingInstall: '0.3.2' });
     rig.updater.emit('update-available', { version: '0.3.3' });
 
-    const pending = rig.ipc.invoke('ok:update:relaunch-now');
+    const pending = rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     await Promise.resolve();
     rig.updater.emit('error', new Error('download died'));
     await pending;
@@ -5724,7 +6000,7 @@ describe('click-gated freshness check', () => {
     const { rig } = makeRig({ versionPendingInstall: '0.3.2' });
     rig.updater.emit('update-available', { version: '0.3.3' });
 
-    const pending = rig.ipc.invoke('ok:update:relaunch-now');
+    const pending = rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     await Promise.resolve();
     expect(rig.updater.quitAndInstall).not.toHaveBeenCalled();
 
@@ -5746,13 +6022,17 @@ describe('click-gated freshness check', () => {
       return Promise.resolve(undefined);
     });
 
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
 
     expect(rig.updater.quitAndInstall).not.toHaveBeenCalled();
     for (const win of rig.windows) {
       const failed = win.filter((c) => c.channel === 'ok:update:relaunch-failed');
       expect(failed).toHaveLength(1);
-      expect(failed[0]?.payload).toMatchObject({ version: '0.3.2', dismissPending: true });
+      expect(failed[0]?.payload).toEqual({
+        version: '0.3.2',
+        reason: 'no-longer-pending',
+        dismissPending: true,
+      });
       expect(win.filter((c) => c.channel === 'ok:update:downloaded')).toHaveLength(0);
     }
   });
@@ -5762,7 +6042,7 @@ describe('click-gated freshness check', () => {
     await Promise.resolve();
     rig.updater.checkForUpdates.mockImplementation(() => new Promise(() => {}));
 
-    const pending = rig.ipc.invoke('ok:update:relaunch-now');
+    const pending = rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     await Promise.resolve();
     expect(rig.updater.quitAndInstall).not.toHaveBeenCalled();
 
@@ -5779,20 +6059,20 @@ describe('the commit flag releases on every path that re-offers the click', () =
     const { rig } = makeRig({ versionPendingInstall: '0.3.2' });
     rig.failNextPersist = true;
 
-    await expect(Promise.resolve(rig.ipc.invoke('ok:update:relaunch-now'))).rejects.toThrow(
-      'could not save the update state',
-    );
+    await expect(
+      Promise.resolve(rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' })),
+    ).rejects.toThrow('could not save the update state');
     expect(rig.updater.quitAndInstall).not.toHaveBeenCalled();
 
     rig.failNextPersist = false;
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
 
     expect(rig.updater.quitAndInstall).toHaveBeenCalledTimes(1);
   });
 
   test('a relaunch failure that restores cleanly does NOT ask to clear the card', async () => {
     const { rig } = makeRig({ versionPendingInstall: '0.3.2' });
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     rig.updater.emit('error', new Error('ShipIt swap failed'));
 
     const failed = rig.captured.filter((c) => c.channel === 'ok:update:relaunch-failed');
@@ -5807,14 +6087,18 @@ describe('the commit flag releases on every path that re-offers the click', () =
     const { rig } = makeRig({ versionPendingInstall: '0.3.2' });
     rig.failNextPersist = true;
 
-    await expect(Promise.resolve(rig.ipc.invoke('ok:update:relaunch-now'))).rejects.toThrow();
+    await expect(
+      Promise.resolve(rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' })),
+    ).rejects.toThrow();
   });
 
   test('a persist failure re-arms the banner in EVERY window, not just the clicked one', async () => {
     const { rig } = makeRig({ versionPendingInstall: '0.3.2', extraWindowCount: 2 });
     rig.failNextPersist = true;
 
-    await expect(Promise.resolve(rig.ipc.invoke('ok:update:relaunch-now'))).rejects.toThrow();
+    await expect(
+      Promise.resolve(rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' })),
+    ).rejects.toThrow();
 
     for (const win of rig.windows) {
       expect(win.filter((c) => c.channel === 'ok:update:fetching-latest')).toHaveLength(1);
@@ -5845,11 +6129,11 @@ describe('the commit flag releases on every path that re-offers the click', () =
       downloadedFile: '/home/u/.cache/ok-updater/pending/ok_0.3.2_arm64.deb',
     });
 
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
     expect(rig.updater.quitAndInstall).not.toHaveBeenCalled();
 
     hasGraphicalAuth.mockReturnValue(true);
-    await rig.ipc.invoke('ok:update:relaunch-now');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
 
     expect(rig.updater.quitAndInstall).toHaveBeenCalledTimes(1);
   });
@@ -5858,29 +6142,50 @@ describe('the commit flag releases on every path that re-offers the click', () =
 describe('post-update quiet window', () => {
   test('a banner arriving right after an update is held, not dropped', () => {
     const { rig, handle } = makeRig({ lastSeenVersion: '0.3.0', appVersion: '0.3.1' });
-    expect(handle.isWithinPostUpdateQuietWindow()).toBe(true);
 
     rig.updater.emit('update-downloaded', { version: '0.3.2' });
 
     expect(rig.captured.filter((c) => c.channel === 'ok:update:downloaded')).toHaveLength(0);
     expect(rig.dispatches).toContain('toast-a-deferred-post-update-quiet' as DispatchKind);
     expect(rig.state.versionPendingInstall).toBe('0.3.2');
+    expect(handle.getPendingUpdate()).toBeNull();
 
     fireTimerFor(rig.clock, POST_UPDATE_QUIET_MS);
 
     expect(rig.captured.filter((c) => c.channel === 'ok:update:downloaded')).toHaveLength(1);
     expect(rig.dispatches).toContain('toast-a-quiet-window-elapsed' as DispatchKind);
-    expect(handle.isWithinPostUpdateQuietWindow()).toBe(false);
+    expect(handle.getPendingUpdate()).toEqual({ version: '0.3.2' });
   });
 
   test('a fresh install does not arm it', () => {
-    const { handle } = makeRig({ lastSeenVersion: null, appVersion: '0.3.1' });
-    expect(handle.isWithinPostUpdateQuietWindow()).toBe(false);
+    const { handle } = makeRig({
+      lastSeenVersion: null,
+      appVersion: '0.3.1',
+      versionPendingInstall: '0.3.2',
+    });
+    expect(handle.getPendingUpdate()).toEqual({ version: '0.3.2' });
   });
 
   test('a plain relaunch on the same version does not arm it', () => {
-    const { handle } = makeRig({ lastSeenVersion: '0.3.1', appVersion: '0.3.1' });
-    expect(handle.isWithinPostUpdateQuietWindow()).toBe(false);
+    const { handle } = makeRig({
+      lastSeenVersion: '0.3.1',
+      appVersion: '0.3.1',
+      versionPendingInstall: '0.3.2',
+    });
+    expect(handle.getPendingUpdate()).toEqual({ version: '0.3.2' });
+  });
+
+  test('a build staged by an earlier session is held while the window runs', () => {
+    const { rig, handle } = makeRig({
+      lastSeenVersion: '0.3.0',
+      appVersion: '0.3.1',
+      versionPendingInstall: '0.3.2',
+    });
+    expect(handle.getPendingUpdate()).toBeNull();
+
+    rig.now = new Date(rig.now.getTime() + POST_UPDATE_QUIET_MS);
+
+    expect(handle.getPendingUpdate()).toEqual({ version: '0.3.2' });
   });
 
   test('linux does not arm it — the banner there is the only install route', () => {
@@ -5889,21 +6194,1008 @@ describe('post-update quiet window', () => {
       lastSeenVersion: '0.3.0',
       appVersion: '0.3.1',
     });
-    expect(handle.isWithinPostUpdateQuietWindow()).toBe(false);
 
     rig.updater.emit('update-downloaded', { version: '0.3.2' });
 
     expect(rig.captured.filter((c) => c.channel === 'ok:update:downloaded')).toHaveLength(1);
     expect(rig.dispatches).not.toContain('toast-a-deferred-post-update-quiet' as DispatchKind);
+    expect(handle.getPendingUpdate()).toEqual({ version: '0.3.2' });
   });
 
   test('outside the window the banner fires immediately, as before', () => {
     const { rig, handle } = makeRig({ lastSeenVersion: '0.3.1', appVersion: '0.3.1' });
-    expect(handle.isWithinPostUpdateQuietWindow()).toBe(false);
 
     rig.updater.emit('update-downloaded', { version: '0.3.2' });
 
     expect(rig.captured.filter((c) => c.channel === 'ok:update:downloaded')).toHaveLength(1);
     expect(rig.dispatches).toContain('update-downloaded-toast-a' as DispatchKind);
+    expect(handle.getPendingUpdate()).toEqual({ version: '0.3.2' });
+  });
+});
+
+function downloadedBroadcasts(sends: CapturedSend[]): unknown[] {
+  return sends.filter((c) => c.channel === 'ok:update:downloaded').map((c) => c.payload);
+}
+
+async function settleAsyncWork(): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+describe('Update Ready dialog offers Quit and Restart', () => {
+  test('choosing Quit and Restart installs through the same path as the in-app Relaunch', async () => {
+    const showCheckNowResult = vi.fn(() => Promise.resolve('relaunch' as const));
+    const prepareForRelaunch = vi.fn(() => {});
+    const { rig } = makeRig({
+      versionPendingInstall: null,
+      showCheckNowResult,
+      prepareForRelaunch,
+      extraWindowCount: 1,
+    });
+    stageInSession(rig, '0.3.2');
+
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
+    rig.updater.emit('update-available', { version: '0.3.2' });
+    await settleAsyncWork();
+
+    expect(showCheckNowResult).toHaveBeenCalledWith({
+      kind: 'ready-to-install',
+      currentVersion: '0.3.1',
+      stagedVersion: '0.3.2',
+      relaunch: 'available',
+    });
+    expect(rig.logger.info).toHaveBeenCalledWith('check-now result dialog answered', {
+      kind: 'ready-to-install',
+      choice: 'relaunch',
+    });
+    expect(rig.dispatches).toContain('check-now-relaunch-chosen' as DispatchKind);
+    expect(prepareForRelaunch).toHaveBeenCalledTimes(1);
+    expect(rig.updater.quitAndInstall).toHaveBeenCalledTimes(1);
+    expect(rig.state.versionPendingInstall).toBeNull();
+    expect(rig.state.attemptedInstall).toBe('0.3.2');
+    for (const win of rig.windows) {
+      expect(win.filter((c) => c.channel === 'ok:update:relaunching')).toHaveLength(1);
+    }
+    expect(rig.dispatches).toContain('relaunch-now' as DispatchKind);
+    expect(rig.logger.error).not.toHaveBeenCalled();
+  });
+
+  test('choosing Later logs the answer and leaves the staged build alone', async () => {
+    const showCheckNowResult = vi.fn(() => Promise.resolve('dismiss' as const));
+    const { rig } = makeRig({ versionPendingInstall: null, showCheckNowResult });
+    stageInSession(rig, '0.3.2');
+
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
+    rig.updater.emit('update-available', { version: '0.3.2' });
+    await settleAsyncWork();
+
+    expect(showCheckNowResult).toHaveBeenCalledTimes(1);
+    expect(rig.logger.info).toHaveBeenCalledWith('check-now result dialog answered', {
+      kind: 'ready-to-install',
+      choice: 'dismiss',
+    });
+    expect(rig.updater.quitAndInstall).not.toHaveBeenCalled();
+    expect(rig.captured.filter((c) => c.channel === 'ok:update:relaunching')).toHaveLength(0);
+    expect(rig.dispatches).not.toContain('check-now-relaunch-chosen' as DispatchKind);
+    expect(rig.state.versionPendingInstall).toBe('0.3.2');
+    expect(rig.logger.error).not.toHaveBeenCalled();
+  });
+
+  test('a relaunch answer to any other verdict is ignored, even with a build staged', async () => {
+    const showCheckNowResult = vi.fn(() => Promise.resolve('relaunch' as const));
+    const { rig } = makeRig({ versionPendingInstall: null, showCheckNowResult });
+    stageInSession(rig, '0.3.2');
+
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
+    rig.updater.emit('update-not-available', { version: '0.3.1' });
+    await settleAsyncWork();
+
+    expect(showCheckNowResult).toHaveBeenCalledWith({
+      kind: 'not-available',
+      currentVersion: '0.3.1',
+    });
+    expect(rig.state.versionPendingInstall).toBe('0.3.2');
+    expect(rig.dispatches).not.toContain('check-now-relaunch-chosen' as DispatchKind);
+    expect(rig.updater.quitAndInstall).not.toHaveBeenCalled();
+  });
+
+  test('a dialog that rejects logs the dialog failure and installs nothing', async () => {
+    const dialogError = new Error('dialog torn down');
+    const showCheckNowResult = vi.fn(() => Promise.reject(dialogError));
+    const { rig } = makeRig({ versionPendingInstall: null, showCheckNowResult });
+    stageInSession(rig, '0.3.2');
+
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
+    rig.updater.emit('update-available', { version: '0.3.2' });
+    await settleAsyncWork();
+
+    expect(rig.updater.quitAndInstall).not.toHaveBeenCalled();
+    expect(rig.logger.error).toHaveBeenCalledTimes(1);
+    expect(rig.logger.error).toHaveBeenCalledWith('check-now result dialog failed', {
+      err: dialogError,
+      kind: 'ready-to-install',
+    });
+    expect(rig.logger.info).not.toHaveBeenCalledWith(
+      'check-now result dialog answered',
+      expect.anything(),
+    );
+  });
+
+  test('a failed Quit and Restart logs the relaunch failure and re-arms the card', async () => {
+    const showCheckNowResult = vi.fn(() => Promise.resolve('relaunch' as const));
+    const { rig } = makeRig({ versionPendingInstall: null, showCheckNowResult });
+    stageInSession(rig, '0.3.2');
+    const handoffError = new Error('squirrel refused the handoff');
+    rig.updater.quitAndInstall = vi.fn(() => {
+      throw handoffError;
+    });
+    rig.captured.length = 0;
+
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
+    rig.updater.emit('update-available', { version: '0.3.2' });
+    await settleAsyncWork();
+
+    expect(rig.state.versionPendingInstall).toBe('0.3.2');
+    expect(rig.dispatches).toContain('relaunch-failed-rearm' as DispatchKind);
+    expect(rig.captured.filter((c) => c.channel === 'ok:update:relaunch-failed')).toHaveLength(1);
+    expect(rig.logger.info).toHaveBeenCalledWith('check-now result dialog answered', {
+      kind: 'ready-to-install',
+      choice: 'relaunch',
+    });
+    expect(rig.logger.error).toHaveBeenCalledTimes(1);
+    expect(rig.logger.error).toHaveBeenCalledWith(
+      'check-now Update Ready dialog Quit and Restart failed',
+      { err: handoffError, stagedVersion: '0.3.2' },
+    );
+  });
+});
+
+describe('a manual check that finds the staged build re-offers the card', () => {
+  test('re-broadcasts ok:update:downloaded to every window', () => {
+    const { rig } = makeRig({ versionPendingInstall: null, extraWindowCount: 1 });
+    stageInSession(rig, '0.3.2');
+    for (const win of rig.windows) win.length = 0;
+
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
+    rig.updater.emit('update-available', { version: '0.3.2' });
+
+    for (const win of rig.windows) {
+      expect(downloadedBroadcasts(win)).toEqual([{ version: '0.3.2' }]);
+    }
+    expect(rig.dispatches).toContain('check-now-ready-reoffered' as DispatchKind);
+  });
+
+  test('names the staged build when a newer offer was declined', () => {
+    const { rig } = makeRig({ versionPendingInstall: null });
+    stageInSession(rig, '0.3.2');
+    rig.captured.length = 0;
+
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
+    rig.updater.emit('update-available', { version: '0.3.3' });
+
+    expect(downloadedBroadcasts(rig.captured)).toEqual([{ version: '0.3.2' }]);
+  });
+
+  test('does not re-offer, or offer Quit and Restart, while the click-time freshness check runs', async () => {
+    const showCheckNowResult = vi.fn(() => Promise.resolve('relaunch' as const));
+    const { rig } = makeRig({ versionPendingInstall: null, showCheckNowResult });
+    await Promise.resolve();
+    stageInSession(rig, '0.3.2');
+    rig.updater.checkForUpdates.mockImplementation(() => new Promise(() => {}));
+    const relaunch = Promise.resolve(
+      rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' }),
+    );
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
+    rig.captured.length = 0;
+
+    rig.updater.emit('update-available', { version: '0.3.2' });
+
+    expect(rig.state.versionPendingInstall).toBe('0.3.2');
+    expect(showCheckNowResult).toHaveBeenCalledWith({
+      kind: 'ready-to-install',
+      currentVersion: '0.3.1',
+      stagedVersion: '0.3.2',
+      relaunch: 'installing',
+    });
+    expect(rig.logger.info).toHaveBeenCalledWith(
+      'check-now found the staged build but withholds Quit and Restart',
+      { stagedVersion: '0.3.2', reason: 'installing', pendingVersion: '0.3.2' },
+    );
+    expect(downloadedBroadcasts(rig.captured)).toEqual([]);
+    expect(rig.dispatches).not.toContain('check-now-ready-reoffered' as DispatchKind);
+
+    await relaunch;
+    await settleAsyncWork();
+    expect(rig.dispatches).not.toContain('check-now-relaunch-chosen' as DispatchKind);
+    expect(rig.dispatches).not.toContain('relaunch-double-invoke-blocked' as DispatchKind);
+    expect(rig.updater.quitAndInstall).toHaveBeenCalledTimes(1);
+  });
+
+  test('does not re-offer while the post-update quiet window holds the card', () => {
+    const showCheckNowResult = vi.fn(() => undefined);
+    const { rig } = makeRig({
+      lastSeenVersion: '0.3.0',
+      appVersion: '0.3.1',
+      versionPendingInstall: null,
+      showCheckNowResult,
+    });
+    stageInSession(rig, '0.3.2');
+    rig.captured.length = 0;
+
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
+    rig.updater.emit('update-available', { version: '0.3.2' });
+
+    expect(showCheckNowResult).toHaveBeenCalledWith({
+      kind: 'ready-to-install',
+      currentVersion: '0.3.1',
+      stagedVersion: '0.3.2',
+      relaunch: 'available',
+    });
+    expect(downloadedBroadcasts(rig.captured)).toEqual([]);
+    expect(rig.dispatches).not.toContain('check-now-ready-reoffered' as DispatchKind);
+  });
+
+  test('withholds Quit and Restart once the pending install was dropped', async () => {
+    const showCheckNowResult = vi.fn(() => Promise.resolve('relaunch' as const));
+    const { rig } = makeRig({ versionPendingInstall: null, showCheckNowResult });
+    stageInSession(rig, '0.3.2');
+    rig.updater.quitAndInstall = vi.fn(() => {
+      rig.failNextPersist = true;
+      throw new Error('squirrel refused the handoff');
+    });
+    await expect(
+      Promise.resolve(rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' })),
+    ).rejects.toThrow('squirrel refused the handoff');
+    rig.failNextPersist = false;
+    rig.updater.quitAndInstall = vi.fn();
+    rig.captured.length = 0;
+
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
+    rig.updater.emit('update-available', { version: '0.3.3' });
+    await settleAsyncWork();
+
+    expect(showCheckNowResult).toHaveBeenCalledWith({
+      kind: 'ready-to-install',
+      currentVersion: '0.3.1',
+      stagedVersion: '0.3.2',
+      relaunch: 'not-pending',
+    });
+    expect(rig.logger.info).toHaveBeenCalledWith(
+      'check-now found the staged build but withholds Quit and Restart',
+      { stagedVersion: '0.3.2', reason: 'not-pending', pendingVersion: null },
+    );
+    expect(downloadedBroadcasts(rig.captured)).toEqual([]);
+    expect(rig.dispatches).not.toContain('check-now-ready-reoffered' as DispatchKind);
+    expect(rig.dispatches).not.toContain('check-now-relaunch-chosen' as DispatchKind);
+    expect(rig.updater.quitAndInstall).not.toHaveBeenCalled();
+  });
+
+  test('Quit and Restart after the pending install was dropped behind the open dialog tells the user', async () => {
+    let answer: (choice: 'relaunch' | 'dismiss') => void = () => {};
+    const showCheckNowResult = vi.fn(
+      () =>
+        new Promise<'relaunch' | 'dismiss'>((resolve) => {
+          answer = resolve;
+        }),
+    );
+    const { rig } = makeRig({
+      versionPendingInstall: null,
+      showCheckNowResult,
+      extraWindowCount: 1,
+    });
+    stageInSession(rig, '0.3.2');
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
+    rig.updater.emit('update-available', { version: '0.3.2' });
+    expect(showCheckNowResult).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'ready-to-install', relaunch: 'available' }),
+    );
+    rig.updater.quitAndInstall = vi.fn(() => {
+      rig.failNextPersist = true;
+      throw new Error('squirrel refused the handoff');
+    });
+    await expect(
+      Promise.resolve(rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' })),
+    ).rejects.toThrow('squirrel refused the handoff');
+    rig.failNextPersist = false;
+    expect(rig.state.versionPendingInstall).toBeNull();
+    rig.updater.quitAndInstall = vi.fn();
+    for (const win of rig.windows) win.length = 0;
+
+    answer('relaunch');
+    await settleAsyncWork();
+
+    expect(rig.dispatches).toContain('check-now-relaunch-chosen' as DispatchKind);
+    expect(rig.updater.quitAndInstall).not.toHaveBeenCalled();
+    for (const win of rig.windows) {
+      expect(win.filter((c) => c.channel === 'ok:update:relaunch-failed')).toEqual([
+        {
+          channel: 'ok:update:relaunch-failed',
+          payload: {
+            version: '0.3.2',
+            reason: 'no-longer-pending',
+            dismissPending: true,
+          },
+        },
+      ]);
+    }
+    expect(rig.logger.warn).toHaveBeenCalledWith(
+      'relaunch-now invoked without versionPendingInstall — ignoring',
+      { requestedVersion: '0.3.2' },
+    );
+  });
+
+  test('an in-app Relaunch with no pending install tells the user instead of doing nothing', async () => {
+    const { rig } = makeRig({ versionPendingInstall: null });
+
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
+
+    expect(rig.updater.quitAndInstall).not.toHaveBeenCalled();
+    expect(rig.captured.filter((c) => c.channel === 'ok:update:relaunch-failed')).toEqual([
+      {
+        channel: 'ok:update:relaunch-failed',
+        payload: {
+          version: '',
+          reason: 'no-longer-pending',
+          dismissPending: true,
+        },
+      },
+    ]);
+  });
+
+  test('an ordinary available verdict does not broadcast the card', () => {
+    const { rig } = makeRig({ versionPendingInstall: null });
+    rig.captured.length = 0;
+
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
+    rig.updater.emit('update-available', { version: '0.3.2' });
+
+    expect(downloadedBroadcasts(rig.captured)).toEqual([]);
+  });
+});
+
+describe('getPendingUpdate decides whether the ready card is on offer', () => {
+  test('is null before anything downloads', () => {
+    const { handle } = makeRig({ versionPendingInstall: null });
+    expect(handle.getPendingUpdate()).toBeNull();
+  });
+
+  test('offers a build staged by an earlier session that this session never broadcast', () => {
+    const { rig, handle } = makeRig({ versionPendingInstall: '0.3.2' });
+    expect(downloadedBroadcasts(rig.captured)).toEqual([]);
+    expect(handle.getPendingUpdate()).toEqual({ version: '0.3.2' });
+  });
+
+  test('offers a fresh download', () => {
+    const { rig, handle } = makeRig({ versionPendingInstall: null });
+    stageInSession(rig, '0.3.2');
+    expect(handle.getPendingUpdate()).toEqual({ version: '0.3.2' });
+  });
+
+  test('keeps offering a build whose re-download was deduped', () => {
+    const { rig, handle } = makeRig({ versionPendingInstall: '0.3.2' });
+    rig.updater.emit('update-downloaded', { version: '0.3.2' });
+    expect(rig.dispatches).toContain('update-downloaded-deduped' as DispatchKind);
+    expect(downloadedBroadcasts(rig.captured)).toEqual([]);
+    expect(handle.getPendingUpdate()).toEqual({ version: '0.3.2' });
+  });
+
+  test('offers the boot re-offer of a handoff that never committed', () => {
+    const { rig, handle } = makeRig({
+      versionPendingInstall: null,
+      attemptedInstall: '0.3.2',
+      versionPendingInstallStagedAt: COMMITTED_LONG_AGO,
+    });
+    expect(rig.dispatches).toContain('install-never-committed-reoffered' as DispatchKind);
+    expect(handle.getPendingUpdate()).toEqual({ version: '0.3.2' });
+  });
+
+  test('is null once the running build has caught up with the persisted one', () => {
+    const { handle } = makeRig({ versionPendingInstall: '0.3.1', appVersion: '0.3.1' });
+    expect(handle.getPendingUpdate()).toBeNull();
+  });
+
+  test('is null once the relaunch commits', async () => {
+    const { rig, handle } = makeRig({ versionPendingInstall: null });
+    stageInSession(rig, '0.3.2');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
+    expect(rig.updater.quitAndInstall).toHaveBeenCalledTimes(1);
+    expect(handle.getPendingUpdate()).toBeNull();
+  });
+
+  test('is null while the click-time freshness check runs, with the build still persisted', async () => {
+    const { rig, handle } = makeRig({ versionPendingInstall: null });
+    await Promise.resolve();
+    stageInSession(rig, '0.3.2');
+    rig.updater.checkForUpdates.mockImplementation(() => new Promise(() => {}));
+    const relaunch = Promise.resolve(
+      rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' }),
+    );
+
+    expect(rig.state.versionPendingInstall).toBe('0.3.2');
+    expect(handle.getPendingUpdate()).toBeNull();
+    expect(rig.updater.quitAndInstall).not.toHaveBeenCalled();
+
+    fireTimerFor(rig.clock, RELAUNCH_REFRESH_CHECK_MS);
+    await relaunch;
+    expect(rig.updater.quitAndInstall).toHaveBeenCalledTimes(1);
+  });
+
+  test('offers the build again after a relaunch failure re-arms the card', async () => {
+    const { rig, handle } = makeRig({ versionPendingInstall: null });
+    stageInSession(rig, '0.3.2');
+    rig.updater.quitAndInstall = vi.fn(() => {
+      throw new Error('squirrel refused the handoff');
+    });
+    await expect(
+      Promise.resolve(rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' })),
+    ).rejects.toThrow('squirrel refused the handoff');
+    expect(handle.getPendingUpdate()).toEqual({ version: '0.3.2' });
+  });
+
+  test('is null after a relaunch failure that drops the pending install', async () => {
+    const { rig, handle } = makeRig({ versionPendingInstall: null });
+    stageInSession(rig, '0.3.2');
+    rig.updater.quitAndInstall = vi.fn(() => {
+      rig.failNextPersist = true;
+      throw new Error('squirrel refused the handoff');
+    });
+    await expect(
+      Promise.resolve(rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' })),
+    ).rejects.toThrow('squirrel refused the handoff');
+    rig.failNextPersist = false;
+    expect(
+      rig.captured.some(
+        (c) =>
+          c.channel === 'ok:update:relaunch-failed' &&
+          (c.payload as { dismissPending?: boolean }).dismissPending === true,
+      ),
+    ).toBe(true);
+    expect(handle.getPendingUpdate()).toBeNull();
+  });
+
+  test('is null after the staged build vanishes during the freshness check', async () => {
+    const { rig, handle } = makeRig({ versionPendingInstall: null });
+    await Promise.resolve();
+    stageInSession(rig, '0.3.2');
+    rig.updater.checkForUpdates.mockImplementation(() => {
+      rig.state = { ...rig.state, versionPendingInstall: null };
+      return Promise.resolve(undefined);
+    });
+
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
+
+    expect(rig.updater.quitAndInstall).not.toHaveBeenCalled();
+    expect(handle.getPendingUpdate()).toBeNull();
+  });
+
+  test('tracks the newest build when a newer one replaces the staged one', () => {
+    const { rig, handle } = makeRig({ versionPendingInstall: null, platform: 'win32' });
+    stageInSession(rig, '0.3.2');
+    stageInSession(rig, '0.3.3');
+    expect(handle.getPendingUpdate()).toEqual({ version: '0.3.3' });
+  });
+});
+
+function makeReloadableWebContents(): {
+  webContents: UpdateNoticeReplayTarget;
+  sent: CapturedSend[];
+  reload: () => void;
+} {
+  const emitter = new EventEmitter();
+  const sent: CapturedSend[] = [];
+  return {
+    sent,
+    webContents: {
+      send: (channel: string, ...args: unknown[]) => {
+        sent.push({ channel, payload: args[0] });
+      },
+      on: (event, listener) => emitter.on(event, listener),
+      once: (event, listener) => emitter.once(event, listener),
+      removeListener: (event, listener) => emitter.removeListener(event, listener),
+    },
+    reload: () => {
+      sent.length = 0;
+      emitter.emit('did-finish-load');
+    },
+  };
+}
+
+describe('a reloaded window gets the ready card back on every offer route', () => {
+  const routes: Array<[string, () => ReturnType<typeof startAutoUpdater>]> = [
+    [
+      'a fresh download this session',
+      () => {
+        const { rig, handle } = makeRig({ versionPendingInstall: null });
+        stageInSession(rig, '0.3.2');
+        return handle;
+      },
+    ],
+    [
+      'the boot re-offer of a handoff that never committed',
+      () => {
+        const { rig, handle } = makeRig({
+          versionPendingInstall: null,
+          attemptedInstall: '0.3.2',
+          versionPendingInstallStagedAt: COMMITTED_LONG_AGO,
+        });
+        expect(rig.dispatches).toContain('install-never-committed-reoffered' as DispatchKind);
+        return handle;
+      },
+    ],
+    [
+      'a build staged by an earlier session and never broadcast this session',
+      () => {
+        const { rig, handle } = makeRig({ versionPendingInstall: '0.3.2' });
+        expect(downloadedBroadcasts(rig.captured)).toEqual([]);
+        return handle;
+      },
+    ],
+  ];
+
+  test.each(routes)('%s', (_route, boot) => {
+    const handle = boot();
+    const win = makeReloadableWebContents();
+    replayUpdateNoticesOnEveryLoad(win.webContents, () => handle);
+
+    for (let load = 0; load < 3; load++) {
+      win.reload();
+      expect(downloadedBroadcasts(win.sent)).toEqual([{ version: '0.3.2' }]);
+    }
+  });
+
+  test('a reload after the install commits brings no card back', async () => {
+    const { rig, handle } = makeRig({ versionPendingInstall: null });
+    stageInSession(rig, '0.3.2');
+    const win = makeReloadableWebContents();
+    replayUpdateNoticesOnEveryLoad(win.webContents, () => handle);
+    win.reload();
+    expect(downloadedBroadcasts(win.sent)).toEqual([{ version: '0.3.2' }]);
+
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
+    win.reload();
+
+    expect(downloadedBroadcasts(win.sent)).toEqual([]);
+  });
+});
+
+function liveTimersFor(clock: FakeClock, ms: number): number {
+  return [...clock.timers.values()].filter((t) => t.ms === ms && t.state === 'live').length;
+}
+
+async function settleLaunchCheck(): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+function downloadedSends(captured: CapturedSend[]): unknown[] {
+  return captured.filter((c) => c.channel === 'ok:update:downloaded').map((c) => c.payload);
+}
+
+describe('update mode off switch', () => {
+  for (const platform of ['darwin', 'win32', 'linux'] as const) {
+    test(`${platform}: off at boot issues no check, schedules no timer, and disables install-on-quit`, async () => {
+      const { rig } = makeRig({ platform, updateMode: 'off' });
+      await settleLaunchCheck();
+      expect(rig.updater.checkForUpdates).not.toHaveBeenCalled();
+      expect(rig.clock.setTimeout).not.toHaveBeenCalled();
+      expect(rig.updater.autoInstallOnAppQuit).toBe(false);
+      expect(rig.dispatches).toContain('skipped-updates-off' as DispatchKind);
+      expect(rig.ipc.handlers.has('ok:update:dispatch')).toBe(true);
+    });
+  }
+
+  test('an unrecognized persisted mode resolves to auto and still checks', async () => {
+    const { rig } = makeRig({ updateMode: 'never' as unknown as 'off' });
+    await settleLaunchCheck();
+    expect(rig.updater.checkForUpdates).toHaveBeenCalledTimes(1);
+    expect(rig.updater.autoInstallOnAppQuit).toBe(true);
+  });
+
+  test('turning updates off before the deferred launch check runs skips that check', async () => {
+    let settleReclaim: () => void = () => {};
+    const reclaim = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          settleReclaim = resolve;
+        }),
+    );
+    const { rig } = makeRig({ reclaimStagedUpdateCache: reclaim });
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'set-mode', mode: 'off' });
+    settleReclaim();
+    await settleLaunchCheck();
+    expect(rig.updater.checkForUpdates).not.toHaveBeenCalled();
+    expect(liveTimersFor(rig.clock, UPDATE_CHECK_INTERVAL_MS)).toBe(0);
+    expect(rig.state.lastSuccessfulCheckAt).toBeNull();
+    expect(rig.dispatches).toContain('skipped-updates-off' as DispatchKind);
+  });
+
+  test('a check that succeeds after the switch to off records no check time', async () => {
+    const { rig } = makeRig({ updateMode: 'off' });
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
+    rig.updater.emit('update-not-available', { version: '0.3.1' });
+    expect(rig.state.lastSuccessfulCheckAt).toBeNull();
+  });
+
+  for (const platform of ['darwin', 'win32'] as const) {
+    test(`${platform}: a build staged while off is re-staged, then committed and offered, when updates come back on`, async () => {
+      const { rig } = makeRig({ platform, updateMode: 'off' });
+      rig.updater.emit('update-available', { version: '0.3.2' });
+      expect(rig.updater.downloadUpdate).not.toHaveBeenCalled();
+      rig.updater.emit('update-downloaded', { version: '0.3.2' });
+      rig.captured.length = 0;
+
+      await rig.ipc.invoke('ok:update:dispatch', { kind: 'set-mode', mode: 'auto' });
+      expect(downloadedSends(rig.captured)).toEqual([]);
+      expect(rig.dispatches).toContain('staged-install-rebind' as DispatchKind);
+
+      rig.updater.emit('update-available', { version: '0.3.2' });
+      expect(rig.updater.downloadUpdate).toHaveBeenCalledTimes(1);
+      expect(rig.updater.autoInstallOnAppQuit).toBe(true);
+      rig.updater.emit('update-downloaded', { version: '0.3.2' });
+
+      expect(rig.state.attemptedInstall).toBe('0.3.2');
+      expect(rig.state.attemptedInstallHandoffAt).toBeNull();
+      expect(downloadedSends(rig.captured)).toEqual([{ version: '0.3.2' }]);
+    });
+
+    test(`${platform}: a build staged while off is not committed before it is re-staged, so a quit records no handoff`, async () => {
+      const { rig, handle } = makeRig({ platform, updateMode: 'off' });
+      rig.updater.emit('update-downloaded', { version: '0.3.2' });
+      await rig.ipc.invoke('ok:update:dispatch', { kind: 'set-mode', mode: 'auto' });
+
+      expect(rig.state.attemptedInstall).toBeNull();
+      handle.recordInstallHandoffOnQuit();
+      expect(rig.state.attemptedInstallHandoffAt).toBeNull();
+    });
+  }
+
+  test('a build staged in an earlier session with install-on-quit off is committed when it is re-downloaded with it on', () => {
+    const { rig } = makeRig({ platform: 'win32', versionPendingInstall: '0.3.2' });
+    expect(rig.state.attemptedInstall).toBeNull();
+    rig.updater.emit('update-downloaded', { version: '0.3.2' });
+    expect(rig.state.attemptedInstall).toBe('0.3.2');
+    expect(rig.dispatches).toContain('update-downloaded-install-committed' as DispatchKind);
+  });
+
+  test('a re-download of a build whose install was already attempted keeps its retry count', () => {
+    const { rig } = makeRig({
+      platform: 'win32',
+      versionPendingInstall: '0.3.2',
+      attemptedInstall: '0.3.2',
+      attemptedInstallSurfacedCount: 1,
+      attemptedInstallHandoffAt: COMMITTED_LONG_AGO,
+    });
+    const before = { ...rig.state };
+    expect(before.attemptedInstallSurfacedCount).toBeGreaterThan(0);
+    rig.updater.emit('update-downloaded', { version: '0.3.2' });
+    expect(rig.state.attemptedInstall).toBe('0.3.2');
+    expect(rig.state.attemptedInstallSurfacedCount).toBe(before.attemptedInstallSurfacedCount);
+    expect(rig.state.attemptedInstallHandoffAt).toBe(before.attemptedInstallHandoffAt);
+  });
+
+  test('a re-download while install-on-quit is off commits nothing', () => {
+    const { rig } = makeRig({
+      platform: 'win32',
+      updateMode: 'off',
+      versionPendingInstall: '0.3.2',
+    });
+    rig.updater.emit('update-downloaded', { version: '0.3.2' });
+    expect(rig.state.attemptedInstall).toBeNull();
+  });
+
+  test('linux: a re-download of a pending build records no install commitment', () => {
+    const { rig } = makeRig({ platform: 'linux', versionPendingInstall: '0.3.2' });
+    rig.updater.emit('update-downloaded', { version: '0.3.2' });
+    expect(rig.state.attemptedInstall).toBeNull();
+  });
+
+  test('a re-download of a given-up pending version does not restart its retry budget', () => {
+    const { rig } = makeRig({
+      platform: 'win32',
+      versionPendingInstall: '0.3.2',
+      gaveUpOnVersion: '0.3.2',
+    });
+    rig.updater.emit('update-downloaded', { version: '0.3.2' });
+    expect(rig.state.attemptedInstall).toBeNull();
+    expect(rig.state.gaveUpOnVersion).toBe('0.3.2');
+  });
+
+  test('a build waiting to be re-staged is not offered to a window that loads', async () => {
+    const { rig, handle } = makeRig({ platform: 'darwin', updateMode: 'off' });
+    rig.updater.emit('update-downloaded', { version: '0.3.2' });
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'set-mode', mode: 'auto' });
+
+    expect(handle.getPendingUpdate()).toBeNull();
+    rig.updater.emit('update-not-available', { version: '0.3.1' });
+    expect(handle.getPendingUpdate()).toBeNull();
+
+    rig.updater.emit('update-available', { version: '0.3.2' });
+    rig.updater.emit('update-downloaded', { version: '0.3.2' });
+    expect(handle.getPendingUpdate()).toEqual({ version: '0.3.2' });
+  });
+
+  test('an explicit relaunch of a build staged while off records the install attempt', async () => {
+    const { rig } = makeRig({ updateMode: 'off' });
+    rig.updater.emit('update-downloaded', { version: '0.3.2' });
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
+    expect(rig.updater.quitAndInstall).toHaveBeenCalledTimes(1);
+    expect(rig.state.attemptedInstall).toBe('0.3.2');
+    expect(rig.state.attemptedInstallHandoffAt).not.toBeNull();
+  });
+
+  test('set-mode off persists, cancels the periodic timer, and retracts the card in every window', async () => {
+    const { rig } = makeRig({ extraWindowCount: 2, stuckHintShown: true });
+    await settleLaunchCheck();
+    expect(liveTimersFor(rig.clock, UPDATE_CHECK_INTERVAL_MS)).toBe(1);
+    const result = await rig.ipc.invoke('ok:update:dispatch', { kind: 'set-mode', mode: 'off' });
+    expect(result).toEqual({ kind: 'set-mode', ok: true, mode: 'off' });
+    expect(rig.state.updateMode).toBe('off');
+    expect(rig.state.stuckHintShown).toBe(false);
+    expect(rig.state.lastSuccessfulCheckAt).toBeNull();
+    expect(rig.updater.autoInstallOnAppQuit).toBe(false);
+    expect(liveTimersFor(rig.clock, UPDATE_CHECK_INTERVAL_MS)).toBe(0);
+    for (const win of rig.windows) {
+      expect(downloadedSends(win)).toEqual([{ version: null }]);
+    }
+  });
+
+  test('set-mode auto after off re-arms one timer and checks immediately', async () => {
+    const { rig } = makeRig({ updateMode: 'off' });
+    await settleLaunchCheck();
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'set-mode', mode: 'auto' });
+    expect(rig.updater.checkForUpdates).toHaveBeenCalledTimes(1);
+    expect(liveTimersFor(rig.clock, UPDATE_CHECK_INTERVAL_MS)).toBe(1);
+    expect(rig.updater.autoInstallOnAppQuit).toBe(true);
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'set-mode', mode: 'off' });
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'set-mode', mode: 'auto' });
+    expect(liveTimersFor(rig.clock, UPDATE_CHECK_INTERVAL_MS)).toBe(1);
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'set-mode', mode: 'off' });
+    expect(liveTimersFor(rig.clock, UPDATE_CHECK_INTERVAL_MS)).toBe(0);
+  });
+
+  test('a periodic timer that fires after the switch to off does not check or reschedule', async () => {
+    const { rig } = makeRig();
+    await settleLaunchCheck();
+    const [timer] = [...rig.clock.timers.values()].filter(
+      (t) => t.ms === UPDATE_CHECK_INTERVAL_MS && t.state === 'live',
+    );
+    rig.state = { ...rig.state, updateMode: 'off' };
+    timer?.cb();
+    expect(rig.updater.checkForUpdates).toHaveBeenCalledTimes(1);
+    expect(liveTimersFor(rig.clock, UPDATE_CHECK_INTERVAL_MS)).toBe(1);
+  });
+
+  test('set-mode refuses an unrecognized mode and reports a failed write', async () => {
+    const { rig } = makeRig();
+    await expect(
+      rig.ipc.invoke('ok:update:dispatch', { kind: 'set-mode', mode: 'never' }),
+    ).resolves.toEqual({ kind: 'set-mode', ok: false, reason: 'unrecognized-mode' });
+    rig.failNextPersist = true;
+    await expect(
+      rig.ipc.invoke('ok:update:dispatch', { kind: 'set-mode', mode: 'off' }),
+    ).resolves.toEqual({ kind: 'set-mode', ok: false, reason: 'persist-failed' });
+    expect(rig.state.updateMode).toBeNull();
+  });
+
+  test('an unknown dispatch kind answers with a named refusal', async () => {
+    const { rig } = makeRig();
+    await expect(rig.ipc.invoke('ok:update:dispatch', { kind: 'reboot' })).resolves.toEqual({
+      kind: 'unknown',
+      ok: false,
+      reason: 'unrecognized-kind',
+    });
+  });
+
+  test('a manual check under off reports the update without downloading it', async () => {
+    const results: unknown[] = [];
+    const { rig } = makeRig({
+      updateMode: 'off',
+      showCheckNowResult: (result) => {
+        results.push(result);
+        return undefined;
+      },
+    });
+    rig.updater.checkForUpdates = vi.fn(async () => {
+      rig.updater.emit('update-available', { version: '0.3.2' });
+      return {};
+    });
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
+    await settleLaunchCheck();
+    expect(rig.updater.checkForUpdates).toHaveBeenCalledTimes(1);
+    expect(rig.updater.downloadUpdate).not.toHaveBeenCalled();
+    expect(rig.dispatches).toContain('download-skipped-updates-off' as DispatchKind);
+    expect(results).toEqual([
+      { kind: 'available', currentVersion: '0.3.1', latestVersion: '0.3.2', download: 'manual' },
+    ]);
+    expect(liveTimersFor(rig.clock, UPDATE_CHECK_INTERVAL_MS)).toBe(0);
+  });
+
+  test('a manual check under auto reports a background download', async () => {
+    const results: unknown[] = [];
+    const { rig } = makeRig({
+      showCheckNowResult: (result) => {
+        results.push(result);
+        return undefined;
+      },
+    });
+    await settleLaunchCheck();
+    rig.updater.checkForUpdates = vi.fn(async () => {
+      rig.updater.emit('update-available', { version: '0.3.2' });
+      return {};
+    });
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
+    await settleLaunchCheck();
+    expect(rig.updater.downloadUpdate).toHaveBeenCalledTimes(1);
+    expect(results).toEqual([
+      {
+        kind: 'available',
+        currentVersion: '0.3.1',
+        latestVersion: '0.3.2',
+        download: 'background',
+      },
+    ]);
+  });
+
+  test('the stuck hint never fires under off', () => {
+    const { rig } = makeRig({
+      updateMode: 'off',
+      lastSuccessfulCheckAt: '2020-01-01T00:00:00.000Z',
+    });
+    rig.updater.emit('error', Object.assign(new Error('offline'), { code: 'HTTP_ERROR_500' }));
+    expect(rig.captured.filter((c) => c.channel === 'ok:update:stuck-hint')).toHaveLength(0);
+    expect(rig.dispatches).toContain('stuck-hint-skipped-updates-off' as DispatchKind);
+  });
+
+  test('a download finishing after the switch to off stages quietly without arming an install', () => {
+    const { rig, handle } = makeRig({ updateMode: 'off' });
+    rig.updater.emit('update-downloaded', { version: '0.3.2' });
+    expect(rig.state.versionPendingInstall).toBe('0.3.2');
+    expect(rig.state.attemptedInstall).toBeNull();
+    expect(downloadedSends(rig.captured)).toHaveLength(0);
+    expect(handle.getPendingUpdate()).toBeNull();
+    expect(rig.dispatches).toContain('update-downloaded-quiet' as DispatchKind);
+  });
+
+  test('an explicit relaunch still installs a build staged before the switch to off', async () => {
+    const { rig } = makeRig();
+    rig.updater.emit('update-downloaded', { version: '0.3.2' });
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'set-mode', mode: 'off' });
+    const checksBeforeRelaunch = rig.updater.checkForUpdates.mock.calls.length;
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
+    expect(rig.updater.quitAndInstall).toHaveBeenCalledTimes(1);
+    expect(rig.updater.checkForUpdates.mock.calls.length).toBe(checksBeforeRelaunch);
+  });
+
+  test('the boot install-failure notice is not surfaced under off', () => {
+    const { rig } = makeRig({
+      updateMode: 'off',
+      attemptedInstall: '0.3.2',
+      attemptedInstallHandoffAt: COMMITTED_LONG_AGO,
+    });
+    expect(rig.captured.filter((c) => c.channel === 'ok:update:relaunch-failed')).toHaveLength(0);
+    expect(rig.dispatches).toContain('install-failed-notice-skipped-updates-off' as DispatchKind);
+  });
+
+  test('switching back to auto re-offers a build staged while it was on to every window', async () => {
+    const { rig } = makeRig({ extraWindowCount: 1 });
+    rig.updater.emit('update-downloaded', { version: '0.3.2' });
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'set-mode', mode: 'off' });
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'set-mode', mode: 'auto' });
+    for (const win of rig.windows) {
+      expect(downloadedSends(win)).toEqual([
+        { version: '0.3.2' },
+        { version: null },
+        { version: '0.3.2' },
+      ]);
+    }
+    expect(rig.dispatches).not.toContain('staged-install-rebind' as DispatchKind);
+  });
+});
+
+describe('ready-to-install card dismissal', () => {
+  test('dismissal persists per version and hides the card from later windows', async () => {
+    const { rig, handle } = makeRig();
+    rig.updater.emit('update-downloaded', { version: '0.3.2' });
+    expect(handle.getPendingUpdate()).toEqual({ version: '0.3.2' });
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'downloaded-dismiss', version: '0.3.2' });
+    expect(rig.state.dismissedUpdateVersion).toBe('0.3.2');
+    expect(rig.state.versionPendingInstall).toBe('0.3.2');
+    expect(handle.getPendingUpdate()).toBeNull();
+  });
+
+  test('dismissal in one window retracts the card in every open window', async () => {
+    const { rig } = makeRig({ extraWindowCount: 2 });
+    rig.updater.emit('update-downloaded', { version: '0.3.2' });
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'downloaded-dismiss', version: '0.3.2' });
+    for (const win of rig.windows) {
+      expect(downloadedSends(win)).toEqual([{ version: '0.3.2' }, { version: null }]);
+    }
+  });
+
+  test('a dismissal of a build that is no longer staged leaves the current card up', async () => {
+    const { rig } = makeRig({ extraWindowCount: 1 });
+    rig.updater.emit('update-downloaded', { version: '0.3.2' });
+    rig.updater.emit('update-downloaded', { version: '0.3.3' });
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'downloaded-dismiss', version: '0.3.2' });
+    for (const win of rig.windows) {
+      expect(downloadedSends(win)).toEqual([{ version: '0.3.2' }, { version: '0.3.3' }]);
+    }
+  });
+
+  test('a repeated dismissal of the same version broadcasts nothing further', async () => {
+    const { rig } = makeRig({ versionPendingInstall: '0.3.2', dismissedUpdateVersion: '0.3.2' });
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'downloaded-dismiss', version: '0.3.2' });
+    expect(downloadedSends(rig.captured)).toHaveLength(0);
+  });
+
+  test('dismissal survives a relaunch of the app', () => {
+    const { handle } = makeRig({
+      versionPendingInstall: '0.3.2',
+      dismissedUpdateVersion: '0.3.2',
+    });
+    expect(handle.getPendingUpdate()).toBeNull();
+  });
+
+  test('a newer staged version clears the dismissal and surfaces normally', async () => {
+    const { rig, handle } = makeRig();
+    rig.updater.emit('update-downloaded', { version: '0.3.2' });
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'downloaded-dismiss', version: '0.3.2' });
+    rig.updater.emit('update-downloaded', { version: '0.3.3' });
+    expect(rig.state.dismissedUpdateVersion).toBeNull();
+    expect(handle.getPendingUpdate()).toEqual({ version: '0.3.3' });
+  });
+
+  test('a manual check clears the recorded dismissal and brings the card back', async () => {
+    const { rig } = makeRig({ versionPendingInstall: null });
+    stageInSession(rig, '0.3.2');
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'downloaded-dismiss', version: '0.3.2' });
+    rig.captured.length = 0;
+
+    rig.ipc.invoke('ok:update:dispatch', { kind: 'check-now' });
+    expect(rig.state.dismissedUpdateVersion).toBeNull();
+    rig.updater.emit('update-available', { version: '0.3.2' });
+
+    expect(downloadedSends(rig.captured)).toEqual([{ version: '0.3.2' }]);
+  });
+});
+
+describe('install-failure give-up tombstone', () => {
+  test('a re-downloaded given-up version stays quiet and does not restart the budget', () => {
+    const { rig, handle } = makeRig({ gaveUpOnVersion: '0.3.2' });
+    rig.updater.emit('update-downloaded', { version: '0.3.2' });
+    expect(rig.state.attemptedInstall).toBeNull();
+    expect(rig.state.attemptedInstallSurfacedCount).toBe(0);
+    expect(downloadedSends(rig.captured)).toHaveLength(0);
+    expect(handle.getPendingUpdate()).toBeNull();
+  });
+
+  test('the given-up version stays bounded across boots after an explicit relaunch re-arms it', () => {
+    const { rig } = makeRig({
+      gaveUpOnVersion: '0.3.2',
+      attemptedInstall: '0.3.2',
+      attemptedInstallHandoffAt: COMMITTED_LONG_AGO,
+    });
+    expect(rig.captured.filter((c) => c.channel === 'ok:update:relaunch-failed')).toHaveLength(0);
+    expect(rig.state.attemptedInstall).toBeNull();
+    expect(rig.state.versionPendingInstall).toBe('0.3.2');
+    expect(rig.dispatches).toContain('install-failed-after-giveup' as DispatchKind);
+  });
+
+  test('a genuinely newer version clears the tombstone and arms normally', () => {
+    const { rig } = makeRig({ gaveUpOnVersion: '0.3.2' });
+    rig.updater.emit('update-downloaded', { version: '0.3.3' });
+    expect(rig.state.gaveUpOnVersion).toBeNull();
+    expect(rig.state.attemptedInstall).toBe('0.3.3');
+    expect(downloadedSends(rig.captured)).toEqual([{ version: '0.3.3' }]);
+  });
+
+  test('the tombstone clears once the running version reaches it', () => {
+    const { rig } = makeRig({ appVersion: '0.3.2', gaveUpOnVersion: '0.3.2' });
+    expect(rig.state.gaveUpOnVersion).toBeNull();
+    expect(rig.dispatches).toContain('install-giveup-reconciled' as DispatchKind);
+  });
+
+  test('an explicit relaunch still installs the given-up version', async () => {
+    const { rig } = makeRig({ gaveUpOnVersion: '0.3.2', versionPendingInstall: '0.3.2' });
+    await rig.ipc.invoke('ok:update:dispatch', { kind: 'relaunch-now' });
+    expect(rig.updater.quitAndInstall).toHaveBeenCalledTimes(1);
   });
 });

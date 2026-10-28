@@ -34,10 +34,27 @@ function openSettingsSection(sectionId: string): void {
   if (window.location.hash !== target) window.location.hash = target;
 }
 
+export function openSettings(): void {
+  if (typeof window === 'undefined') return;
+  if (!isSettingsHashOpen(window.location.hash)) window.location.hash = SETTINGS_OPEN_HASH;
+}
+
 const AGENT_SETTINGS_SECTION = 'agent-connections';
 
 export function openAgentSettings(): void {
   openSettingsSection(AGENT_SETTINGS_SECTION);
+}
+
+const ABOUT_SECTION = 'about';
+
+export function openAboutSettings(): void {
+  openSettingsSection(ABOUT_SECTION);
+}
+
+const ACCOUNT_SECTION = 'account';
+
+export function openAccountSettings(): void {
+  openSettingsSection(ACCOUNT_SECTION);
 }
 
 const PROJECT_SYNC_SECTION = 'sync';
@@ -99,10 +116,9 @@ function readCurrentHash(): string {
 }
 
 export function useSettingsRoute(): SettingsRouteState {
-  const [open, setOpen] = useState<boolean>(() => isSettingsHashOpen(readCurrentHash()));
-  const [section, setSection] = useState<string | null>(() =>
-    settingsHashSection(readCurrentHash()),
-  );
+  const [mountHash] = useState(readCurrentHash);
+  const [open, setOpen] = useState<boolean>(() => isSettingsHashOpen(mountHash));
+  const [section, setSection] = useState<string | null>(() => settingsHashSection(mountHash));
 
   useEffect(() => {
     const onHashChange = () => {
@@ -113,8 +129,9 @@ export function useSettingsRoute(): SettingsRouteState {
       });
     };
     window.addEventListener('hashchange', onHashChange);
+    if (readCurrentHash() !== mountHash) onHashChange();
     return () => window.removeEventListener('hashchange', onHashChange);
-  }, []);
+  }, [mountHash]);
 
   const close = () => {
     if (typeof window === 'undefined') return;

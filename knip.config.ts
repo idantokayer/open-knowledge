@@ -40,6 +40,7 @@ export default {
     'xdg-mime', // Linux default-app query — desktop ipc-handlers.ts
     'ssh-keygen', // ephemeral VM keypair — lume-qa lume-orchestrator.ts
     'zsh', // the executor's `.private.` test also runs the printed Biome fix under zsh -c
+    'rustup',
   ],
   ignoreIssues: {
     'test-support/vitest.base.ts': ['exports'],
@@ -71,6 +72,7 @@ export default {
     '.{agents,codex}/skills/**': ['files'],
     'lint-plugins/no-comments/__fixtures__/**': ['files'],
     'lint-plugins/ok-rules/__fixtures__/**': ['files'],
+    '**/*.reads.{ts,mjs}': ['files', 'exports'],
     'scripts/compute-next-beta.mjs': ['files'],
     'scripts/build-slack-release-payload.mjs': ['files'],
     'scripts/assert-smoke-not-vacuous.mjs': ['files'],
@@ -115,6 +117,8 @@ export default {
         'tests/**/*.{test,e2e}.ts',
         'tests/perf/lib/*.ts',
         'tests/dom/**/*.ts',
+        'vite.prebuilt-dev.ts',
+        'tests/stress/_helpers/reuse/server-supervisor.ts',
       ],
       project: 'src/**',
       ignoreDependencies: [
@@ -145,7 +149,11 @@ export default {
       entry: ['src/**/*.test.{ts,tsx}'],
     },
     'packages/server': {
-      entry: ['src/**/*.test.ts', 'src/parse-worker.ts'],
+      entry: [
+        'src/**/*.test.ts',
+        'src/parse-worker.ts',
+        'src/shadow-fixture-launch.test-helper.mjs',
+      ],
       project: 'src/**',
       ignoreDependencies: ['@types/shell-quote'],
     },

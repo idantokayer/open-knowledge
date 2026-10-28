@@ -13,11 +13,13 @@ import {
   CONFIG_DOC_NAME_USER,
   CONFIG_DOC_NAMES,
   type ConfigDiagnosticsReport,
+  type ConfigDocName,
   type ConfigIssue,
   createBasenameIndex,
   DEFAULT_ATTACHMENT_FOLDER_PATH,
   DEFAULT_LINKS_VALIDATION,
   DEFAULT_LINTER_CONFIG,
+  DEFAULT_SIGTERM_GRACE_MS,
   DEFAULT_SUPPRESS_LOG_LINK_ADVISORIES,
   DOCUMENT_OPEN_BYTE_LIMIT,
   humanFormat,
@@ -50,6 +52,7 @@ import {
   resolveShadowDir,
 } from '@inkeep/open-knowledge-core/shadow-repo-layout';
 import simpleGit from 'simple-git';
+import type { Doc } from 'yjs';
 import { AcpPermissionStore } from './acp/permissions.ts';
 import { AcpRegistry, loadCustomAgents } from './acp/registry.ts';
 import { AgentFocusBroadcaster } from './agent-focus.ts';
@@ -83,7 +86,11 @@ import {
   startConfigFileWatcher,
   startMultiPathConfigFileWatcher,
 } from './config-file-watcher.ts';
-import { applyExternalConfigChange, isConfigEcho } from './config-persistence.ts';
+import {
+  applyExternalConfigChange,
+  isConfigEcho,
+  resetConfigDocForTest,
+} from './config-persistence.ts';
 import { bindConflictAuthority, ConflictAuthority } from './conflict-authority.ts';
 import { createGeneratedIndexWarningScope } from './content/generate-index.ts';
 import { type GeneratedArtifactEnv, writeGeneratedArtifact } from './content/generated-artifact.ts';
@@ -103,19 +110,25 @@ import {
   planDirectoryIndexRegenerations,
   ROOT_INDEX_DOC_NAME,
 } from './content/regenerate-index.ts';
-import { type ContentFilter, createContentFilter } from './content-filter.ts';
+import {
+  type ContentFilter,
+  createContentFilter,
+  isShareableOkArtifact,
+} from './content-filter.ts';
 import { isWithinContentDir, safeContentPath } from './content-path.ts';
 import { dropPendingDocs, recordContributor } from './contributor-tracker.ts';
 import {
   DerivedDocumentIndex,
   type DerivedDocumentIndexBranchTransition,
 } from './derived-document-index.ts';
+import { resolveDirectoryRoot } from './directory-root.ts';
 import { applyDiskContentToDoc } from './disk-content-intake.ts';
 import {
   canonicalDocName,
   docNameToRelativePath,
   getDocExtension,
   isRegisteredMarkdownDocName,
+  stripDocExtension,
 } from './doc-extensions.ts';
 import { runDocLineageGuard } from './doc-lineage-guard.ts';
 import {
@@ -136,8 +149,10 @@ import {
 import {
   applyExternalChange,
   FILE_WATCHER_ORIGIN,
+  type FrozenResidentRevival,
   redactedErrorSummary,
   refuseStaleExternalWrite,
+  reviveFrozenResidentDoc,
   serializeYDocSource,
   wireReasonForRefusal,
 } from './external-change.ts';
@@ -145,6 +160,8 @@ import {
   assertNeverDiskEvent,
   contentHash,
   type DiskEvent,
+  getMarkdownRemovalCurrentness,
+  hasAdmittedMarkdownFile,
   pathToDocName,
   reconcileFileIndexAfterFilterRebuild,
   registerRemoval,
@@ -153,15 +170,14 @@ import {
   startWatcher,
   type WatcherHandle,
 } from './file-watcher.ts';
-import { canonicalContentPathIsRefused } from './fs-safety.ts';
+import { canonicalContentPathIsRefused, SymlinkEscapeError } from './fs-safety.ts';
 import {
   normalizeFsPath,
-  tracedAtomicFs,
   tracedMkdirSync,
   tracedUnlinkSync,
   tracedWriteFileSync,
 } from './fs-traced.ts';
-import { buildSyncCredentialConfig, createGitInstance } from './git-handle.ts';
+import { createGitInstance } from './git-handle.ts';
 import type {
   CheckPushPermissionOptions,
   DetectGhAccountsFn,
@@ -176,8 +192,9 @@ import type { NativeApiHandle } from './http/http-app.ts';
 import type { LocalApiDispatch } from './http/local-api-dispatch.ts';
 import type { GeneratedIndexSettingsStatus } from './http/workspace-tools-routes.ts';
 import {
-  scanGlobalInPlaceSkills,
+  scanGlobalInPlaceSkillsAsync,
   scanInPlaceSkillDirs,
+  scanInPlaceSkills,
   skillRootPathsFor,
 } from './in-place-skills.ts';
 import {
@@ -189,7 +206,12 @@ import {
 import type { LinkAdvisoryPolicy } from './link-advisory-policy.ts';
 import { ensureOkfSchemaFiles } from './lint/write-okf-schemas.ts';
 import { createLiveDerivedIndexExtension } from './live-derived-index.ts';
-import { localTargetInventoryFromWatcher } from './local-target-inventory.ts';
+import { wikiFilePath } from './local-target-assessment.ts';
+import {
+  createTrackedFileResolver,
+  createTrackedWikiFileResolver,
+  localTargetInventoryFromWatcher,
+} from './local-target-inventory.ts';
 import { getLogger } from './logger.ts';
 import { LossCaptureRing } from './loss-capture.ts';
 import {
@@ -244,7 +266,28 @@ import {
   setRenameLogIndex,
   sweepLazyPopOrphans,
 } from './rename-log.ts';
-import { acquireServerLock, markServerLockDraining, releaseServerLock } from './server-lock.ts';
+import {
+  acquireServerAuthority,
+  contentScopeContainsPath,
+  ServerAuthorityCollisionError,
+} from './server-authority.ts';
+import {
+  assertCapturedServerContentPath,
+  assertServerContentPath,
+  assertServerContentSubtree,
+  ContentScopeAdmissionError,
+  canonicalContentPath,
+  contentScopedAtomicFs,
+  ServerMutationShuttingDownError,
+  snapshotServerContentScope,
+} from './server-content-policy.ts';
+import {
+  acquireServerLock,
+  markServerLockDraining,
+  readServerLock,
+  releaseServerLock,
+  ServerLockCollisionError,
+} from './server-lock.ts';
 import { createServerObserverExtension } from './server-observer-extension.ts';
 import type { PairedWriteOrigin } from './server-observers.ts';
 import {
@@ -274,13 +317,13 @@ import {
   shadowGit,
 } from './shadow-repo.ts';
 import {
+  createSyncCredentialConfigResolver,
   readDeclaredGitHubHosts,
-  readOriginGitHubRepo,
-  shouldResetAmbientCredentials,
 } from './share/git-context.ts';
 import { resyncRecordedSkillCopies } from './skill-placements.ts';
 import { skillStateYamlPath } from './skill-state.ts';
 import { assertCompatibleStateManifest } from './state-manifest.ts';
+import { assertRealpathWithinDir } from './symlink-guard.ts';
 import { SyncEngine } from './sync-engine.ts';
 import { createSyncHandshakeSpanExtension } from './sync-handshake-span-extension.ts';
 import { initTelemetry, shutdownTelemetry, withSpan } from './telemetry.ts';
@@ -313,6 +356,7 @@ export interface ServerOptions {
   shadowRepo?: ShadowHandle;
   contentRoot?: string;
   destroyTimeoutMs?: number;
+  authorityRegistryPath?: string;
   onAgentWrite?: () => void;
   localOpCliArgs?: string[];
   authStreamHeartbeatMs?: number;
@@ -387,8 +431,28 @@ export interface ServerInstance {
   readonly conflicts: ConflictAuthority;
   readonly getLinkPreviewsEnabled: () => boolean;
   readonly resolveEmbed: (basename: string, sourcePath: string) => string | null;
+  readonly resolveTrackedFile: (relativePath: string) => string | undefined;
   readonly acpRegistry: AcpRegistry;
   readonly acpPermissions: AcpPermissionStore;
+}
+
+export function observeShutdownDocumentRetirements(
+  hocuspocus: Hocuspocus,
+  onDocumentRetired: () => void,
+): () => void {
+  let active = true;
+  const observer: Extension = {
+    async afterUnloadDocument() {
+      if (active) onDocumentRetired();
+    },
+  };
+  hocuspocus.configuration.extensions.unshift(observer);
+  return () => {
+    active = false;
+    const extensions = hocuspocus.configuration.extensions;
+    const index = extensions.indexOf(observer);
+    if (index !== -1) extensions.splice(index, 1);
+  };
 }
 
 export const SHADOW_FANOUT_WARMUP_MS = 3000;
@@ -506,7 +570,17 @@ export function createServer(options: ServerOptions): ServerInstance {
     ephemeral = false,
     readOnly = false,
   } = options;
+  const canonicalContentDir = resolveDirectoryRoot(contentDir, {
+    root: 'content',
+    component: 'server-factory',
+  });
   const declaredGitHubHosts = readDeclaredGitHubHosts(configHomedirOverride);
+  const resolveSyncCredentialConfig = createSyncCredentialConfigResolver({
+    projectDir,
+    tokenStore: options.tokenStore,
+    localOpCliArgs,
+    declaredGitHubHosts,
+  });
 
   // Whole-instance read-only lock. A RESOLVER (not a frozen boolean) so a future
   // per-request RBAC posture can vary the role per caller without re-plumbing
@@ -565,14 +639,22 @@ export function createServer(options: ServerOptions): ServerInstance {
   const conflicts = new ConflictAuthority({
     projectDir,
     contentDir,
+    assertResolutionPath: assertConflictContentPath,
     branch: initialBranch,
     signal: { signal: (channel) => cc1Broadcaster?.signal(channel) },
     io: {
       gitRaw: async (args) =>
         createGitInstance(projectDir, { credentialConfig: [], timeoutMs: 30_000 }).git.raw(args),
-      writeProjectFileUntracked: (absPath, bytes) => tracedWriteFileSync(absPath, bytes, 'utf-8'),
-      unlinkProjectFileUndeclared: (absPath) => tracedUnlinkSync(absPath),
+      writeProjectFileUntracked: (absPath, bytes) => {
+        assertConflictContentPath(absPath);
+        tracedWriteFileSync(absPath, bytes, 'utf-8');
+      },
+      unlinkProjectFileUndeclared: (absPath) => {
+        assertConflictContentPath(absPath);
+        tracedUnlinkSync(absPath);
+      },
       deleteResolvedContent: (docName, absPath) => {
+        assertContentPath(absPath);
         const declaration = registerRemoval(absPath);
         try {
           tracedUnlinkSync(absPath);
@@ -581,11 +663,13 @@ export function createServer(options: ServerOptions): ServerInstance {
           throw cause;
         }
         contentFilter.decrementMdDir(dirname(docName));
+        commentDocHooksRef.current?.deleted(docName);
       },
       applyResolvedContent: async (docName, absPath, bytes) => {
+        assertContentPath(absPath);
         const absent = !existsSync(absPath);
         registerWrite(absPath, contentHash(bytes));
-        await atomicWriteFile(absPath, bytes, { fs: tracedAtomicFs });
+        await atomicWriteFile(absPath, bytes, { fs: scopedAtomicFs });
         if (absent) contentFilter.incrementMdDir(dirname(docName));
         if (hocuspocus.documents.get(docName)) applyToDoc(docName, bytes);
         setReconciledBase(docName, bytes);
@@ -608,70 +692,110 @@ export function createServer(options: ServerOptions): ServerInstance {
           }
           durabilityState.clearStaleExternalWrite(docName);
         }
+        if (strategy === 'delete' && hasAdmittedMarkdownBinding(docName)) {
+          log.debug(
+            { docName, source: 'resolve-delete', bindingRecreated: true },
+            `[reconcile] delete skipped: ${docName} (binding recreated)`,
+          );
+          return;
+        }
         const document = hocuspocus.documents.get(docName);
         const lifecycle = document?.getMap('lifecycle');
         if (strategy === 'delete') {
-          const isDirty = document
-            ? rescueUnflushedEditsBeforeTeardown(
-                docName,
-                headWatcher?.getLastKnownBranch() ?? 'main',
-                'delete',
-                true,
-              )
-            : false;
-          await derivedDocumentIndex.recordDiskDelete(docName);
-          log.info(
-            { docName, isDirty, source: 'resolve-delete' },
-            `[reconcile] delete: ${docName} (dirty=${isDirty})`,
-          );
-          const priorLifecycle = lifecycle
-            ? {
-                status: lifecycle.get('status'),
-                reason: lifecycle.get('reason'),
-                detectedAt: lifecycle.get('detectedAt'),
-              }
-            : undefined;
-          lifecycle?.set('status', 'deleted-upstream');
-          lifecycle?.delete('reason');
-          lifecycle?.delete('detectedAt');
-          if (document) {
-            try {
-              hocuspocus.closeConnections(docName);
-              await forceUnloadDocument(document);
-            } catch (cause) {
-              if (lifecycle && priorLifecycle) {
-                for (const [key, value] of Object.entries(priorLifecycle)) {
-                  if (value === undefined) lifecycle.delete(key);
-                  else lifecycle.set(key, value);
-                }
-              }
-              if (priorStaleExternalWrite) {
-                try {
-                  durabilityState.restoreStaleExternalWrite(
-                    priorStaleExternalWrite.conflict,
-                    priorStaleExternalWrite.branch,
-                  );
-                } catch (rollbackFailure) {
-                  log.error(
-                    { err: rollbackFailure, docName },
-                    `[reconcile] stale-external-write rollback failed for ${docName}; the retry may not find the conflict`,
-                  );
-                }
-              }
-              throw cause;
+          const removal = beginRemoval(docName);
+          try {
+            const isDirty =
+              removal.residentCurrent() && document
+                ? rescueUnflushedEditsBeforeTeardown(
+                    docName,
+                    headWatcher?.getLastKnownBranch() ?? 'main',
+                    'delete',
+                    true,
+                  )
+                : false;
+            if (removal.namespaceCurrent()) {
+              commentDocHooksRef.current?.deleted(docName);
+              await derivedDocumentIndex.recordDiskDelete(docName);
             }
+            if (!removal.namespaceCurrent() && !removal.residentCurrent()) {
+              log.debug(
+                {
+                  docName,
+                  source: 'resolve-delete',
+                  namespaceCurrent: false,
+                  residentCurrent: false,
+                },
+                `[reconcile] delete skipped: ${docName} (stale removal)`,
+              );
+              return;
+            }
+            log.info(
+              { docName, isDirty, source: 'resolve-delete' },
+              `[reconcile] delete: ${docName} (dirty=${isDirty})`,
+            );
+            const priorLifecycle = lifecycle
+              ? {
+                  status: lifecycle.get('status'),
+                  reason: lifecycle.get('reason'),
+                  detectedAt: lifecycle.get('detectedAt'),
+                }
+              : undefined;
+            if (document && removal.residentCurrent()) {
+              lifecycle?.set('status', 'deleted-upstream');
+              lifecycle?.delete('reason');
+              lifecycle?.delete('detectedAt');
+              try {
+                hocuspocus.closeConnections(docName);
+                await forceUnloadDocument(document, removal.residentCurrent);
+              } catch (cause) {
+                if (removal.residentCurrent() && lifecycle && priorLifecycle) {
+                  for (const [key, value] of Object.entries(priorLifecycle)) {
+                    if (value === undefined) lifecycle.delete(key);
+                    else lifecycle.set(key, value);
+                  }
+                }
+                if (removal.namespaceCurrent() && priorStaleExternalWrite) {
+                  try {
+                    durabilityState.restoreStaleExternalWrite(
+                      priorStaleExternalWrite.conflict,
+                      priorStaleExternalWrite.branch,
+                    );
+                  } catch (rollbackFailure) {
+                    log.error(
+                      { err: rollbackFailure, docName },
+                      `[reconcile] stale-external-write rollback failed for ${docName}; the retry may not find the conflict`,
+                    );
+                  }
+                }
+                throw cause;
+              }
+            }
+            if (!removal.namespaceCurrent()) {
+              log.debug(
+                {
+                  docName,
+                  source: 'resolve-delete',
+                  namespaceCurrent: false,
+                  residentCurrent: removal.residentCurrent(),
+                },
+                `[reconcile] delete: ${docName} not recorded as removed (stale removal)`,
+              );
+              return;
+            }
+            deleteReconciledBase(docName);
+            onUpstreamDelete(docName);
+            scheduleIndexRegenerationAfterRemoval(docName);
+            console.info(
+              JSON.stringify({
+                event: 'recently-removed-docs-populate',
+                docName,
+                kind: 'deleted',
+                source: 'resolve-delete',
+              }),
+            );
+          } finally {
+            removal.dispose();
           }
-          deleteReconciledBase(docName);
-          onUpstreamDelete(docName);
-          scheduleIndexRegenerationAfterRemoval(docName);
-          console.info(
-            JSON.stringify({
-              event: 'recently-removed-docs-populate',
-              docName,
-              kind: 'deleted',
-              source: 'resolve-delete',
-            }),
-          );
         } else if (lifecycle?.get('reason') === entry.reason) {
           lifecycle.delete('status');
           lifecycle.delete('reason');
@@ -951,6 +1075,33 @@ export function createServer(options: ServerOptions): ServerInstance {
   initTelemetry();
 
   const serverInstanceId = randomUUID();
+  let authorityRetired = false;
+  let documentAdmissionClosed = false;
+  let authorityScope = snapshotServerContentScope(contentDir, singleDocRelPath);
+  const assertContentPath = (path: string): void => {
+    if (authorityRetired) throw new ServerMutationShuttingDownError(false);
+    assertServerContentPath(authorityScope, path);
+  };
+  const assertContentSubtree = (path: string): void => {
+    assertContentPath(path);
+    assertServerContentSubtree(authorityScope, path);
+  };
+  const scopedAtomicFs = contentScopedAtomicFs(assertContentPath);
+  function assertConflictContentPath(path: string): void {
+    assertRealpathWithinDir(path, projectDir, { allowShareableOkArtifact: isShareableOkArtifact });
+    const canonical = canonicalContentPath(path);
+    const projectPath = toPosix(relative(canonicalContentPath(projectDir), canonical));
+    if (
+      authorityScope.kind === 'tree' &&
+      !contentScopeContainsPath(
+        { kind: 'tree', path: authorityScope.path, excluded: [] },
+        canonical,
+      ) &&
+      isShareableOkArtifact(projectPath)
+    )
+      return;
+    assertContentPath(canonical);
+  }
 
   const lockDir = getLocalDir(projectDir);
 
@@ -961,32 +1112,71 @@ export function createServer(options: ServerOptions): ServerInstance {
   });
   const acpPermissions = new AcpPermissionStore(lockDir, getLogger('acp-permissions'));
 
-  acquireServerLock(lockDir, {
-    port: 0,
-    worktreeRoot: projectDir,
-    kind: options.lockKind ?? 'interactive',
-    capabilities: options.capabilities ?? ['http', 'ws'],
-  });
-
-  if (!skipStateManifestCheck) {
-    try {
+  let authority: ReturnType<typeof acquireServerAuthority>;
+  try {
+    authority = acquireServerAuthority({
+      scope: authorityScope,
+      projectDir: canonicalContentPath(projectDir),
+      serverInstanceId,
+      registryPath: options.authorityRegistryPath,
+    });
+  } catch (error) {
+    if (
+      error instanceof ServerAuthorityCollisionError &&
+      error.existing.projectDir === canonicalContentPath(projectDir)
+    ) {
+      const existing = readServerLock(lockDir);
+      if (existing?.pid === error.existing.pid) {
+        throw new ServerLockCollisionError(existing, join(lockDir, 'server.lock'));
+      }
+    }
+    throw error;
+  }
+  authorityScope = authority.scope;
+  let primaryLockAcquired = false;
+  try {
+    acquireServerLock(lockDir, {
+      port: 0,
+      worktreeRoot: projectDir,
+      kind: options.lockKind ?? 'interactive',
+      capabilities: options.capabilities ?? ['http', 'ws'],
+    });
+    primaryLockAcquired = true;
+    if (!skipStateManifestCheck) {
       assertCompatibleStateManifest({
         lockDir,
         shadowRepoDir: resolveShadowDir(projectDir),
       });
-    } catch (err) {
-      releaseServerLock(lockDir);
-      throw err;
     }
+  } catch (error) {
+    if (primaryLockAcquired) releaseServerLock(lockDir);
+    try {
+      authority.release();
+    } catch (cleanupError) {
+      log.error({ err: cleanupError }, '[server] startup authority release failed');
+    }
+    throw error;
   }
 
   const basenameIndex: BasenameIndex = createBasenameIndex();
 
-  const resolveEmbed = (basename: string, sourcePath: string): string | null =>
-    basenameIndex.resolveEmbed(basename, sourcePath);
+  const resolveTrackedFile = createTrackedFileResolver(() =>
+    localTargetInventoryFromWatcher(watcher, contentDir),
+  );
+  const resolveTrackedWikiFile = createTrackedWikiFileResolver(() =>
+    localTargetInventoryFromWatcher(watcher, contentDir),
+  );
+
+  const resolveEmbed = (target: string, sourcePath: string): string | null => {
+    const wikiPath = wikiFilePath(target);
+    if (wikiPath === null || !wikiPath.includes('/')) {
+      return basenameIndex.resolveEmbed(target, sourcePath);
+    }
+    return resolveTrackedWikiFile(wikiPath) ?? null;
+  };
 
   const resolveSize = (basename: string, sourcePath: string): number | null => {
-    let candidatePath: string | null = basenameIndex.resolveEmbed(basename, sourcePath);
+    let candidatePath: string | null = resolveEmbed(basename, sourcePath);
     if (!candidatePath && basename.includes('/')) {
       candidatePath = basename.replace(/^\.?\//, '');
     }
@@ -1048,10 +1238,10 @@ export function createServer(options: ServerOptions): ServerInstance {
   });
 
   let loadedPrincipal: Principal | null = null;
-  const forceUnloadSet = new Set<Document>();
+  const forceUnloadRequests = new Map<Document, Set<() => boolean>>();
   let shutdownAllowsUnload = false;
   const unregisterWorkloadProviders: Array<() => void> = [];
-  let forceUnloadDocument!: (document: Document) => Promise<void>;
+  let forceUnloadDocument!: (document: Document, isCurrent?: () => boolean) => Promise<void>;
   let defaultShouldUnloadDocument!: (document: Document) => boolean;
 
   let resolveReady!: () => void;
@@ -1060,6 +1250,7 @@ export function createServer(options: ServerOptions): ServerInstance {
     resolveReady = res;
     rejectReady = rej;
   });
+  const offlineRemovalsReconciled = Promise.withResolvers<void>();
 
   let resolveBranchScopeAligned!: () => void;
   const branchScopeAligned = new Promise<void>((res) => {
@@ -1391,8 +1582,9 @@ export function createServer(options: ServerOptions): ServerInstance {
     isConflict: (docName) => conflicts.has(docName),
     getDocument: (docName) => hocuspocus.documents.get(docName),
     writeDisk: async (absPath, markdown) => {
+      assertContentPath(absPath);
       tracedMkdirSync(dirname(absPath), { recursive: true });
-      await atomicWriteFile(absPath, markdown, { fs: tracedAtomicFs });
+      await atomicWriteFile(absPath, markdown, { fs: scopedAtomicFs });
     },
     registerWrite: (absPath, markdown) => registerWrite(absPath, contentHash(markdown)),
     noteFileIndex: (event) =>
@@ -1563,6 +1755,7 @@ export function createServer(options: ServerOptions): ServerInstance {
 
           const docName = indexDocNameFor(directory);
           const absPath = resolve(contentDir, `${docName}.md`);
+          assertContentPath(absPath);
           let currentMarkdown: string | null;
           try {
             currentMarkdown = readFileSync(absPath, 'utf-8');
@@ -1667,6 +1860,156 @@ export function createServer(options: ServerOptions): ServerInstance {
   removedDocsJournalWritable = true;
   const commentDocHooksRef: { current: CommentDocHooks | null } = { current: null };
 
+  type ResidentOccurrence = {
+    source: string | undefined;
+    mutation: { occurrence: ResidentOccurrence } | undefined;
+    adoption: object | undefined;
+    pendingRetirement: boolean;
+  };
+  let residentOccurrences = new WeakMap<Doc, ResidentOccurrence>();
+  type RemovalOperation = { namespaceAllowed: boolean; residentAllowed: boolean };
+  const activeRemovals = new Map<string, Set<RemovalOperation>>();
+
+  const resolvedContentDir = resolve(contentDir);
+  function resolveDocFilePath(docName: string): string | null {
+    if (!isSafeDocName(docName)) return null;
+    const relativePath = docNameToRelativePath(docName);
+    const filePath = resolve(resolvedContentDir, relativePath);
+    if (!isWithinDir(filePath, resolvedContentDir)) return null;
+    return filePath;
+  }
+
+  function hasAdmittedMarkdownBinding(docName: string): boolean {
+    const owner = watcher?.getFileIndex().get(docName);
+    const filePath = owner?.canonicalPath ?? resolveDocFilePath(docName);
+    if (filePath === null) return false;
+    return hasAdmittedMarkdownFile(docName, filePath, contentDir, contentFilter);
+  }
+
+  function occurrenceFor(document: Doc): ResidentOccurrence {
+    let occurrence = residentOccurrences.get(document);
+    if (!occurrence) {
+      occurrence = {
+        source: document.getText('source').toString(),
+        mutation: undefined,
+        adoption: undefined,
+        pendingRetirement: false,
+      };
+      residentOccurrences.set(document, occurrence);
+    }
+    return occurrence;
+  }
+
+  function revokeNamespaceRemovals(docName: string): void {
+    for (const removal of activeRemovals.get(docName) ?? []) removal.namespaceAllowed = false;
+  }
+
+  function acceptResident(document: Doc, docName: string): void {
+    if (
+      documentAdmissionClosed ||
+      document.isDestroyed ||
+      hocuspocus.documents.get(docName) !== document
+    )
+      return;
+    const occurrence = occurrenceFor(document);
+    occurrence.pendingRetirement = false;
+    occurrence.adoption = {};
+    for (const removal of activeRemovals.get(docName) ?? []) {
+      removal.namespaceAllowed = false;
+      removal.residentAllowed = false;
+    }
+  }
+
+  function markResidentForRetirement(document: Doc): void {
+    residentOccurrences.set(document, {
+      source: document.getText('source').toString(),
+      mutation: undefined,
+      adoption: undefined,
+      pendingRetirement: true,
+    });
+  }
+
+  function acceptNamespaceCreate(docName: string): void {
+    if (documentAdmissionClosed) return;
+    revokeNamespaceRemovals(docName);
+    const document = hocuspocus.documents.get(docName);
+    if (document) markResidentForRetirement(document);
+    commentDocHooksRef.current?.deleted(docName);
+  }
+
+  function captureNamespaceMove(docName: string): () => void {
+    const document = hocuspocus.documents.get(docName);
+    const occurrence = document ? occurrenceFor(document) : undefined;
+    const adoption = occurrence?.adoption;
+    return () => {
+      if (documentAdmissionClosed) return;
+      revokeNamespaceRemovals(docName);
+      if (
+        document &&
+        hocuspocus.documents.get(docName) === document &&
+        residentOccurrences.get(document) === occurrence &&
+        occurrence?.adoption === adoption
+      )
+        markResidentForRetirement(document);
+    };
+  }
+
+  function capturePublicationReceipt(document: Doc, docName: string): (() => void) | undefined {
+    const mutation = residentOccurrences.get(document)?.mutation;
+    if (!mutation) return undefined;
+    return () => {
+      if (residentOccurrences.get(document) === mutation.occurrence)
+        acceptResident(document, docName);
+    };
+  }
+
+  function acceptConnectedDocument(docName: string, document: Document): void {
+    if (hasAdmittedMarkdownBinding(docName)) acceptResident(document, docName);
+  }
+
+  function beginRemoval(docName: string, observedCurrent?: () => boolean) {
+    const document = hocuspocus.documents.get(docName);
+    const isApplicable = () =>
+      (observedCurrent?.() ?? true) && !hasAdmittedMarkdownBinding(docName);
+    const namespaceAllowed = !documentAdmissionClosed && isApplicable();
+    const operation: RemovalOperation = {
+      namespaceAllowed,
+      residentAllowed:
+        !documentAdmissionClosed &&
+        document !== undefined &&
+        (namespaceAllowed || occurrenceFor(document).pendingRetirement),
+    };
+    const removals = activeRemovals.get(docName) ?? new Set<RemovalOperation>();
+    if (!documentAdmissionClosed) {
+      removals.add(operation);
+      activeRemovals.set(docName, removals);
+    }
+    const namespaceCurrent = () => {
+      if (operation.namespaceAllowed && !isApplicable()) operation.namespaceAllowed = false;
+      return operation.namespaceAllowed;
+    };
+    return {
+      document,
+      namespaceCurrent,
+      residentCurrent: () => {
+        if (
+          operation.residentAllowed &&
+          (document === undefined ||
+            document.isDestroyed ||
+            hocuspocus.documents.get(docName) !== document)
+        )
+          operation.residentAllowed = false;
+        return operation.residentAllowed;
+      },
+      dispose: () => {
+        operation.namespaceAllowed = false;
+        operation.residentAllowed = false;
+        removals.delete(operation);
+        if (removals.size === 0) activeRemovals.delete(docName);
+      },
+    };
+  }
+
   const onUpstreamRename = (oldDocName: string, newDocName: string): void => {
     if (isReservedForUserTree(oldDocName)) return;
     recentlyRemovedDocs.setRenamed(oldDocName, newDocName);
@@ -1684,7 +2027,6 @@ export function createServer(options: ServerOptions): ServerInstance {
       return;
     }
     recentlyRemovedDocs.setDeleted(docName);
-    commentDocHooksRef.current?.deleted(docName);
   };
   const onUpstreamAdd = (docName: string): void => {
     if (isReservedForUserTree(docName)) return;
@@ -1705,10 +2047,28 @@ export function createServer(options: ServerOptions): ServerInstance {
     contentFilter = createContentFilter({
       projectDir,
       contentDir,
+      isContentScopeExcluded: (path) => {
+        if (authorityScope.kind !== 'tree') return false;
+        try {
+          const target = canonicalContentPath(path);
+          return authorityScope.excluded.some((root) =>
+            contentScopeContainsPath({ kind: 'tree', path: root, excluded: [] }, target),
+          );
+        } catch (err) {
+          const code = errnoCode(err);
+          if (!(err instanceof SymlinkEscapeError) && code !== 'EACCES' && code !== 'EPERM')
+            throw err;
+          log.warn(
+            { path: normalizeFsPath(path), code },
+            '[content-filter] scope path could not be inspected',
+          );
+          return true;
+        }
+      },
       singleDocRelPath,
       attachmentFolderPath: initialAttachmentFolderPath,
-      inPlaceSkillDirs: scanInPlaceSkillDirs(contentDir),
-      rescanInPlaceSkillDirs: () => scanInPlaceSkillDirs(contentDir),
+      inPlaceSkillDirs: new Set(scanInPlaceSkills(contentDir).map((skill) => skill.dir)),
+      rescanInPlaceSkillDirs: (priorAdmission) => scanInPlaceSkillDirs(contentDir, priorAdmission),
       skillRootPaths: skillRootPathsFor(contentDir),
       onAfterRebuild: () => {
         void derivedDocumentIndex.refreshContentScope().catch((err) => {
@@ -1746,7 +2106,7 @@ export function createServer(options: ServerOptions): ServerInstance {
       contentFilter,
       getGlobalSkillRoots: () => managedArtifactSkillsRoots(persistence.managedArtifactCtx),
       signalChannel,
-      getLocalTargetInventory: () => localTargetInventoryFromWatcher(watcher, contentDir),
+      getLocalTargetInventory: () => localTargetInventoryFromWatcher(watcher, canonicalContentDir),
       onRecoveredFileTarget: (relativePath, exists) => {
         if (!watcher) return;
         reconcileRecoveredFileTarget({
@@ -1790,6 +2150,7 @@ export function createServer(options: ServerOptions): ServerInstance {
     let globalCopyResyncTimer: ReturnType<typeof setTimeout> | null = null;
     const persistenceOpts: PersistenceOptions = {
       contentDir,
+      assertContentPath,
       projectDir,
       conflicts,
       lifecycleOf: (document, docName) => conflicts.lifecycleOf(document, docName),
@@ -1807,6 +2168,7 @@ export function createServer(options: ServerOptions): ServerInstance {
       getPrincipal: () => loadedPrincipal,
       onAgentCommit: () => cc1Broadcaster?.signal('session-activity'),
       onFlushCommit: () => maintenanceCoordinator?.noteFlushCommit(),
+      capturePublicationReceipt,
       onDiskFlush: (docName, sv, persistedMarkdown, previousMarkdown) => {
         cc1Broadcaster?.emitDiskAck(docName, sv);
         if (isReservedForUserTree(docName)) return;
@@ -1830,7 +2192,8 @@ export function createServer(options: ServerOptions): ServerInstance {
         globalCopyResyncTimer = setTimeout(() => {
           globalCopyResyncTimer = null;
           const home = configHomedirOverride ?? homedir();
-          void resyncRecordedSkillCopies(home, home, scanGlobalInPlaceSkills(home))
+          void scanGlobalInPlaceSkillsAsync(home)
+            .then((inPlace) => resyncRecordedSkillCopies(home, home, inPlace))
             .then((n) => {
               if (n > 0) log.info({ refreshed: n }, '[in-place-skills] post-edit copy re-sync');
             })
@@ -1852,12 +2215,60 @@ export function createServer(options: ServerOptions): ServerInstance {
       extensions: [persistence.extension],
     });
 
+    const dispatchHooks = hocuspocus.hooks.bind(hocuspocus);
+    hocuspocus.hooks = (name, payload, callback) => {
+      if (
+        (name === 'afterLoadDocument' || name === 'onChange') &&
+        'document' in payload &&
+        !isReservedForUserTree(payload.document.name)
+      ) {
+        const document = payload.document;
+        const occurrence = occurrenceFor(document);
+        if (name === 'onChange' && occurrence.mutation === undefined) {
+          const source = document.getText('source').toString();
+          if (source !== occurrence.source) {
+            occurrence.source = undefined;
+            occurrence.mutation = { occurrence };
+          }
+        }
+      }
+      if (
+        name === 'connected' &&
+        'connection' in payload &&
+        payload.connection &&
+        !isReservedForUserTree(payload.documentName)
+      ) {
+        acceptConnectedDocument(payload.documentName, payload.connection.document);
+      }
+      return dispatchHooks(name, payload, callback);
+    };
+
     const openDirect = hocuspocus.openDirectConnection.bind(hocuspocus);
-    hocuspocus.openDirectConnection = ((documentName: string, context?: unknown) =>
-      openDirect(
-        canonicalDocName(documentName),
-        context,
-      )) as typeof hocuspocus.openDirectConnection;
+    function assertDocumentProjectScope(documentName: string): void {
+      if (documentAdmissionClosed) throw new ServerMutationShuttingDownError(false);
+      if (isReservedForUserTree(documentName)) {
+        if (
+          singleDocRelPath !== undefined &&
+          documentName !== SYSTEM_DOC_NAME &&
+          !isConfigDoc(documentName)
+        )
+          throw new ContentScopeAdmissionError();
+        return;
+      }
+      if (
+        singleDocRelPath !== undefined &&
+        canonicalDocName(documentName) !== canonicalDocName(stripDocExtension(singleDocRelPath))
+      )
+        throw new ContentScopeAdmissionError();
+      if (authorityRetired) throw new ServerMutationShuttingDownError(false);
+      assertCapturedServerContentPath(authorityScope, safeContentPath(documentName, contentDir));
+    }
+
+    hocuspocus.openDirectConnection = (async (documentName: string, context?: unknown) => {
+      const canonicalName = canonicalDocName(documentName);
+      assertDocumentProjectScope(canonicalName);
+      return openDirect(canonicalName, context);
+    }) as typeof hocuspocus.openDirectConnection;
 
     const hp = hocuspocus;
     unregisterWorkloadProviders.push(
@@ -1920,9 +2331,8 @@ export function createServer(options: ServerOptions): ServerInstance {
 
     defaultShouldUnloadDocument = hocuspocus.shouldUnloadDocument.bind(hocuspocus);
     hocuspocus.shouldUnloadDocument = (document) => {
-      if (forceUnloadSet.has(document)) {
-        return true;
-      }
+      const requests = forceUnloadRequests.get(document);
+      if (requests) return [...requests].some((isCurrent) => isCurrent());
       if (
         shutdownAllowsUnload &&
         !isReservedForUserTree(document.name) &&
@@ -1941,12 +2351,17 @@ export function createServer(options: ServerOptions): ServerInstance {
       return defaultShouldUnloadDocument(document);
     };
 
-    forceUnloadDocument = async (document: Document): Promise<void> => {
-      forceUnloadSet.add(document);
+    forceUnloadDocument = async (document, isCurrent): Promise<void> => {
+      const request = () =>
+        hocuspocus.documents.get(document.name) === document && (isCurrent?.() ?? true);
+      const requests = forceUnloadRequests.get(document) ?? new Set<() => boolean>();
+      requests.add(request);
+      forceUnloadRequests.set(document, requests);
       try {
         await hocuspocus.unloadDocument(document);
       } finally {
-        forceUnloadSet.delete(document);
+        requests.delete(request);
+        if (requests.size === 0) forceUnloadRequests.delete(document);
       }
     };
 
@@ -1954,7 +2369,11 @@ export function createServer(options: ServerOptions): ServerInstance {
     agentFocusBroadcaster = new AgentFocusBroadcaster(hocuspocus);
     agentPresenceBroadcaster = new AgentPresenceBroadcaster(hocuspocus);
 
-    sessionManager = new AgentSessionManager(hocuspocus, options.agentSessionOptions);
+    sessionManager = new AgentSessionManager(hocuspocus, {
+      ...options.agentSessionOptions,
+      assertDocumentScope: assertDocumentProjectScope,
+      awaitWriteAdmission: () => durabilityState.whenWriteAdmitted(),
+    });
     const sm = sessionManager;
     unregisterWorkloadProviders.push(
       registerAgentSessionCountsProvider(() => ({
@@ -1979,7 +2398,11 @@ export function createServer(options: ServerOptions): ServerInstance {
 
     const principalAuthExtension: Extension & { __kind: 'principal-auth' } = {
       __kind: 'principal-auth',
+      async beforeHandleMessage(payload) {
+        assertDocumentProjectScope(payload.documentName);
+      },
       async onAuthenticate(payload) {
+        assertDocumentProjectScope(payload.documentName);
         const tokenStr = payload.token;
         const parsed = parseHocuspocusAuthToken(tokenStr);
 
@@ -2067,19 +2490,23 @@ export function createServer(options: ServerOptions): ServerInstance {
     };
     hocuspocus.configuration.extensions.push(configDocAdmissionGuard);
 
-    const resolvedContentDir = resolve(contentDir);
-    function resolveDocFilePath(docName: string): string | null {
-      if (!isSafeDocName(docName)) return null;
-      const relativePath = docNameToRelativePath(docName);
-      const filePath = resolve(resolvedContentDir, relativePath);
-      if (!isWithinDir(filePath, resolvedContentDir)) {
-        return null;
-      }
-      return filePath;
-    }
     const removalRedirectGuard: Extension & { __kind: 'removal-redirect-guard' } = {
       __kind: 'removal-redirect-guard',
       async onAuthenticate(payload) {
+        if (!isReservedForUserTree(payload.documentName)) {
+          const path = resolveDocFilePath(payload.documentName);
+          if (path !== null && !existsSync(path)) {
+            try {
+              await Promise.race([offlineRemovalsReconciled.promise, ready]);
+            } catch (err) {
+              log.error(
+                { err, docName: payload.documentName },
+                '[removal-guard] missing-document admission refused after startup failure',
+              );
+              throw err;
+            }
+          }
+        }
         await runRemovalRedirectGuard(payload.documentName, {
           recentlyRemovedDocs,
           resolveFilePath: resolveDocFilePath,
@@ -2150,12 +2577,19 @@ export function createServer(options: ServerOptions): ServerInstance {
     const apiExtension = createApiExtension({
       basePath: options.basePath,
       declaredGitHubHosts,
+      resolveSyncCredentialConfig,
       hocuspocus,
       durabilityState,
       ingressPolicy,
       sessionManager,
       commentDocHooksRef,
+      onNamespaceCreateAccepted: acceptNamespaceCreate,
+      capturePublicationReceipt,
+      captureNamespaceMove,
+      onResidentAdopted: acceptResident,
       contentDir,
+      assertContentPath,
+      assertContentSubtree,
       getGeneratedIndexSettingsStatus,
       setGeneratedIndexEnabled,
       contentFilter,
@@ -2175,10 +2609,14 @@ export function createServer(options: ServerOptions): ServerInstance {
             }
             break;
           case 'create':
+            reviveFrozenResident(event.docName, event.content);
+            scheduleIndexRegeneration(event.docName);
+            break;
           case 'conflict':
             scheduleIndexRegeneration(event.docName);
             break;
           case 'delete':
+            commentDocHooksRef.current?.deleted(event.docName);
             scheduleIndexRegenerationAfterRemoval(event.docName);
             break;
           case 'rename':
@@ -2202,7 +2640,11 @@ export function createServer(options: ServerOptions): ServerInstance {
       getFolderIndex: () => (watcher ? watcher.getFolderIndex() : new Map()),
       getAliasMap: () => (watcher ? watcher.getAliasMap() : new Map()),
       getFolderAliasIndex: () => (watcher ? watcher.getFolderAliasIndex() : new Map()),
+      resolveTrackedFile,
       rescanFiles: () => watcher?.rescanFromDisk(),
+      settleDiskEventsForTest: async () => {
+        await watcher?.settle();
+      },
       enableTestRoutes,
       shadowRef,
       flushGitCommit: () => persistence.flushPendingGitCommit(),
@@ -2231,6 +2673,20 @@ export function createServer(options: ServerOptions): ServerInstance {
       acpRegistry,
       loadAcpCustomAgents: () => loadCustomAgents(lockDir, getLogger('acp-registry')),
       homeDirOverride: configHomedirOverride,
+      resetSettingsForTest:
+        configHomedirOverride === undefined
+          ? undefined
+          : () => {
+              for (const configDocName of CONFIG_DOC_NAMES) {
+                resetConfigDocForTest(
+                  hocuspocus.documents.get(configDocName) ?? null,
+                  configDocName,
+                  persistence.configPersistenceCtx,
+                );
+                configFileWatcherResyncs.get(configDocName)?.();
+                applyPersistedConfigToConsumers(configDocName);
+              }
+            },
       forceUnloadDocument,
       ready,
       recentlyRemovedDocs,
@@ -2314,7 +2770,13 @@ export function createServer(options: ServerOptions): ServerInstance {
     }
     void stalenessWatchdog?.dispose();
     stalenessWatchdog = null;
+    authorityRetired = true;
     releaseServerLock(lockDir);
+    try {
+      authority.release();
+    } catch (cleanupError) {
+      log.error({ err: cleanupError }, '[server] construction authority release failed');
+    }
     throw err;
   }
 
@@ -2328,6 +2790,7 @@ export function createServer(options: ServerOptions): ServerInstance {
     docName: string;
     cleanup: ConfigFileWatcherUnsubscribe;
   }> = [];
+  const configFileWatcherResyncs = new Map<ConfigDocName, () => void>();
 
   function safeRescuePath(shadowGitDir: string, docName: string): string | null {
     const rescueBase = resolve(shadowGitDir, 'rescue');
@@ -2343,7 +2806,8 @@ export function createServer(options: ServerOptions): ServerInstance {
     return serializeYDocSource(document);
   }
 
-  const applyToDoc = (docName: string, content: string): void =>
+  const applyToDoc = (docName: string, content: string): void => {
+    const document = hocuspocus.documents.get(docName);
     applyExternalChange(
       durabilityState,
       hocuspocus,
@@ -2353,10 +2817,31 @@ export function createServer(options: ServerOptions): ServerInstance {
       resolveSize,
       bridgeLossReporter,
     );
+    if (document && hasAdmittedMarkdownBinding(docName)) acceptResident(document, docName);
+  };
 
-  const rerenderDocsReferencingAssetBasename = (assetBasename: string): void => {
-    if (!assetBasename) return;
-    const needle = `[[${assetBasename}]]`;
+  const reviveFrozenResident = (docName: string, content: string): FrozenResidentRevival => {
+    const result = reviveFrozenResidentDoc(
+      durabilityState,
+      hocuspocus,
+      docName,
+      content,
+      resolveEmbed,
+      resolveSize,
+      bridgeLossReporter,
+    );
+    const document = hocuspocus.documents.get(docName);
+    if (result === 'revived' && document && hasAdmittedMarkdownBinding(docName)) {
+      acceptResident(document, docName);
+    }
+    return result;
+  };
+
+  const refreshLoadedEmbeds = (
+    needle: string,
+    context: { reason: 'startup' } | { reason: 'asset-event'; assetBasename: string },
+  ): number => {
+    let refreshed = 0;
     for (const [docName] of hocuspocus.documents) {
       if (isReservedForUserTree(docName)) continue;
       const document = hocuspocus.documents.get(docName);
@@ -2367,12 +2852,30 @@ export function createServer(options: ServerOptions): ServerInstance {
         document.transact(() => {
           applyDiskContentToDoc(document, source, resolveEmbed, docName);
         }, FILE_WATCHER_ORIGIN);
+        refreshed++;
       } catch (err) {
         log.error(
-          { originalError: redactedErrorSummary(err), docName, assetBasename },
-          `[asset-event] failed to re-render ${docName} for asset basename ${assetBasename}`,
+          { originalError: redactedErrorSummary(err), docName, ...context },
+          context.reason === 'asset-event'
+            ? `[asset-event] failed to re-render ${docName} for asset basename ${context.assetBasename}`
+            : `[basename-index] failed to refresh loaded startup embeds in ${docName}`,
         );
       }
+    }
+    return refreshed;
+  };
+
+  const rerenderDocsReferencingAssetBasename = (assetBasename: string): void => {
+    if (!assetBasename) return;
+    refreshLoadedEmbeds(`[[${assetBasename}]]`, { reason: 'asset-event', assetBasename });
+  };
+
+  const refreshStartupEmbeds = (): void => {
+    try {
+      const documentCount = refreshLoadedEmbeds('![[', { reason: 'startup' });
+      log.debug({ documentCount }, '[basename-index] refreshed loaded startup embeds');
+    } catch (err) {
+      log.warn({ err }, '[basename-index] loaded startup embed refresh failed');
     }
   };
 
@@ -2598,11 +3101,26 @@ export function createServer(options: ServerOptions): ServerInstance {
     }
   };
 
-  async function handleDiskEvent(event: DiskEvent): Promise<void> {
+  const bufferedRemovalScopes = new Map<
+    Extract<DiskEvent, { kind: 'delete' | 'rename' }>,
+    ReturnType<typeof beginRemoval>
+  >();
+
+  async function handleDiskEvent(
+    event: DiskEvent,
+    preparedRemoval = event.kind === 'delete' || event.kind === 'rename'
+      ? (bufferedRemovalScopes.get(event) ??
+        beginRemoval(
+          event.kind === 'delete' ? event.docName : event.oldDocName,
+          getMarkdownRemovalCurrentness(event),
+        ))
+      : undefined,
+  ): Promise<void> {
     try {
       switch (event.kind) {
         case 'create': {
           log.info({ docName: event.docName }, `[reconcile] create: ${event.docName}`);
+          reviveFrozenResident(event.docName, event.content);
           await derivedDocumentIndex.recordDiskUpsert(event.docName, event.content);
           signalChannel('files');
           scheduleIndexRegeneration(event.docName);
@@ -2612,6 +3130,7 @@ export function createServer(options: ServerOptions): ServerInstance {
 
         case 'update': {
           const { docName, content: theirs } = event;
+          onUpstreamAdd(docName);
           if (indexedMetadataChanged(event.previousIndexedFields, theirs, docName)) {
             scheduleIndexRegeneration(docName);
           }
@@ -2626,6 +3145,10 @@ export function createServer(options: ServerOptions): ServerInstance {
           const document = hocuspocus.documents.get(docName);
           if (!document) {
             refuseStaleExternalWrite(durabilityState, undefined, docName, theirs, conflicts);
+            await derivedDocumentIndex.recordDiskUpsert(docName, theirs);
+            return;
+          }
+          if (reviveFrozenResident(docName, theirs) !== 'not-frozen') {
             await derivedDocumentIndex.recordDiskUpsert(docName, theirs);
             return;
           }
@@ -2773,11 +3296,68 @@ export function createServer(options: ServerOptions): ServerInstance {
 
         case 'delete': {
           const { docName } = event;
-          dissolveNonGitConflicts(docName);
-          const document = hocuspocus.documents.get(docName);
-          if (!document) {
-            deleteReconciledBase(docName);
-            await derivedDocumentIndex.recordDiskDelete(docName);
+          const removal =
+            preparedRemoval ?? beginRemoval(docName, getMarkdownRemovalCurrentness(event));
+          bufferedRemovalScopes.delete(event);
+          try {
+            const namespaceCurrent = removal.namespaceCurrent();
+            const residentCurrent = removal.residentCurrent();
+            if (!namespaceCurrent && !residentCurrent) {
+              log.debug(
+                { docName, source: 'watcher-delete', namespaceCurrent, residentCurrent },
+                `[reconcile] delete skipped: ${docName} (stale removal)`,
+              );
+              return;
+            }
+            if (namespaceCurrent) {
+              dissolveNonGitConflicts(docName);
+              commentDocHooksRef.current?.deleted(docName);
+            }
+            const { document } = removal;
+            const isDirty =
+              residentCurrent && document
+                ? rescueUnflushedEditsBeforeTeardown(
+                    docName,
+                    getStorageBranch() ?? 'main',
+                    'delete',
+                    true,
+                  )
+                : false;
+            if (residentCurrent) document?.getMap('lifecycle').set('status', 'deleted-upstream');
+            if (namespaceCurrent) deleteReconciledBase(docName);
+            if (namespaceCurrent) await derivedDocumentIndex.recordDiskDelete(docName);
+            if (!removal.namespaceCurrent() && !removal.residentCurrent()) {
+              log.debug(
+                {
+                  docName,
+                  source: 'watcher-delete',
+                  namespaceCurrent: false,
+                  residentCurrent: false,
+                },
+                `[reconcile] delete skipped: ${docName} (stale removal)`,
+              );
+              return;
+            }
+            log.info(
+              { docName, isDirty, source: 'watcher-delete' },
+              `[reconcile] delete: ${docName} (dirty=${isDirty})`,
+            );
+            if (removal.residentCurrent() && document) {
+              hocuspocus.closeConnections(docName);
+              await forceUnloadDocument(document, removal.residentCurrent);
+            }
+            if (!removal.namespaceCurrent()) {
+              log.debug(
+                {
+                  docName,
+                  source: 'watcher-delete',
+                  namespaceCurrent: false,
+                  residentCurrent: removal.residentCurrent(),
+                },
+                `[reconcile] delete: ${docName} not recorded as removed (stale removal)`,
+              );
+              return;
+            }
             signalChannel('files');
             onUpstreamDelete(docName);
             scheduleIndexRegenerationAfterRemoval(docName);
@@ -2789,117 +3369,108 @@ export function createServer(options: ServerOptions): ServerInstance {
                 source: 'watcher-delete',
               }),
             );
-            return;
+          } finally {
+            removal.dispose();
           }
-
-          const isDirty = rescueUnflushedEditsBeforeTeardown(
-            docName,
-            getStorageBranch() ?? 'main',
-            'delete',
-            true,
-          );
-
-          const lifecycleMap = document.getMap('lifecycle');
-          lifecycleMap.set('status', 'deleted-upstream');
-
-          deleteReconciledBase(docName);
-          await derivedDocumentIndex.recordDiskDelete(docName);
-          log.info(
-            { docName, isDirty, source: 'watcher-delete' },
-            `[reconcile] delete: ${docName} (dirty=${isDirty})`,
-          );
-
-          hocuspocus.closeConnections(docName);
-          await forceUnloadDocument(document);
-          signalChannel('files');
-          onUpstreamDelete(docName);
-          scheduleIndexRegenerationAfterRemoval(docName);
-          console.info(
-            JSON.stringify({
-              event: 'recently-removed-docs-populate',
-              docName,
-              kind: 'deleted',
-              source: 'watcher-delete',
-            }),
-          );
           break;
         }
 
         case 'rename': {
           const { oldDocName, newDocName, content } = event;
-          dissolveNonGitConflicts(oldDocName);
-          const freezeAsRenamed = (doc: Document): void => {
-            const lifecycleMap = doc.getMap('lifecycle');
-            lifecycleMap.set('status', 'renamed');
-            lifecycleMap.set('newPath', newDocName);
-          };
-          const loadedBeforeIndex = hocuspocus.documents.get(oldDocName);
-          const isDirty = loadedBeforeIndex
-            ? rescueUnflushedEditsBeforeTeardown(oldDocName, getStorageBranch() ?? 'main', 'rename')
-            : false;
-          if (loadedBeforeIndex) freezeAsRenamed(loadedBeforeIndex);
-
-          deleteReconciledBase(oldDocName);
-          persistence.forgetObservedFile(oldDocName);
-          setReconciledBase(newDocName, content);
-
-          log.info(
-            { oldDocName, newDocName, isDirty },
-            `[reconcile] rename: ${oldDocName} → ${newDocName} (dirty=${isDirty})`,
-          );
-          signalChannel('files');
-          onUpstreamAdd(newDocName);
-          onUpstreamRename(oldDocName, newDocName);
-
+          const removal =
+            preparedRemoval ?? beginRemoval(oldDocName, getMarkdownRemovalCurrentness(event));
+          bufferedRemovalScopes.delete(event);
           try {
-            await derivedDocumentIndex.recordDiskRename(oldDocName, newDocName, content);
-          } catch (err) {
-            log.error(
-              { oldDocName, newDocName, err },
-              `[reconcile] rename: index update failed for ${oldDocName} → ${newDocName}; completing client teardown anyway`,
-            );
-          }
-
-          const document = hocuspocus.documents.get(oldDocName);
-          if (document && document !== loadedBeforeIndex) freezeAsRenamed(document);
-
-          const resident = hocuspocus.documents.get(newDocName);
-          if (resident && resident.getMap('lifecycle').get('status') === 'renamed') {
-            const residentLifecycle = resident.getMap('lifecycle');
-            residentLifecycle.delete('status');
-            residentLifecycle.delete('newPath');
-            applyToDoc(newDocName, content);
+            const document = removal.document;
+            const freezeAsRenamed = (doc: Document): void => {
+              const lifecycle = doc.getMap('lifecycle');
+              lifecycle.set('status', 'renamed');
+              lifecycle.set('newPath', newDocName);
+            };
+            const isDirty =
+              removal.residentCurrent() && document
+                ? rescueUnflushedEditsBeforeTeardown(
+                    oldDocName,
+                    getStorageBranch() ?? 'main',
+                    'rename',
+                  )
+                : false;
+            if (removal.residentCurrent() && document) freezeAsRenamed(document);
+            if (removal.namespaceCurrent()) {
+              dissolveNonGitConflicts(oldDocName);
+              deleteReconciledBase(oldDocName);
+              persistence.forgetObservedFile(oldDocName);
+              onUpstreamRename(oldDocName, newDocName);
+            }
+            setReconciledBase(newDocName, content);
             log.info(
-              { newDocName },
-              `[reconcile] rename: cleared stale renamed lifecycle on ${newDocName}`,
+              { oldDocName, newDocName, isDirty },
+              `[reconcile] rename: ${oldDocName} → ${newDocName} (dirty=${isDirty})`,
             );
-          }
-
-          await sessionManager.closeAllForDoc(oldDocName);
-          const closedConnections = document?.getConnectionsCount() ?? 0;
-          /* WARN: the `delete` branch above and `captureAndCloseDocuments` pair their
-             close with `forceUnloadDocument`; this branch does not, so the frozen doc
-             stays resident under the old name and template-watcher-capabilities.test.ts
-             pins that residency. The destination clear above is what stops a move back
-             to this path from being served that stale frozen doc. */
-          hocuspocus.closeConnections(oldDocName);
-          if (closedConnections > 0) {
-            log.info(
-              { oldDocName, newDocName, closedConnections },
-              `[reconcile] rename: closed ${closedConnections} connection(s) on ${oldDocName}`,
+            signalChannel('files');
+            onUpstreamAdd(newDocName);
+            try {
+              if (removal.namespaceCurrent()) {
+                await derivedDocumentIndex.recordDiskRename(oldDocName, newDocName, content);
+              } else {
+                await derivedDocumentIndex.recordDiskUpsert(newDocName, content);
+              }
+            } catch (err) {
+              log.error(
+                { oldDocName, newDocName, err },
+                `[reconcile] rename: index update failed for ${oldDocName} → ${newDocName}; completing client teardown anyway`,
+              );
+            }
+            const loadedDuringIndex = removal.namespaceCurrent()
+              ? hocuspocus.documents.get(oldDocName)
+              : undefined;
+            const lateResident = loadedDuringIndex !== document ? loadedDuringIndex : undefined;
+            if (lateResident) freezeAsRenamed(lateResident);
+            reviveFrozenResident(newDocName, content);
+            scheduleIndexRegeneration(newDocName);
+            const retired = removal.residentCurrent() && document ? document : lateResident;
+            if (retired) {
+              const closedConnections = retired.getConnectionsCount();
+              /* WARN: the `delete` branch above and `captureAndCloseDocuments` pair their
+               close with `forceUnloadDocument`; this branch does not, so the frozen doc
+               stays resident under the old name and template-watcher-capabilities.test.ts
+               pins that residency. The destination clear above is what stops a move back
+               to this path from being served that stale frozen doc. */
+              hocuspocus.closeConnections(oldDocName);
+              await sessionManager.closeAllForDoc(oldDocName);
+              if (closedConnections > 0) {
+                log.info(
+                  { oldDocName, newDocName, closedConnections },
+                  `[reconcile] rename: closed ${closedConnections} connection(s) on ${oldDocName}`,
+                );
+              }
+            }
+            if (!removal.namespaceCurrent()) {
+              log.debug(
+                {
+                  docName: oldDocName,
+                  newDocName,
+                  source: 'watcher-rename',
+                  namespaceCurrent: false,
+                  residentCurrent: removal.residentCurrent(),
+                },
+                `[reconcile] rename: ${oldDocName} not recorded as removed (stale removal)`,
+              );
+              break;
+            }
+            console.info(
+              JSON.stringify({
+                event: 'recently-removed-docs-populate',
+                from: oldDocName,
+                to: newDocName,
+                kind: 'renamed',
+                source: 'watcher-rename',
+              }),
             );
+            scheduleIndexRegenerationAfterRemoval(oldDocName);
+          } finally {
+            removal.dispose();
           }
-          console.info(
-            JSON.stringify({
-              event: 'recently-removed-docs-populate',
-              from: oldDocName,
-              to: newDocName,
-              kind: 'renamed',
-              source: 'watcher-rename',
-            }),
-          );
-          scheduleIndexRegenerationAfterRemoval(oldDocName);
-          scheduleIndexRegeneration(newDocName);
           break;
         }
 
@@ -2975,6 +3546,16 @@ export function createServer(options: ServerOptions): ServerInstance {
   const eventBuffer: DiskEvent[] = [];
 
   async function onDiskEvent(event: DiskEvent): Promise<void> {
+    if (documentAdmissionClosed) return;
+    if ((event.kind === 'delete' || event.kind === 'rename') && !bufferedRemovalScopes.has(event)) {
+      bufferedRemovalScopes.set(
+        event,
+        beginRemoval(
+          event.kind === 'delete' ? event.docName : event.oldDocName,
+          getMarkdownRemovalCurrentness(event),
+        ),
+      );
+    }
     if (isBatchInProgress()) {
       eventBuffer.push(event);
       return;
@@ -2987,6 +3568,11 @@ export function createServer(options: ServerOptions): ServerInstance {
     for (const event of events) {
       await handleDiskEvent(event);
     }
+  }
+
+  function disposeBufferedRemovalScopes(): void {
+    for (const scope of bufferedRemovalScopes.values()) scope.dispose();
+    bufferedRemovalScopes.clear();
   }
 
   let watcher: WatcherHandle | null = null;
@@ -3047,117 +3633,138 @@ export function createServer(options: ServerOptions): ServerInstance {
   async function flushAllStoresAndWait(timeoutMs: number): Promise<void> {
     if (hocuspocus.documents.size === 0) return;
 
-    let resolved = false;
-    const allDone = new Promise<void>((resolve) => {
-      hocuspocus.configuration.extensions.push({
-        async afterUnloadDocument({ instance }) {
-          if (!resolved && instance.getDocumentsCount() === 0) {
-            resolved = true;
-            resolve();
-          }
-        },
-      });
-    });
-
-    const pendingDocNames = Array.from(hocuspocus.documents.keys());
-
-    hocuspocus.closeConnections();
-    hocuspocus.flushPendingStores();
-
-    for (const doc of hocuspocus.documents.values()) {
-      if (doc.getConnectionsCount() === 0) {
-        void hocuspocus.unloadDocument(doc).catch((err: unknown) => {
-          console.warn(
-            JSON.stringify({
-              event: 'ok-shutdown-unload-document-failed',
-              docName: doc.name,
-              reason: err instanceof Error ? err.message : String(err),
-            }),
-          );
-        });
-      }
-    }
-
-    const flushDeadline = Date.now() + timeoutMs;
+    let settled = false;
+    let flushDeadline = Date.now() + timeoutMs;
     const raceFloorMs = 250;
-    while (Date.now() < flushDeadline - raceFloorMs) {
-      const unsettled = Array.from(hocuspocus.documents.values()).some(
-        (doc) => doc.getConnectionsCount() === 0 && !defaultShouldUnloadDocument(doc),
-      );
-      if (!unsettled) break;
-      await new Promise((r) => setTimeout(r, 25));
-    }
+    let timeoutState: { id: ReturnType<typeof setTimeout>; expire: () => void } | undefined;
+    const allDone = Promise.withResolvers<void>();
+    const stopObserving = observeShutdownDocumentRetirements(hocuspocus, () => {
+      if (settled) return;
+      flushDeadline = Date.now() + timeoutMs;
+      if (timeoutState) {
+        clearTimeout(timeoutState.id);
+        timeoutState.id = setTimeout(
+          timeoutState.expire,
+          Math.max(flushDeadline - Date.now(), raceFloorMs),
+        );
+      }
+    });
+    const allDoneExtension: Extension = {
+      async afterUnloadDocument({ instance }) {
+        if (!settled && instance.getDocumentsCount() === 0) {
+          settled = true;
+          allDone.resolve();
+        }
+      },
+    };
+    hocuspocus.configuration.extensions.push(allDoneExtension);
 
-    const perDocUnloadFloorMs = 50;
-    for (const docName of durabilityState.getRefusedStoreDocNames()) {
-      if (isReservedForUserTree(docName)) continue;
-      const doc = hocuspocus.documents.get(docName);
-      if (!doc) continue;
-      if (!defaultShouldUnloadDocument(doc)) continue;
-      if (flushDeadline - Date.now() < perDocUnloadFloorMs) {
-        log.warn(
-          { docName },
-          `[rescue] refused-store pass out of budget before ${docName}; leaving it and any remaining refused docs to the flush timeout path`,
-        );
-        break;
-      }
-      if (rescueDocToShadowBuffer(docName, 'refused-store-shutdown') !== 'rescued') {
-        log.warn(
-          { docName },
-          `[rescue] refused-store doc rescue failed; leaving ${docName} to the flush timeout path`,
-        );
-        continue;
-      }
-      let unloadSettled = false;
-      let unloadFailed = false;
-      const unload = forceUnloadDocument(doc)
-        .then(() => {
-          unloadSettled = true;
-        })
-        .catch((err: unknown) => {
-          unloadFailed = true;
-          unloadSettled = true;
-          log.warn(
-            { docName, err },
-            `[rescue] refused-store doc unload failed at shutdown: ${docName}`,
-          );
-        });
-      const unloadDeadline = Math.max(flushDeadline - Date.now(), perDocUnloadFloorMs);
-      await new Promise<void>((resolve) => {
-        const timer = setTimeout(resolve, unloadDeadline);
-        void unload.then(() => {
-          clearTimeout(timer);
-          resolve();
-        });
-      });
-      if (!unloadSettled) {
-        log.warn(
-          { docName, unloadDeadline },
-          `[rescue] refused-store doc unload did not finish before the flush deadline; leaving ${docName} to the flush timeout path`,
-        );
-        void unload.then(() => {
-          if (!unloadFailed) {
-            log.info(
-              { docName },
-              `[rescue] refused-store doc unload completed after the flush deadline: ${docName}`,
+    try {
+      const pendingDocNames = Array.from(hocuspocus.documents.keys());
+
+      hocuspocus.closeConnections();
+      hocuspocus.flushPendingStores();
+
+      for (const doc of hocuspocus.documents.values()) {
+        if (doc.getConnectionsCount() === 0) {
+          void hocuspocus.unloadDocument(doc).catch((err: unknown) => {
+            console.warn(
+              JSON.stringify({
+                event: 'ok-shutdown-unload-document-failed',
+                docName: doc.name,
+                reason: err instanceof Error ? err.message : String(err),
+              }),
             );
-          }
-        });
-        continue;
+          });
+        }
       }
-      if (!unloadFailed) {
-        log.info(
-          { docName },
-          `[rescue] refused-store doc rescued and unloaded at shutdown: ${docName}`,
-        );
-      }
-    }
 
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
-    const timeout = new Promise<void>((_, reject) => {
-      timeoutId = setTimeout(
-        () => {
-          resolved = true;
+      while (Date.now() < flushDeadline - raceFloorMs) {
+        const unsettled = Array.from(hocuspocus.documents.values()).some(
+          (doc) => doc.getConnectionsCount() === 0 && !defaultShouldUnloadDocument(doc),
+        );
+        if (!unsettled) break;
+        await new Promise((r) => setTimeout(r, 25));
+      }
+
+      const perDocUnloadFloorMs = 50;
+      for (const docName of durabilityState.getRefusedStoreDocNames()) {
+        if (isReservedForUserTree(docName)) continue;
+        const doc = hocuspocus.documents.get(docName);
+        if (!doc) continue;
+        if (!defaultShouldUnloadDocument(doc)) continue;
+        if (flushDeadline - Date.now() < perDocUnloadFloorMs) {
+          log.warn(
+            { docName },
+            `[rescue] refused-store pass out of budget before ${docName}; leaving it and any remaining refused docs to the flush timeout path`,
+          );
+          break;
+        }
+        if (rescueDocToShadowBuffer(docName, 'refused-store-shutdown') !== 'rescued') {
+          log.warn(
+            { docName },
+            `[rescue] refused-store doc rescue failed; leaving ${docName} to the flush timeout path`,
+          );
+          continue;
+        }
+        let unloadSettled = false;
+        let unloadFailed = false;
+        const unload = forceUnloadDocument(doc)
+          .then(() => {
+            unloadSettled = true;
+          })
+          .catch((err: unknown) => {
+            unloadFailed = true;
+            unloadSettled = true;
+            log.warn(
+              { docName, err },
+              `[rescue] refused-store doc unload failed at shutdown: ${docName}`,
+            );
+          });
+        let unloadDeadline = 0;
+        do {
+          const unloadSlice = Math.max(flushDeadline - Date.now(), perDocUnloadFloorMs);
+          unloadDeadline += unloadSlice;
+          let waitTimer: ReturnType<typeof setTimeout> | undefined;
+          try {
+            await Promise.race([
+              unload,
+              new Promise<void>((resolve) => {
+                waitTimer = setTimeout(resolve, unloadSlice);
+              }),
+            ]);
+          } finally {
+            if (waitTimer !== undefined) clearTimeout(waitTimer);
+          }
+        } while (!unloadSettled && Date.now() < flushDeadline);
+        if (!unloadSettled) {
+          log.warn(
+            { docName, unloadDeadline },
+            `[rescue] refused-store doc unload did not finish before the flush deadline; leaving ${docName} to the flush timeout path`,
+          );
+          void unload.then(() => {
+            if (!unloadFailed) {
+              log.info(
+                { docName },
+                `[rescue] refused-store doc unload completed after the flush deadline: ${docName}`,
+              );
+            }
+          });
+          continue;
+        }
+        if (!unloadFailed) {
+          log.info(
+            { docName },
+            `[rescue] refused-store doc rescued and unloaded at shutdown: ${docName}`,
+          );
+        }
+      }
+
+      const timeout = new Promise<never>((_, reject) => {
+        const expire = () => {
+          if (settled) return;
+          settled = true;
+          stopObserving();
           const stillLoaded = Array.from(hocuspocus.documents.keys());
 
           const rescued: string[] = [];
@@ -3192,18 +3799,24 @@ export function createServer(options: ServerOptions): ServerInstance {
 
           reject(
             new Error(
-              `flushAllStoresAndWait timeout after ${timeoutMs}ms — ${stillLoaded.length}/${pendingDocNames.length} docs did not unload: [${stillLoaded.join(', ')}]${rescueSummary}`,
+              `flushAllStoresAndWait timeout: no document retired for ${timeoutMs}ms — ${stillLoaded.length}/${pendingDocNames.length} docs did not unload: [${stillLoaded.join(', ')}]${rescueSummary}`,
             ),
           );
-        },
-        Math.max(flushDeadline - Date.now(), raceFloorMs),
-      );
-    });
+        };
+        timeoutState = {
+          id: setTimeout(expire, Math.max(flushDeadline - Date.now(), raceFloorMs)),
+          expire,
+        };
+      });
 
-    try {
-      await Promise.race([allDone, timeout]);
+      await Promise.race([allDone.promise, timeout]);
     } finally {
-      if (timeoutId !== undefined) clearTimeout(timeoutId);
+      settled = true;
+      stopObserving();
+      const extensions = hocuspocus.configuration.extensions;
+      const index = extensions.indexOf(allDoneExtension);
+      if (index !== -1) extensions.splice(index, 1);
+      if (timeoutState) clearTimeout(timeoutState.id);
     }
   }
 
@@ -3213,12 +3826,46 @@ export function createServer(options: ServerOptions): ServerInstance {
     inflightDestroy = (async () => {
       const t0 = Date.now();
       const phaseErrors: Array<{ phase: string; error: string }> = [];
+      const preludeDeadline = Date.now() + Math.min(destroyTimeoutMs, DEFAULT_SIGTERM_GRACE_MS / 5);
+      const preludeRemaining = () => Math.max(1, preludeDeadline - Date.now());
+      const joinPrelude = async <T>(operation: Promise<T>, phase: string): Promise<T> => {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        try {
+          return await Promise.race([
+            operation,
+            new Promise<never>((_, reject) => {
+              timer = setTimeout(
+                () => reject(new Error(`${phase} did not retire before the pre-flush deadline`)),
+                preludeRemaining(),
+              );
+            }),
+          ]);
+        } finally {
+          clearTimeout(timer);
+        }
+      };
       shutdownAllowsUnload = true;
       const authShutdown = Promise.allSettled([shutdownLocalOps()]);
       let authResult: PromiseSettledResult<void> | undefined;
+      try {
+        [authResult] = await joinPrelude(authShutdown, 'mutation-drain');
+      } catch (err) {
+        phaseErrors.push({ phase: 'mutation-drain', error: String(err) });
+        log.error({ err }, '[server] shutdown mutation drain failed');
+      }
+      documentAdmissionClosed = true;
+      disposeBufferedRemovalScopes();
+      for (const removals of activeRemovals.values()) {
+        for (const removal of removals) {
+          removal.namespaceAllowed = false;
+          removal.residentAllowed = false;
+        }
+      }
+      activeRemovals.clear();
+      residentOccurrences = new WeakMap();
 
       try {
-        await closeIndexRegeneration();
+        await joinPrelude(closeIndexRegeneration(), 'generated-index');
       } catch (err) {
         log.warn({ err }, '[index] generated index shutdown drain failed');
         phaseErrors.push({ phase: 'generated-index-drain', error: String(err) });
@@ -3228,9 +3875,10 @@ export function createServer(options: ServerOptions): ServerInstance {
         unregister();
       }
       try {
-        await stalenessWatchdog?.dispose();
+        await joinPrelude(Promise.resolve(stalenessWatchdog?.dispose()), 'staleness-watchdog');
       } catch (err) {
         log.warn({ err }, '[server] staleness watchdog drain failed during destroy');
+        phaseErrors.push({ phase: 'staleness-watchdog-drain', error: String(err) });
       }
       stalenessWatchdog = null;
 
@@ -3243,7 +3891,7 @@ export function createServer(options: ServerOptions): ServerInstance {
       maintenanceCoordinator?.destroy();
 
       try {
-        await closeShadowHousekeeping();
+        await joinPrelude(closeShadowHousekeeping(), 'shadow-housekeeping');
       } catch (err) {
         log.warn({ err }, '[shadow-housekeeping] shutdown drain failed');
         phaseErrors.push({ phase: 'shadow-housekeeping-drain', error: String(err) });
@@ -3275,12 +3923,34 @@ export function createServer(options: ServerOptions): ServerInstance {
           },
         ),
         new Promise<'timeout'>((r) => {
-          initTimeoutId = setTimeout(() => r('timeout'), 5_000);
+          initTimeoutId = setTimeout(() => r('timeout'), preludeRemaining());
         }),
       ]);
       if (initTimeoutId !== undefined) clearTimeout(initTimeoutId);
       if (initSettled === 'timeout') {
-        log.warn({}, '[server] init did not complete within 5s during shutdown');
+        log.warn({}, '[server] init did not complete before the pre-flush deadline');
+        phaseErrors.push({
+          phase: 'initialization-drain',
+          error: 'Initialization remains pending',
+        });
+      }
+
+      let loadDrainTimer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await Promise.race([
+          Promise.allSettled(hocuspocus.loadingDocuments.values()),
+          new Promise<never>((_, reject) => {
+            loadDrainTimer = setTimeout(
+              () => reject(new Error('Pending document loads did not retire')),
+              preludeRemaining(),
+            );
+          }),
+        ]);
+      } catch (err) {
+        phaseErrors.push({ phase: 'document-load-drain', error: String(err) });
+        log.error({ err }, '[server] shutdown document load drain failed');
+      } finally {
+        clearTimeout(loadDrainTimer);
       }
 
       const documentCount = hocuspocus.documents.size;
@@ -3315,6 +3985,7 @@ export function createServer(options: ServerOptions): ServerInstance {
               }
             }
             configFileWatcherCleanups.length = 0;
+            configFileWatcherResyncs.clear();
           } catch (err) {
             phaseErrors.push({
               phase: 'watcher-unsubscribe',
@@ -3462,8 +4133,7 @@ export function createServer(options: ServerOptions): ServerInstance {
             }
           }
 
-          [authResult] = await authShutdown;
-          if (authResult.status === 'rejected') {
+          if (authResult?.status === 'rejected') {
             const reason: unknown = authResult.reason;
             const failures = reason instanceof AggregateError ? reason.errors : [reason];
             phaseErrors.push({
@@ -3476,6 +4146,13 @@ export function createServer(options: ServerOptions): ServerInstance {
           }
           const durationMs = Date.now() - t0;
           if (phaseErrors.length === 0) {
+            authorityRetired = true;
+            try {
+              authority.release();
+            } catch (err) {
+              phaseErrors.push({ phase: 'authority-release', error: String(err) });
+              log.error({ err }, '[server] shutdown authority release failed');
+            }
             log.info(
               { documentCount, durationMs },
               `[server] shutdown flushed ${documentCount} documents in ${durationMs}ms`,
@@ -3767,6 +4444,7 @@ export function createServer(options: ServerOptions): ServerInstance {
           }
         });
         configFileWatcherCleanups.push({ docName: configDocName, cleanup });
+        configFileWatcherResyncs.set(configDocName, cleanup.resync);
         log.info({ docName: configDocName, path: absPath }, '[config-file-watcher] started');
       } catch (err) {
         log.warn(
@@ -3922,6 +4600,7 @@ export function createServer(options: ServerOptions): ServerInstance {
           });
       if (ignoreCleanup) {
         configFileWatcherCleanups.push({ docName: '__ignore-files__', cleanup: ignoreCleanup });
+        configFileWatcherResyncs.set(CONFIG_DOC_NAME_OKIGNORE, ignoreCleanup.resync);
         ignoreLog.info(
           { okignorePath, gitignorePath },
           '[ignore-watcher] multi-path watcher started',
@@ -3944,8 +4623,7 @@ export function createServer(options: ServerOptions): ServerInstance {
     const indexesStartMono = performance.now();
     try {
       await withSpan('ok.boot.indexes', undefined, async () => {
-        const { deletedDocNames, backlinkIndexDegraded } = await derivedIndexStartup.backlinksReady;
-        if (backlinkIndexDegraded) degraded.push('backlink-index');
+        const deletedDocNames = await derivedIndexStartup.offlineDeletionsReady;
         let tombstonedOffline = 0;
         for (const deletedDocName of deletedDocNames) {
           if (isReservedForUserTree(deletedDocName)) continue;
@@ -3959,13 +4637,18 @@ export function createServer(options: ServerOptions): ServerInstance {
             '[removal-guard] tombstoned docs deleted while the server was down',
           );
         }
+        offlineRemovalsReconciled.resolve();
+        const { backlinkIndexDegraded } = await derivedIndexStartup.backlinksReady;
+        if (backlinkIndexDegraded) degraded.push('backlink-index');
         const seedWalkStartMono = performance.now();
         const HOST_SKILLS_EVENT_RE = /^\.(?!ok\/)[A-Za-z0-9_-]+\/skills\//;
-        let lastInPlaceDirs = contentFilter ? scanInPlaceSkillDirs(contentDir) : new Set<string>();
+        let lastInPlaceDirs: ReadonlySet<string> = contentFilter
+          ? new Set(scanInPlaceSkills(contentDir).map((skill) => skill.dir))
+          : new Set<string>();
         const onRawBatch = (absPaths: readonly string[]): void => {
           if (
             !absPaths.some((p) =>
-              HOST_SKILLS_EVENT_RE.test(relative(contentDir, p).split(sep).join('/')),
+              HOST_SKILLS_EVENT_RE.test(relative(canonicalContentDir, p).split(sep).join('/')),
             )
           ) {
             return;
@@ -3982,7 +4665,7 @@ export function createServer(options: ServerOptions): ServerInstance {
                   }
                 })
                 .catch((err) => log.warn({ err }, '[in-place-skills] copy re-sync failed'));
-              const next = scanInPlaceSkillDirs(contentDir);
+              const next = scanInPlaceSkillDirs(contentDir, lastInPlaceDirs);
               const changed =
                 next.size !== lastInPlaceDirs.size ||
                 [...next].some((d) => !lastInPlaceDirs.has(d));
@@ -4011,7 +4694,10 @@ export function createServer(options: ServerOptions): ServerInstance {
           }, IN_PLACE_RESCAN_DEBOUNCE_MS);
         };
         watcher = await withSpan('ok.boot.seed-walk', undefined, async () =>
-          startWatcher(contentDir, onDiskEvent, contentFilter, { onRawBatch }),
+          startWatcher(canonicalContentDir, onDiskEvent, contentFilter, {
+            onRawBatch,
+            onRecoveryComplete: () => derivedDocumentIndex.recordInventoryReconciled(),
+          }),
         );
         void resyncRecordedSkillCopies(projectDir, contentDir)
           .then((n) => {
@@ -4020,7 +4706,8 @@ export function createServer(options: ServerOptions): ServerInstance {
           .catch((err) => log.warn({ err }, '[in-place-skills] boot copy re-sync failed'));
         {
           const home = configHomedirOverride ?? homedir();
-          void resyncRecordedSkillCopies(home, home, scanGlobalInPlaceSkills(home))
+          void scanGlobalInPlaceSkillsAsync(home)
+            .then((inPlace) => resyncRecordedSkillCopies(home, home, inPlace))
             .then((n) => {
               if (n > 0) log.info({ refreshed: n }, '[in-place-skills] global boot copy re-sync');
             })
@@ -4103,8 +4790,10 @@ export function createServer(options: ServerOptions): ServerInstance {
     } finally {
       recordBootPhase('indexesMs', Math.round(performance.now() - indexesStartMono));
       if (watcher) setBootField('fileCount', watcher.getFileIndex().size);
+      refreshStartupEmbeds();
     }
 
+    let releaseHeadBatchAdmission = () => {};
     try {
       headWatcher = await startHeadWatcher(
         projectDir,
@@ -4115,6 +4804,8 @@ export function createServer(options: ServerOptions): ServerInstance {
           await persistence.flushPendingGitCommit();
 
           setBatchInProgress(true);
+          releaseHeadBatchAdmission();
+          releaseHeadBatchAdmission = durabilityState.holdWriteAdmission();
 
           if (shadowRef.current) {
             const currentBranch = getActiveBranch();
@@ -4179,30 +4870,41 @@ export function createServer(options: ServerOptions): ServerInstance {
 
           if (info.batchKind === 'within-branch') {
             setBatchInProgress(false);
-            await drainEventBuffer();
+            try {
+              try {
+                await drainEventBuffer();
+              } finally {
+                disposeBufferedRemovalScopes();
+              }
 
-            if (info.headMoved && info.newHead) {
-              const changes = resolveUpstreamChanges(
-                projectDir,
-                resolve(contentDir),
-                info.oldHead,
-                info.newHead,
-              );
-              if (changes.size > 0) {
-                dropPendingDocs(changes.keys());
-                for (const [docName, author] of changes) {
-                  recordContributor(
-                    docName,
-                    gitAuthorWriterId(author.email),
-                    author.name,
-                    author.email,
-                    formatReconcileSubject(docName),
-                  );
+              if (info.headMoved && info.newHead) {
+                const changes = resolveUpstreamChanges(
+                  projectDir,
+                  resolve(contentDir),
+                  info.oldHead,
+                  info.newHead,
+                );
+                if (changes.size > 0) {
+                  dropPendingDocs(changes.keys());
+                  for (const [docName, author] of changes) {
+                    recordContributor(
+                      docName,
+                      gitAuthorWriterId(author.email),
+                      author.name,
+                      author.email,
+                      formatReconcileSubject(docName),
+                    );
+                  }
+                  await persistence.flushContributors();
                 }
-                await persistence.flushContributors();
+              }
+            } finally {
+              try {
+                await persistence.flushDeferredStores('within-branch');
+              } finally {
+                releaseHeadBatchAdmission();
               }
             }
-            await persistence.flushDeferredStores('within-branch');
             try {
               await conflicts.pruneMergeNativeAgainstGit();
             } catch (err) {
@@ -4211,6 +4913,7 @@ export function createServer(options: ServerOptions): ServerInstance {
           } else {
             incrementBranchSwitch();
             eventBuffer.splice(0, eventBuffer.length);
+            disposeBufferedRemovalScopes();
             let deferredStoresFlushed = false;
             let branchTransition: DerivedDocumentIndexBranchTransition | undefined;
             try {
@@ -4284,7 +4987,15 @@ export function createServer(options: ServerOptions): ServerInstance {
                       rescueUnflushedEditsBeforeTeardown(docName, newBranch, 'branch-switch', true);
                     }
                   }
-                  applyToDoc(docName, diskContent);
+                  const revival = reviveFrozenResident(docName, diskContent);
+                  if (revival === 'failed') {
+                    log.error(
+                      { docName },
+                      `[branch-switch] failed to reset ${docName}: it stays frozen`,
+                    );
+                    continue;
+                  }
+                  if (revival === 'not-frozen') applyToDoc(docName, diskContent);
                   setReconciledBase(docName, diskContent);
                   log.info({ docName }, `[branch-switch] reset: ${docName}`);
                 } catch (e) {
@@ -4427,10 +5138,14 @@ export function createServer(options: ServerOptions): ServerInstance {
               deferredStoresFlushed = true;
               cc1Broadcaster?.emitBranchSwitched(newBranch);
             } finally {
-              derivedDocumentIndex.abortBranchSwitch(branchTransition);
-              if (!deferredStoresFlushed) {
-                setBatchInProgress(false);
-                await persistence.flushDeferredStores('discard-stale');
+              try {
+                derivedDocumentIndex.abortBranchSwitch(branchTransition);
+                if (!deferredStoresFlushed) {
+                  setBatchInProgress(false);
+                  await persistence.flushDeferredStores('discard-stale');
+                }
+              } finally {
+                releaseHeadBatchAdmission();
               }
             }
           }
@@ -4488,17 +5203,7 @@ export function createServer(options: ServerOptions): ServerInstance {
       log.warn({ err }, '[conflicts] boot prune of merge-native entries failed');
     }
 
-    const resetAmbientCredentials = shouldResetAmbientCredentials(projectDir, declaredGitHubHosts);
-    log.debug(
-      {
-        resetAmbientCredentials,
-        originKind: readOriginGitHubRepo(projectDir, declaredGitHubHosts).kind,
-      },
-      '[sync] ambient credential-chain reset decision at boot',
-    );
-    const syncCredentialConfig = buildSyncCredentialConfig(localOpCliArgs, {
-      resetAmbient: resetAmbientCredentials,
-    });
+    const syncCredentialConfig = await resolveSyncCredentialConfig();
     const bootAutoSyncMode = readProjectAutoSyncMode();
     const bootAutoSyncIntervals = readProjectAutoSyncIntervals();
     if (bootAutoSyncMode.mode !== 'off') {
@@ -4521,6 +5226,7 @@ export function createServer(options: ServerOptions): ServerInstance {
         pushIntervalSeconds:
           options.pushIntervalSeconds ?? bootAutoSyncIntervals.pushIntervalSeconds,
         credentialConfig: syncCredentialConfig,
+        resolveCredentialConfig: resolveSyncCredentialConfig,
         cc1Broadcaster,
         conflicts,
         detectGh: options.detectGh,
@@ -4627,6 +5333,7 @@ export function createServer(options: ServerOptions): ServerInstance {
     conflicts,
     getLinkPreviewsEnabled: readLinkPreviewsEnabled,
     resolveEmbed,
+    resolveTrackedFile,
     acpRegistry,
     acpPermissions,
   };

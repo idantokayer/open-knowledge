@@ -1,8 +1,15 @@
 import '@xterm/xterm/css/xterm.css';
 
 import {
+  assertNeverPtyAdoptReason,
+  assertNeverPtyCreateReason,
+  assetOpenRefusalRevealsInstead,
+} from '@inkeep/open-knowledge-core/desktop-bridge';
+import {
+  BRACKETED_PASTE_ENABLE_MARKER,
   buildCliLaunchArgString,
   buildStartupInjectionBytes,
+  buildTerminalInputBytes,
   buildWindowsCliLaunch,
   quoteWindowsShellPath,
   shellSingleQuote,
@@ -10,11 +17,7 @@ import {
   type TerminalCli,
   type TerminalLaunchCommand,
   type WindowsShellFamily,
-} from '@inkeep/open-knowledge-core';
-import {
-  assertNeverPtyAdoptReason,
-  assertNeverPtyCreateReason,
-} from '@inkeep/open-knowledge-core/desktop-bridge';
+} from '@inkeep/open-knowledge-core/handoff';
 import { useLingui } from '@lingui/react/macro';
 import { FitAddon } from '@xterm/addon-fit';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
@@ -35,6 +38,7 @@ import {
   terminalCommandFor,
   windowsTerminalCommandFor,
 } from './handoff/terminal-command-events';
+import { registerBracketedPasteProbe } from './handoff/terminal-paste-mode';
 import { TerminalAgentConnectionBanner } from './TerminalAgentConnectionBanner';
 import { TerminalCliMissingBanner } from './TerminalCliMissingBanner';
 import { TerminalCliUnverifiedBanner } from './TerminalCliUnverifiedBanner';
@@ -54,6 +58,7 @@ import { useLiveXtermTheme } from './use-live-xterm-theme';
 const PTY_RESIZE_THROTTLE_MS = 100;
 
 export const STAGE_PASTE_SETTLE_MS = 500;
+export const STAGE_PASTE_CAP_MS = 4000;
 
 interface TerminalPanelProps {
   readonly bridge: OkDesktopBridge;
@@ -196,6 +201,19 @@ function TerminalSession({
     let pendingShellNotices: OkPtyNotice[] = [];
     let launchCapabilityLimited = false;
     let readinessScan: ((data: string) => void) | undefined;
+    const armReadinessScan = (marker: string, onReady: () => void): void => {
+      let acc = '';
+      readinessScan = (data) => {
+        acc += data;
+        if (acc.includes(marker)) {
+          readinessScan = undefined;
+          onReady();
+          return;
+        }
+        if (acc.length > marker.length + 256) acc = acc.slice(-(marker.length + 256));
+      };
+    };
+    let unregisterPasteProbe: () => void = () => undefined;
     let injectCapTimer: ReturnType<typeof setTimeout> | undefined;
     let titleDisposable: { dispose(): void } | undefined;
     let linkProviderDisposable: { dispose(): void } | undefined;
@@ -283,7 +301,7 @@ function TerminalSession({
             .openAsset(target.relPath)
             .then((result) => {
               if (result.ok) return;
-              if (result.reason === 'extension-blocked') {
+              if (assetOpenRefusalRevealsInstead(result.reason)) {
                 void bridge.shell
                   .revealAsset(target.relPath)
                   .catch((err) => console.warn('[terminal] revealAsset failed:', err));
@@ -502,6 +520,11 @@ function TerminalSession({
     const attachSession = (livePtyId: string): void => {
       ptyId = livePtyId;
       ptyIdRef.current = livePtyId;
+      unregisterPasteProbe();
+      unregisterPasteProbe = registerBracketedPasteProbe(
+        livePtyId,
+        () => term.modes.bracketedPasteMode,
+      );
       onPtyIdRef.current?.(livePtyId);
       for (const notice of pendingShellNotices) {
         if (notice.ptyId !== livePtyId) continue;
@@ -796,17 +819,10 @@ function TerminalSession({
         };
         injectCapTimer = setTimeout(inject, cfg?.capMs ?? settleMs);
         if (marker != null) {
-          let acc = '';
-          readinessScan = (data) => {
+          armReadinessScan(marker, () => {
             if (fired || stagePasteTimer !== undefined) return;
-            acc += data;
-            if (acc.includes(marker)) {
-              readinessScan = undefined;
-              stagePasteTimer = setTimeout(inject, settleMs);
-              return;
-            }
-            if (acc.length > marker.length + 256) acc = acc.slice(-(marker.length + 256));
-          };
+            stagePasteTimer = setTimeout(inject, settleMs);
+          });
         } else {
           stagePasteTimer = setTimeout(inject, settleMs);
         }
@@ -815,11 +831,22 @@ function TerminalSession({
           '[terminal] TerminalLaunchIntent carried both prompt and stagePaste; dropping stagePaste',
         );
       } else if (launchCommand !== undefined && staged != null && staged !== '') {
-        stagePasteTimer = setTimeout(() => {
+        let stageFired = false;
+        const stage = (): void => {
+          if (stageFired) return;
+          stageFired = true;
+          readinessScan = undefined;
+          if (stagePasteTimer !== undefined) clearTimeout(stagePasteTimer);
+          if (injectCapTimer !== undefined) clearTimeout(injectCapTimer);
           if (cancelled || !terminalInputEnabledRef.current || launchCapabilityLimited) return;
-          sendInput(staged);
+          sendInput(buildTerminalInputBytes(staged, term.modes.bracketedPasteMode));
           term.focus();
-        }, STAGE_PASTE_SETTLE_MS);
+        };
+        injectCapTimer = setTimeout(stage, STAGE_PASTE_CAP_MS);
+        armReadinessScan(BRACKETED_PASTE_ENABLE_MARKER, () => {
+          if (stageFired || stagePasteTimer !== undefined) return;
+          stagePasteTimer = setTimeout(stage, STAGE_PASTE_SETTLE_MS);
+        });
       }
     })().catch((err) => {
       console.error('[terminal] mount sequence failed:', err);
@@ -843,6 +870,7 @@ function TerminalSession({
       if (stagePasteTimer !== undefined) clearTimeout(stagePasteTimer);
       if (injectCapTimer !== undefined) clearTimeout(injectCapTimer);
       readinessScan = undefined;
+      unregisterPasteProbe();
       ptyIdRef.current = null;
       onPtyIdRef.current?.(null);
       termRef.current = null;

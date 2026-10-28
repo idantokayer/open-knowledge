@@ -1,4 +1,5 @@
-import { mediaKindForSidebarAssetExtension, SHOW_INSTALL_SKILL } from '@inkeep/open-knowledge-core';
+import { SHOW_INSTALL_SKILL } from '@inkeep/open-knowledge-core/constants/feature-flags';
+import { mediaKindForSidebarAssetExtension } from '@inkeep/open-knowledge-core/constants/upload';
 import { lazy, type ReactNode, Suspense, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { CommentQueueShortcut } from '@/comments/CommentQueueShortcut';
@@ -42,6 +43,7 @@ import {
 import { EditorLifecycleFlush } from '@/editor/EditorLifecycleFlush';
 import { parseEditorTabId, tabIdForNavigationTarget } from '@/editor/editor-tabs';
 import { previewOpenDisposition } from '@/editor/preview-open-disposition';
+import { StaleTabReloadPrompt } from '@/editor/StaleTabReloadPrompt';
 import { ConflictsProvider } from '@/hooks/use-conflicts';
 import { useFolderConfig } from '@/hooks/use-folder-config';
 import { useInstalledClis } from '@/hooks/use-installed-clis';
@@ -68,11 +70,7 @@ import { ReadOnlyModeProvider } from '@/lib/read-only-mode';
 import { SingleFileModeProvider, useSingleFileMode } from '@/lib/single-file-mode';
 import { consumeHashNavigationSuppression } from '@/lib/tab-session-restore-suppression';
 import { useServerKeepalive } from '@/lib/use-server-keepalive';
-import {
-  isSettingsHashOpen,
-  isSettingsShortcut,
-  SETTINGS_OPEN_HASH,
-} from '@/lib/use-settings-route';
+import { isSettingsHashOpen, isSettingsShortcut, openSettings } from '@/lib/use-settings-route';
 
 const ShareBranchSwitchDialog = lazy(() =>
   import('@/components/ShareBranchSwitchDialog').then((m) => ({
@@ -404,9 +402,7 @@ function SettingsShortcutHandler() {
         })
       ) {
         e.preventDefault();
-        if (window.location.hash !== SETTINGS_OPEN_HASH) {
-          window.location.hash = SETTINGS_OPEN_HASH;
-        }
+        openSettings();
       }
     }
 
@@ -526,6 +522,7 @@ function ConfigProviderHost({ children }: { children: ReactNode }) {
     <ConfigProvider collabUrl={collabUrl} collabTerminal={collabTerminal}>
       <EditorLifecycleFlush />
       <BackgroundThrottleReporter />
+      <StaleTabReloadPrompt />
       <ExternalHandoffGateProvider>{children}</ExternalHandoffGateProvider>
     </ConfigProvider>
   );

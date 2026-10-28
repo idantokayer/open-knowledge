@@ -7,12 +7,13 @@ import { HocuspocusProvider } from '@hocuspocus/provider';
 import { ensureProjectGit } from '@inkeep/open-knowledge-server';
 import { afterEach, describe, expect, test } from 'vitest';
 import * as Y from 'yjs';
+import { configureTestGitRepository } from '../../../../test-support/configure-git-fixture.test-helper.ts';
 import { handleBranchSwitched } from '../../src/editor/branch-invalidation';
 import { ProviderPool } from '../../src/editor/provider-pool';
 import { parseCC1BranchSwitched, SYSTEM_DOC_NAME } from '../../src/lib/cc1';
 import {
   clientIdsInDoc,
-  createRestartableServer,
+  createInspectableServer,
   pollDiskContentStable,
   pollUntil,
   seedPoolServerInstanceId,
@@ -63,6 +64,7 @@ async function setupGitRepoWithBranches(
   contentB: string,
 ): Promise<void> {
   await ensureProjectGit(contentDir);
+  configureTestGitRepository(contentDir);
   git(contentDir, 'config user.name test');
   git(contentDir, 'config user.email test@test.local');
   writeFileSync(join(contentDir, `${docName}.md`), contentA, 'utf-8');
@@ -80,7 +82,7 @@ describe('T5: Branch switch while tab open', () => {
     const contentDir = realpathSync(mkdtempSync(join(tmpdir(), 'ok-branch-switch-')));
     await setupGitRepoWithBranches(contentDir, 'test-doc', CONTENT_A, CONTENT_B);
 
-    const server = await createRestartableServer({
+    const server = await createInspectableServer({
       contentDir,
       keepContentDir: false,
       gitEnabled: true,

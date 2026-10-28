@@ -95,13 +95,22 @@ export interface AssetService {
 
 export interface AssetServiceDeps {
   contentDir: string;
+  assertContentPath?: (path: string) => void;
   isPathIgnored?: (relativePath: string) => boolean;
   getAttachmentFolderPath?: () => string;
+  resolveTrackedFile?: (relativePath: string) => string | undefined;
 }
 
 type CanonicalResolution =
   | { ok: true; canonicalPath: string; relativePath: string; size: number }
   | { ok: false; reason: 'not-found' | 'invalid-path'; cause?: unknown };
+
+function isServableAssetType(path: string): boolean {
+  return (
+    assetContentTypeForPath(path) !== null &&
+    ASSET_EXTENSIONS.has(extname(path).slice(1).toLowerCase())
+  );
+}
 
 const GENERIC_PASTE_NAMES = /^(image\.(png|jpe?g|gif|webp)|Clipboard.*|Untitled.*)$/i;
 
@@ -205,6 +214,7 @@ export function createAssetService(deps: AssetServiceDeps): AssetService {
     let canonicalPath: string;
     try {
       canonicalPath = realpathSync(requestedPath);
+      deps.assertContentPath?.(canonicalPath);
     } catch (err) {
       return { ok: false, reason: 'not-found', cause: err };
     }
@@ -225,6 +235,18 @@ export function createAssetService(deps: AssetServiceDeps): AssetService {
       return { ok: false, reason: 'invalid-path' };
     }
     return { ok: true, canonicalPath, relativePath, size: stat.size };
+  }
+
+  function resolveExactOrTracked(assetPath: string): CanonicalResolution {
+    const exact = resolveCanonical(assetPath);
+    if (exact.ok || exact.reason !== 'not-found') return exact;
+    const requested = assetPath.split('\\').join('/');
+    const tracked = deps.resolveTrackedFile?.(requested);
+    if (tracked === undefined || tracked === requested || deps.isPathIgnored?.(tracked)) {
+      return exact;
+    }
+    const resolved = resolveCanonical(tracked);
+    return resolved.ok ? resolved : exact;
   }
 
   async function storeUpload(input: StoreUploadInput): Promise<StoreUploadOutcome> {
@@ -261,6 +283,7 @@ export function createAssetService(deps: AssetServiceDeps): AssetService {
     }
     try {
       assertNoSymlinkEscape(destDir, resolvedContentDir);
+      deps.assertContentPath?.(destDir);
     } catch (err) {
       cleanupTempfile();
       if (isContainmentRejection(err)) {
@@ -289,6 +312,7 @@ export function createAssetService(deps: AssetServiceDeps): AssetService {
 
     try {
       const realDestDir = realpathSync(destDir);
+      deps.assertContentPath?.(realDestDir);
       let realContentDir: string;
       try {
         realContentDir = realpathSync(resolvedContentDir);
@@ -335,6 +359,12 @@ export function createAssetService(deps: AssetServiceDeps): AssetService {
     if (DEFAULT_DEDUP_MODE === 'same-dir') {
       const existing = await findDuplicateAsset(destDir, sha, byteLength);
       if (existing) {
+        try {
+          deps.assertContentPath?.(resolve(destDir, existing));
+        } catch (cause) {
+          cleanupTempfile();
+          return { ok: false, kind: 'dest-validation-error', cause, destDir };
+        }
         cleanupTempfile();
         const relPath = toPosix(relative(deps.contentDir, resolve(destDir, existing)));
         return {
@@ -364,6 +394,7 @@ export function createAssetService(deps: AssetServiceDeps): AssetService {
     }
 
     try {
+      deps.assertContentPath?.(resolve(destDir, finalFilename));
       const destFilename = linkTempToFinalWithCollisionRetry(tempPath, destDir, finalFilename);
       const relPath = toPosix(relative(deps.contentDir, resolve(destDir, destFilename)));
       return {
@@ -374,6 +405,7 @@ export function createAssetService(deps: AssetServiceDeps): AssetService {
         mime: detectedMime ?? null,
       };
     } catch (e) {
+      cleanupTempfile();
       const reason: UploadWriteReason =
         e instanceof UploadWriteError ? e.reason : 'urn:ok:error:storage-error';
       return { ok: false, kind: 'write-failed', reason, cause: e, filename: finalFilename };
@@ -385,15 +417,18 @@ export function createAssetService(deps: AssetServiceDeps): AssetService {
       if (!requestedPath || requestedPath.includes('\0')) {
         return { ok: false, reason: 'missing-path' };
       }
-      const contentType = assetContentTypeForPath(requestedPath);
-      const ext = extname(requestedPath).slice(1).toLowerCase();
-      if (!contentType || !ASSET_EXTENSIONS.has(ext)) {
+      if (!isServableAssetType(requestedPath)) {
         return { ok: false, reason: 'unsupported-type' };
       }
-      const core = resolveCanonical(requestedPath);
+      const core = resolveExactOrTracked(requestedPath);
       if (!core.ok) return core;
       if (deps.isPathIgnored?.(core.relativePath)) {
         return { ok: false, reason: 'not-found' };
+      }
+      const contentType = assetContentTypeForPath(core.relativePath);
+      const ext = extname(core.relativePath).slice(1).toLowerCase();
+      if (!contentType || !ASSET_EXTENSIONS.has(ext)) {
+        return { ok: false, reason: 'unsupported-type' };
       }
       return {
         ok: true,
@@ -411,7 +446,7 @@ export function createAssetService(deps: AssetServiceDeps): AssetService {
       if (!requestedPath || requestedPath.includes('\0')) {
         return { ok: false, reason: 'missing-path' };
       }
-      const core = resolveCanonical(requestedPath);
+      const core = resolveExactOrTracked(requestedPath);
       if (!core.ok) return core;
       return { ok: true, canonicalPath: core.canonicalPath, size: core.size };
     },

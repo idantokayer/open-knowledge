@@ -1,6 +1,6 @@
 // oxlint-disable ok/no-physical-direction-utility -- pre-rule backlog — physical margin/padding/inset utilities predate the rule; drain by swapping ml/mr → ms/me, pl/pr → ps/pe, left/right → start/end, then deleting this line. See https://github.com/inkeep/open-knowledge/blob/main/lint-plugins/ok-rules/README.md#no-physical-direction-utility
 
-import { getGitHubStars } from '@inkeep/open-knowledge-core';
+import { getGitHubStars } from '@inkeep/open-knowledge-core/utils/github-stars';
 import type { MessageDescriptor } from '@lingui/core';
 import { msg } from '@lingui/core/macro';
 import { Trans, useLingui } from '@lingui/react/macro';
@@ -12,6 +12,7 @@ import {
   Mail,
   Megaphone,
   MessageSquare,
+  RefreshCw,
   Star,
 } from 'lucide-react';
 import type { ComponentProps, FC, ReactNode } from 'react';
@@ -21,10 +22,12 @@ import { SubscribeForm } from '@/components/SubscribeForm';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import type { OkAboutInfo } from '@/lib/desktop-bridge-types';
 import { dispatchExternalLinkClick } from '@/lib/external-link';
 import { feedbackNudgeStore } from '@/lib/feedback-nudge-store';
-import { DISCORD_INVITE_URL, GITHUB_REPO_URL, X_PROFILE_URL } from '@/lib/social-links';
+import { DISCORD_INVITE_URL, DOCS_URL, GITHUB_REPO_URL, X_PROFILE_URL } from '@/lib/social-links';
 import { subscribeCardStore } from '@/lib/subscribe-card-store';
+import { openAboutSettings } from '@/lib/use-settings-route';
 import { cn } from '@/lib/utils';
 import { FeedbackFormDialog } from './FeedbackFormDialog';
 import { DiscordIcon } from './icons/discord';
@@ -48,7 +51,7 @@ const sections: ResourceSection[] = [
     key: 'resources',
     heading: msg`Resources`,
     links: [
-      { label: msg`Docs`, href: 'https://openknowledge.ai/docs', icon: BookOpen },
+      { label: msg`Docs`, href: DOCS_URL, icon: BookOpen },
       { label: msg`Download app`, href: 'https://openknowledge.ai/download', icon: Download },
     ],
   },
@@ -138,8 +141,28 @@ export const HelpPopover: FC = () => {
   const [reportBugOpen, setReportBugOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [starCount, setStarCount] = useState<number | null>(null);
+  const [about, setAbout] = useState<OkAboutInfo | null>(null);
 
-  const hasDesktopBridge = typeof window !== 'undefined' && window.okDesktop != null;
+  const bridge = typeof window !== 'undefined' ? (window.okDesktop ?? null) : null;
+  const hasDesktopBridge = bridge != null;
+  const appVersion = bridge?.appVersion;
+  const whatsNewHref = about?.releasesUrl ?? WHATS_NEW_HREF;
+
+  useEffect(() => {
+    if (!popoverOpen || !bridge) return;
+    let cancelled = false;
+    bridge.state
+      .query()
+      .then((snapshot) => {
+        if (!cancelled && snapshot.about) setAbout(snapshot.about);
+      })
+      .catch((err: unknown) => {
+        console.warn('[help-popover] bridge.state.query() failed', err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [popoverOpen, bridge]);
 
   useEffect(() => {
     if (!popoverOpen || starCount !== null) return;
@@ -236,8 +259,21 @@ export const HelpPopover: FC = () => {
             <nav aria-label={t`Product updates`}>
               <ul className="space-y-0.5">
                 <ResourceLinkRow
-                  link={{ label: msg`What's new`, href: WHATS_NEW_HREF, icon: Megaphone }}
+                  link={{ label: msg`What's new`, href: whatsNewHref, icon: Megaphone }}
                 />
+                {bridge && about?.updateChecks === 'available' ? (
+                  <ActionRow
+                    icon={RefreshCw}
+                    onSelect={() => {
+                      setPopoverOpen(false);
+                      bridge.update.checkNow().catch((err: unknown) => {
+                        console.warn('[help-popover] bridge.update.checkNow() failed', err);
+                      });
+                    }}
+                  >
+                    <Trans>Check for updates</Trans>
+                  </ActionRow>
+                ) : null}
                 <li>
                   <Popover open={subscribeOpen} onOpenChange={setSubscribeOpen}>
                     <PopoverTrigger asChild>
@@ -263,6 +299,28 @@ export const HelpPopover: FC = () => {
               </ul>
             </nav>
           </div>
+
+          {appVersion ? (
+            <div className="mt-3 border-t pt-2">
+              <Button
+                variant="ghost"
+                className={cn(
+                  rowClassName,
+                  'h-auto w-full flex-wrap justify-between gap-y-0.5 text-start font-mono text-xs font-normal whitespace-normal',
+                )}
+                onClick={() => {
+                  setPopoverOpen(false);
+                  openAboutSettings();
+                }}
+                data-testid="help-popover-version"
+              >
+                <span className="min-w-0 max-w-full truncate">v{appVersion}</span>{' '}
+                <span className="font-sans text-muted-foreground">
+                  <Trans>About & updates</Trans>
+                </span>
+              </Button>
+            </div>
+          ) : null}
         </PopoverContent>
       </Popover>
       {}

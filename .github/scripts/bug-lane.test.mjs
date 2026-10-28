@@ -1,10 +1,11 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { afterAll, beforeAll, describe, expect, test } from 'vitest';
+import { delimiter, dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { afterAll, afterEach, beforeAll, describe, expect, test } from 'vitest';
 import { gitCleanEnv } from '../../scripts/git-clean-env.mjs';
-import { evaluateBugLane, makeIsInStable } from './bug-lane.mjs';
+import { evaluateBugLane, holdBugLaneBatch, makeIsInStable, readPendingBumps } from './bug-lane.mjs';
 
 const FIX_A = 'a'.repeat(40);
 const FIX_B = 'b'.repeat(40);
@@ -132,6 +133,54 @@ describe('evaluateBugLane', () => {
   });
 });
 
+describe('holdBugLaneBatch (no batch a point release would refuse)', () => {
+  const check = ({ published = ['v0.32.0'], verdict = { ok: true, uncovered: [] } } = {}) => {
+    const asked = [];
+    return {
+      asked,
+      publishedStableTags: () => {
+        if (published instanceof Error) throw published;
+        return published;
+      },
+      evaluate: (candidate) => {
+        asked.push(candidate);
+        return verdict;
+      },
+    };
+  };
+
+  test('lets the batch through when the newest stable is published and keeps every shipped fix', () => {
+    const fake = check();
+    expect(holdBugLaneBatch({ stable: 'v0.32.0', check: fake })).toBeNull();
+    expect(fake.asked).toEqual(['refs/tags/v0.32.0']);
+  });
+
+  test('holds it while the newest stable tag has no published Release, without evaluating it', () => {
+    const fake = check({ published: ['v0.31.9'] });
+    expect(holdBugLaneBatch({ stable: 'v0.32.0', check: fake })).toMatch(
+      /^The newest stable tag v0\.32\.0 has no published Release \(the newest published stable is v0\.31\.9\)/,
+    );
+    expect(fake.asked).toEqual([]);
+  });
+
+  test('holds it while the newest stable lacks a fix a published stable shipped', () => {
+    const verdict = {
+      ok: false,
+      uncovered: [{ sha: 'a'.repeat(40), subject: 'fix: the notice (#5610)', pr: '5610', stables: ['v0.31.4'] }],
+    };
+    expect(holdBugLaneBatch({ stable: 'v0.32.0', check: check({ verdict }) })).toBe(
+      'v0.32.0 lacks 1 fix that a published stable already shipped: #5610 (v0.31.4). ' +
+        'point-release.yml refuses a point release over v0.32.0 unless its batch also carries those fixes.',
+    );
+  });
+
+  test('an unreadable listing fails the tick rather than reading as nothing shipped', () => {
+    expect(() =>
+      holdBugLaneBatch({ stable: 'v0.32.0', check: check({ published: new Error('HTTP 502') }) }),
+    ).toThrow('HTTP 502');
+  });
+});
+
 describe('makeIsInStable', () => {
   let dir;
   let fixOnMain;
@@ -200,5 +249,221 @@ describe('makeIsInStable', () => {
   test('an ancestry probe that fails is still an infrastructure error', () => {
     const broken = () => ({ status: 128, stdout: '', stderr: 'not a git repository' });
     expect(() => makeIsInStable('v1.0.0', broken)(laterOnMain)).toThrow(/merge-base/);
+  });
+});
+
+describe('readPendingBumps, run by the job that holds no credential', () => {
+  test('reads every changeset pending at HEAD, keyed by blob, and reads nothing else', () => {
+    const reads = [];
+    const git = {
+      changesetIds: (sha) => (sha === 'HEAD' ? ['fix-crash', 'new-thing'] : []),
+      changesetBlobs: (sha) =>
+        new Map(sha === 'HEAD' ? [['fix-crash', 'blob-fix'], ['new-thing', 'blob-feat']] : []),
+      bumpTypeOf: (sha, id) => {
+        reads.push(`${sha}:${id}`);
+        return id === 'new-thing' ? 'minor' : 'patch';
+      },
+    };
+    expect(Object.fromEntries(readPendingBumps(git))).toEqual({ 'blob-fix': 'patch', 'blob-feat': 'minor' });
+    expect(reads).toEqual(['HEAD:fix-crash', 'HEAD:new-thing']);
+  });
+
+  test('an empty pile reads as no verdicts', () => {
+    const git = {
+      changesetIds: () => [],
+      changesetBlobs: () => new Map(),
+      bumpTypeOf: () => {
+        throw new Error('nothing to read');
+      },
+    };
+    expect(readPendingBumps(git).size).toBe(0);
+  });
+});
+
+describe('the bug-lane entry points the two jobs run', () => {
+  const SCRIPT = realpathSync(fileURLToPath(new URL('./bug-lane.mjs', import.meta.url)));
+  const OK_ROOT = join(dirname(SCRIPT), '..', '..');
+  const COPIED = [
+    '.github/scripts/bug-lane.mjs',
+    '.github/scripts/select-beta-to-promote.mjs',
+    '.github/scripts/shipped-fix-containment.mjs',
+    'scripts/compute-stable-version.mjs',
+    'scripts/compute-next-beta.mjs',
+    'scripts/git-clean-env.mjs',
+  ];
+  const dirs = [];
+  afterEach(() => {
+    while (dirs.length) rmSync(dirs.pop(), { recursive: true, force: true });
+  });
+  const scratch = (prefix) => {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), prefix)));
+    dirs.push(dir);
+    return dir;
+  };
+  const { BUMP_VERDICTS: _verdicts, LINEAR_API_KEY: _key, LINK_REPO: _repo, ...cleanEnv } = gitCleanEnv();
+  const git = (cwd, ...args) =>
+    execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.com', '-c', 'commit.gpgsign=false', ...args], {
+      cwd,
+      encoding: 'utf8',
+      env: gitCleanEnv(),
+    }).trim();
+  const pendingRepo = () => {
+    const root = scratch('bug-lane-entry-');
+    const commit = (id, type, subject) => {
+      mkdirSync(join(root, '.changeset'), { recursive: true });
+      writeFileSync(join(root, '.changeset', `${id}.md`), `---\n"@inkeep/open-knowledge": ${type}\n---\n\n${id}\n`);
+      git(root, 'add', '-A');
+      git(root, 'commit', '-q', '-m', subject);
+      return git(root, 'rev-parse', 'HEAD');
+    };
+    git(root, 'init', '-q', '-b', 'main');
+    writeFileSync(join(root, 'README.md'), 'stable\n');
+    git(root, 'add', '-A');
+    git(root, 'commit', '-q', '-m', 'stable');
+    git(root, 'tag', 'v1.0.0');
+    const fix = commit('fix-crash', 'patch', 'fix: stop the crash (#101)');
+    const feat = commit('new-thing', 'minor', 'feat: a new thing (#102)');
+    return {
+      root,
+      fix,
+      feat,
+      blobs: {
+        fix: git(root, 'rev-parse', 'HEAD:.changeset/fix-crash.md'),
+        feat: git(root, 'rev-parse', 'HEAD:.changeset/new-thing.md'),
+      },
+    };
+  };
+  const isolatedScript = () => {
+    const dir = scratch('bug-lane-no-node-modules-');
+    for (const file of COPIED) {
+      mkdirSync(dirname(join(dir, file)), { recursive: true });
+      copyFileSync(join(OK_ROOT, file), join(dir, file));
+    }
+    return join(dir, '.github', 'scripts', 'bug-lane.mjs');
+  };
+  const linearStub = () => {
+    const dir = scratch('bug-lane-linear-');
+    const preload = join(dir, 'linear.mjs');
+    const calls = join(dir, 'calls');
+    writeFileSync(
+      preload,
+      [
+        "import { appendFileSync } from 'node:fs';",
+        'globalThis.fetch = async (url, init) => {',
+        '  appendFileSync(process.env.LINEAR_CALLS, `${JSON.stringify({ url: String(url), authorization: init.headers.authorization, body: JSON.parse(init.body) })}\\n`);',
+        "  return new Response(JSON.stringify({ data: { attachmentsForURL: { nodes: [{ issue: { identifier: 'PRD-1', labels: { nodes: [{ name: 'Bug' }] } } }] } } }), { status: 200 });",
+        '};',
+        '',
+      ].join('\n'),
+    );
+    writeFileSync(calls, '');
+    return { preload, calls, read: () => readFileSync(calls, 'utf8').split('\n').filter(Boolean).map((line) => JSON.parse(line)) };
+  };
+  const releasesGh = (listing = [{ tag_name: 'v1.0.0', draft: false, body: '' }]) => {
+    const bin = scratch('bug-lane-gh-');
+    const listed = listing.map((release) => `'${JSON.stringify(release)}'`).join(' ');
+    writeFileSync(
+      join(bin, 'gh'),
+      `#!/bin/sh\nif [ "$1" = api ]; then printf '%s\\n' ${listed}; exit 0; fi\necho "unexpected gh call: $*" >&2\nexit 97\n`,
+      { mode: 0o755 },
+    );
+    return bin;
+  };
+  const run = (script, cwd, { args = [], env = {}, preload, bin = releasesGh() } = {}) => {
+    const output = join(scratch('bug-lane-output-'), 'github-output');
+    writeFileSync(output, '');
+    const res = spawnSync(process.execPath, [...(preload ? ['--import', preload] : []), script, ...args], {
+      cwd,
+      encoding: 'utf8',
+      env: { ...cleanEnv, GITHUB_OUTPUT: output, PATH: `${bin}${delimiter}${cleanEnv.PATH}`, ...env },
+    });
+    return { ...res, output: readFileSync(output, 'utf8') };
+  };
+
+  test('--read-bumps writes the bump of every pending changeset, keyed by blob id', () => {
+    const { root, blobs } = pendingRepo();
+    const res = run(SCRIPT, root, { args: ['--read-bumps'] });
+    expect(res.status, res.stderr).toBe(0);
+    expect(res.output).toBe(`bump_verdicts={"${blobs.fix}":"patch","${blobs.feat}":"minor"}\n`);
+  });
+
+  test('with the reader job verdicts and no node_modules it makes the same Linear queries and writes the same outputs', () => {
+    const { root, fix } = pendingRepo();
+    const verdicts = run(SCRIPT, root, { args: ['--read-bumps'] }).output.trim().slice('bump_verdicts='.length);
+
+    const withReader = linearStub();
+    const reader = run(SCRIPT, root, {
+      env: { LINEAR_API_KEY: 'placeholder-linear-key', LINEAR_CALLS: withReader.calls },
+      preload: withReader.preload,
+    });
+    expect(reader.status, reader.stderr).toBe(0);
+
+    const withoutReader = linearStub();
+    const verdictMode = run(isolatedScript(), root, {
+      env: { LINEAR_API_KEY: 'placeholder-linear-key', LINEAR_CALLS: withoutReader.calls, BUMP_VERDICTS: verdicts },
+      preload: withoutReader.preload,
+    });
+    expect(verdictMode.status, verdictMode.stderr).toBe(0);
+
+    expect(verdictMode.output).toBe(`fix_refs=${fix}\nstable=v1.0.0\nfix_tickets={"${fix}":["PRD-1"]}\n`);
+    expect(verdictMode.output).toBe(reader.output);
+    expect(withoutReader.read()).toEqual([
+      {
+        url: 'https://api.linear.app/graphql',
+        authorization: 'placeholder-linear-key',
+        body: expect.objectContaining({ variables: { url: 'https://github.com/inkeep/agents-private/pull/101' } }),
+      },
+    ]);
+    expect(withoutReader.read()).toEqual(withReader.read());
+    expect(verdictMode.stdout).toContain('"feat: a new thing (#102)" -> not-patch-only');
+  });
+
+  test('without verdicts the same isolated copy cannot load the reader, so the run above proves it never tried', () => {
+    const { root } = pendingRepo();
+    const res = run(isolatedScript(), root);
+    expect(res.status).toBe(1);
+    expect(res.stderr).toMatch(/@changesets\/cli/);
+    expect(res.output).toBe('');
+  });
+
+  test('a changeset the reader job did not read stops the tick before Linear or any output', () => {
+    const { root, blobs } = pendingRepo();
+    const linear = linearStub();
+    const res = run(isolatedScript(), root, {
+      env: {
+        LINEAR_API_KEY: 'placeholder-linear-key',
+        LINEAR_CALLS: linear.calls,
+        BUMP_VERDICTS: JSON.stringify({ [blobs.fix]: 'patch' }),
+      },
+      preload: linear.preload,
+    });
+    expect(res.status).toBe(1);
+    expect(res.stderr).toMatch(/no bump verdict for \.changeset\/new-thing\.md/);
+    expect(res.output).toBe('');
+    expect(linear.read()).toEqual([]);
+  });
+
+  test('an empty BUMP_VERDICTS stops the tick with an error naming the read-bumps output', () => {
+    const { root } = pendingRepo();
+    const res = run(isolatedScript(), root, { env: { BUMP_VERDICTS: '' } });
+    expect(res.status).toBe(1);
+    expect(res.stderr).toMatch(/BUMP_VERDICTS is empty: the read-bumps job wrote no bump_verdicts output/);
+    expect(res.output).toBe('');
+  });
+
+  test('holds a qualifying batch, handing nothing to verify, while the newest stable has no published Release', () => {
+    const { root } = pendingRepo();
+    const verdicts = run(SCRIPT, root, { args: ['--read-bumps'] }).output.trim().slice('bump_verdicts='.length);
+    const linear = linearStub();
+    const res = run(isolatedScript(), root, {
+      env: { LINEAR_API_KEY: 'placeholder-linear-key', LINEAR_CALLS: linear.calls, BUMP_VERDICTS: verdicts },
+      preload: linear.preload,
+      bin: releasesGh([{ tag_name: 'v1.0.0', draft: true, body: '' }]),
+    });
+    expect(res.status, res.stderr).toBe(0);
+    expect(res.output).toBe('fix_refs=\nstable=v1.0.0\nfix_tickets={}\n');
+    expect(res.stdout).toContain(
+      '::notice::bug-lane: holding 1 qualifying fix(es) this tick, so no point release is attempted. The newest stable tag v1.0.0 has no published Release',
+    );
   });
 });

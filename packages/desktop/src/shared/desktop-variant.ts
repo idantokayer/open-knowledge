@@ -15,6 +15,7 @@ interface DesktopVariantIdentity {
   readonly feedChannel: 'latest' | 'beta' | 'beta-product';
   readonly instanceLabel: string | null;
   readonly iconPath: string;
+  readonly windowsIconPath: string;
   readonly linuxExecutableName: string;
   readonly linuxPackageNames: {
     readonly deb: string;
@@ -31,11 +32,12 @@ const DESKTOP_PRODUCT_VARIANTS = {
     productName: DESKTOP_PRODUCTS.stable.productName,
     artifactName: 'OpenKnowledge',
     packageName: DESKTOP_PRODUCTS.stable.packageName,
-    protocolScheme: 'openknowledge',
+    protocolScheme: DESKTOP_PRODUCTS.stable.protocolScheme,
     updateChannel: 'latest',
     feedChannel: 'latest',
     instanceLabel: null,
     iconPath: 'build/icon.png',
+    windowsIconPath: 'build/icon.ico',
     linuxExecutableName: DESKTOP_PRODUCTS.stable.linuxExecutableName,
     linuxPackageNames: DESKTOP_PRODUCTS.stable.linuxPackageNames,
     cliCommandNames: DESKTOP_PRODUCTS.stable.cliCommandNames,
@@ -47,11 +49,12 @@ const DESKTOP_PRODUCT_VARIANTS = {
     productName: DESKTOP_PRODUCTS.beta.productName,
     artifactName: 'OpenKnowledge-Beta',
     packageName: DESKTOP_PRODUCTS.beta.packageName,
-    protocolScheme: 'openknowledge-beta',
+    protocolScheme: DESKTOP_PRODUCTS.beta.protocolScheme,
     updateChannel: 'beta',
     feedChannel: 'beta-product',
     instanceLabel: 'Beta',
     iconPath: 'build/icon-beta.png',
+    windowsIconPath: 'build/icon-beta.ico',
     linuxExecutableName: DESKTOP_PRODUCTS.beta.linuxExecutableName,
     linuxPackageNames: DESKTOP_PRODUCTS.beta.linuxPackageNames,
     cliCommandNames: DESKTOP_PRODUCTS.beta.cliCommandNames,

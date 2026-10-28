@@ -44,6 +44,12 @@ export {
   waitForLandingSettled,
 } from './landing.ts';
 export {
+  appSourcesIn,
+  servedEntryScriptRoute,
+  servedModuleRoute,
+  servedModuleUrl,
+} from './prebuilt/served-modules.ts';
+export {
   installClockAfterSync,
   type WaitForProviderOptions,
   waitForActiveProviderSynced,
@@ -51,14 +57,18 @@ export {
 export { escapeRegExp } from './regexp.ts';
 export { matchIsWithinReadableScrollport } from './scrollport.ts';
 export {
+  type BoundViteEndpoint,
+  beginViteStartup,
   checkCollabSync,
   closeServerLog,
+  createViteStartupRequest,
   getFreePort,
   killGracefully,
   openServerLog,
   prepareViteCacheDir,
   type ServerLog,
   tailServerLog,
+  waitForBoundViteEndpoint,
   waitForHttpReady,
 } from './server-process.ts';
 export {

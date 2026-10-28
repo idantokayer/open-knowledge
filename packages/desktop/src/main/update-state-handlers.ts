@@ -1,6 +1,9 @@
+import type { OkStateSnapshot } from '@inkeep/open-knowledge-core/desktop-bridge';
+import { buildAboutInfo } from './about-info.ts';
 import {
   type AppState,
   emptyState,
+  resolveUpdateMode,
   type SchemaIncompatibilityDiagnostic,
   type UpdateChannel,
 } from './state-store.ts';
@@ -12,11 +15,9 @@ export interface UpdateStateHandlerDeps {
   getBuildChannel: () => UpdateChannel;
   getPendingSchemaIncompatibility: () => SchemaIncompatibilityDiagnostic | null;
   clearPendingSchemaIncompatibility: () => void;
-}
-
-interface StateQueryResult {
-  channel: UpdateChannel;
-  schemaIncompatibility: SchemaIncompatibilityDiagnostic | null;
+  getAppVersion: () => string;
+  variant: { readonly name: string; readonly productName: string };
+  isUpdaterRunning: () => boolean;
 }
 
 export async function applyResetIncompatible(deps: UpdateStateHandlerDeps): Promise<undefined> {
@@ -31,10 +32,18 @@ export async function applyResetIncompatible(deps: UpdateStateHandlerDeps): Prom
   return undefined;
 }
 
-export async function applyStateQuery(deps: UpdateStateHandlerDeps): Promise<StateQueryResult> {
+export async function applyStateQuery(
+  deps: UpdateStateHandlerDeps,
+): Promise<Required<OkStateSnapshot>> {
   const compat = deps.getPendingSchemaIncompatibility();
   return {
     channel: deps.getBuildChannel(),
     schemaIncompatibility: compat ? { ...compat } : null,
+    about: buildAboutInfo({
+      version: deps.getAppVersion(),
+      variant: deps.variant,
+      updateChecksAvailable: deps.isUpdaterRunning(),
+    }),
+    updateMode: resolveUpdateMode(deps.getAppState().updateMode).mode,
   };
 }

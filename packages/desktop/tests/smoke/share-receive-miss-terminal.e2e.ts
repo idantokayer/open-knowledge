@@ -3,8 +3,10 @@ import { randomUUID } from 'node:crypto';
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
-import { _electron as electron } from '@playwright/test';
+import { configureTestGitRepository } from '../../../../test-support/configure-git-fixture.test-helper.ts';
+import { expectCaptureHomeMatchesProcess } from './_helpers/capture-home.test-helper';
 import { desktopLaunchOptions, resolveDesktopTarget } from './_helpers/launch-desktop';
+import { launchDesktopInHome } from './_helpers/launch-in-home';
 import { PLATFORM_SKIP_REASON, PLATFORM_SUPPORTED } from './_helpers/platform-gate';
 import { expect, type SmokeFixtures, test } from './_helpers/smoke-test';
 
@@ -100,9 +102,11 @@ function setupDeletedTargetFixture(options: MissFixtureOptions = {}): MissFixtur
 
   mkdirSync(originDir);
   git(originDir, 'init', '--bare', '--initial-branch=main');
+  configureTestGitRepository(originDir);
 
   mkdirSync(seedDir);
   git(seedDir, 'init', '--initial-branch=main');
+  configureTestGitRepository(seedDir);
   git(seedDir, 'config', 'user.email', 'test@example.com');
   git(seedDir, 'config', 'user.name', 'Test');
   git(seedDir, 'remote', 'add', 'origin', originDir);
@@ -122,6 +126,7 @@ function setupDeletedTargetFixture(options: MissFixtureOptions = {}): MissFixtur
   git(seedDir, 'push', 'origin', 'main');
 
   git(root, 'clone', originDir, receiverDir);
+  configureTestGitRepository(receiverDir);
   return { root, receiver: realpathSync(receiverDir), docPath };
 }
 
@@ -160,14 +165,16 @@ async function expectDeletedTargetMiss(
     }),
   );
 
-  const app = await electron.launch(
+  const app = await launchDesktopInHome(
+    tmpHome,
     desktopLaunchOptions({
       target: TARGET,
       args: [`--user-data-dir=${userData}`, shareUrl],
       timeout: 30_000,
     }),
   );
-  captureStderrFor(app, { home: tmpHome, cleanupDirs: [fixture.root, tmpHome] });
+  captureStderrFor(app, { cleanupDirs: [fixture.root, tmpHome] });
+  await expectCaptureHomeMatchesProcess(app);
 
   const firstWindow = await app.firstWindow({ timeout: 15_000 });
   expect(firstWindow).toBeDefined();
@@ -252,14 +259,16 @@ test.describe('share-receive miss terminal smoke', () => {
       JSON.stringify({ recentProjects: [], projectSessions: {} }),
     );
 
-    const app = await electron.launch(
+    const app = await launchDesktopInHome(
+      tmpHome,
       desktopLaunchOptions({
         target: TARGET,
         args: [`--user-data-dir=${userData}`, MAX_V2_CUSTOM_URI],
         timeout: 30_000,
       }),
     );
-    captureStderrFor(app, { home: tmpHome, cleanupDirs: [tmpHome] });
+    captureStderrFor(app, { cleanupDirs: [tmpHome] });
+    await expectCaptureHomeMatchesProcess(app);
     await app.firstWindow({ timeout: 15_000 });
 
     let dialogText = '';

@@ -4,12 +4,16 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, describe, expect, test } from 'vitest';
+import { configureTestGitRepository } from '../test-support/configure-git-fixture.test-helper.ts';
 import { okVitestBase } from '../test-support/vitest.base.ts';
+import { ISSUE_URL_RULE } from './deviations/contract.mjs';
 import { gitCleanEnv } from './git-clean-env.mjs';
 import {
+  ALLOWANCE_FIELDS,
   ALLOWLIST_PATH,
   CONVENTION_DOC,
   EXPIRY_WARNING_DAYS,
+  expired,
   expiringSoon,
   KNOWN_BUG_TAG,
   listTestFiles,
@@ -330,6 +334,21 @@ describe('known-reds scanner: CI-keyed skips', () => {
       "const TIMEOUT = process.env.CI ? 60_000 : 5_000;\ntest.skipIf(TIMEOUT > 10_000)('x', () => {});",
       'test',
     ],
+    ["const e = process.env;\ntest.skipIf(e.CI)('x', () => {});", 'test'],
+    ["const { env: e } = process;\ntest.skipIf(e.CI)('x', () => {});", 'test'],
+    ["const { CI } = process.env;\ntest.skipIf(CI)('x', () => {});", 'test'],
+    ["const { GITHUB_ACTIONS: gha } = process.env;\ntest.skipIf(gha)('x', () => {});", 'test'],
+    ["const key = 'CI';\ntest.skipIf(process.env[key])('x', () => {});", 'test'],
+    ["const onCi = () => Boolean(process.env.CI);\ntest.skipIf(onCi())('x', () => {});", 'test'],
+    [
+      "function onCi() { return process.env.CI === 'true'; }\ntest.skipIf(onCi())('x', () => {});",
+      'test',
+    ],
+    ["import ci from 'ci-info';\ntest.skipIf(ci.isCI)('x', () => {});", 'test'],
+    ["import * as ci from 'ci-info';\ntest.skipIf(ci.isCI)('x', () => {});", 'test'],
+    ["import { isCI } from 'ci-info';\ntest.skipIf(isCI)('x', () => {});", 'test'],
+    ["test.skipIf('CI' in process.env)('x', () => {});", 'test'],
+    ["const key = 'GITHUB_ACTIONS';\ntest.skipIf(key in process.env)('x', () => {});", 'test'],
   ])('finds the Vitest skip in %s', (source, scope) => {
     const gates = scanSource('packages/server/src/a.test.ts', source).gates;
     expect(gates.filter((gate) => gate.ci === 'skips-on-ci').map((gate) => gate.scope)).toEqual([
@@ -353,6 +372,22 @@ describe('known-reds scanner: CI-keyed skips', () => {
     "test.skipIf(process.env.CIRCLE)('x', () => {});",
     "test.skipIf({ CI: true }.CI_FLAG)('x', () => {});",
     "test.skipIf(process.platform === 'win32')('x', () => {});",
+    "const e = process.env;\ntest.skipIf(e.OK_LIVE_API)('x', () => {});",
+    "const { HOME } = process.env;\ntest.skipIf(HOME)('x', () => {});",
+    "const key = 'OK_LIVE_API';\ntest.skipIf(process.env[key])('x', () => {});",
+    "const hasDocker = () => process.env.DOCKER_HOST !== undefined;\ntest.skipIf(hasDocker())('x', () => {});",
+    "import ci from 'ci-info';\ntest.skipIf(ci.isPR)('x', () => {});",
+    "import { isCI } from './ci';\ntest.skipIf(isCI)('x', () => {});",
+    "import { isCi } from './env';\ntest.skipIf(isCi())('x', () => {});",
+    "const { ...CI } = process.env;\ntest.skipIf(CI)('x', () => {});",
+    "const { CI } = config;\ntest.skipIf(CI)('x', () => {});",
+    "const { env: e } = config;\ntest.skipIf(e.CI)('x', () => {});",
+    "import ci from './ci';\ntest.skipIf(ci.isCI)('x', () => {});",
+    "import * as ci from './ci';\ntest.skipIf(ci.isCI)('x', () => {});",
+    "const onCi = (flag) => Boolean(process.env.CI);\ntest.skipIf(onCi())('x', () => {});",
+    "function onCi() { return Boolean(process.env.CI); console.log('after'); }\ntest.skipIf(onCi())('x', () => {});",
+    "test.skipIf('OK_LIVE_API' in process.env)('x', () => {});",
+    "test.skipIf('CI' in flags)('x', () => {});",
   ])('lists %s as an environment gate', (source) => {
     const gates = scanSource('packages/server/src/a.test.ts', source).gates;
     expect(gates.map((gate) => gate.ci)).toEqual([null]);
@@ -432,7 +467,7 @@ describe('known-reds feed: gate atoms and title chains', () => {
     ],
     [
       "test.skipIf(hasDocker())('x', () => {});",
-      [{ kind: 'runtime', name: 'hasDocker()', text: 'hasDocker()' }],
+      [{ kind: 'unknown', name: 'hasDocker()', text: 'hasDocker()' }],
     ],
     [
       "import * as os from 'node:os';\ntest.skipIf(os.type() === 'Windows_NT')('x', () => {});",
@@ -482,6 +517,92 @@ describe('known-reds feed: gate atoms and title chains', () => {
       [{ kind: 'env', name: 'OK_FLAG', text: "env.OK_FLAG === '1'" }],
     ],
     ["test.skipIf(IS_CI)('x', () => {});", [{ kind: 'ci', name: 'IS_CI', text: 'IS_CI' }]],
+    [
+      "test.skipIf(process.geteuid?.() === 0)('x', () => {});",
+      [{ kind: 'uid', name: 'process.geteuid', text: 'process.geteuid?.() === 0' }],
+    ],
+    [
+      "import { isTerminalPlatform } from './p';\ntest.skipIf(isTerminalPlatform(process.platform))('x', () => {});",
+      [
+        {
+          kind: 'unknown',
+          name: 'isTerminalPlatform(process.platform)',
+          text: 'isTerminalPlatform(process.platform)',
+        },
+        { kind: 'platform', name: 'process.platform', text: 'process.platform' },
+      ],
+    ],
+    [
+      "const { CI } = process.env;\ntest.skipIf(CI)('x', () => {});",
+      [{ kind: 'ci', name: 'CI', text: 'CI' }],
+    ],
+    [
+      "const e = process.env;\ntest.skipIf(e.OK_LIVE_API)('x', () => {});",
+      [{ kind: 'env', name: 'OK_LIVE_API', text: 'e.OK_LIVE_API' }],
+    ],
+    [
+      "const { platform } = process;\ntest.skipIf(platform === 'win32')('x', () => {});",
+      [{ kind: 'platform', name: 'process.platform', text: "platform === 'win32'" }],
+    ],
+    [
+      "import ci from 'ci-info';\ntest.skipIf(ci.isCI)('x', () => {});",
+      [{ kind: 'ci', name: 'ci-info', text: 'ci.isCI' }],
+    ],
+    [
+      "const onCi = () => Boolean(process.env.CI);\ntest.skipIf(onCi())('x', () => {});",
+      [{ kind: 'ci', name: 'CI', text: 'process.env.CI' }],
+    ],
+    [
+      "import { isCi } from './env';\ntest.skipIf(isCi())('x', () => {});",
+      [{ kind: 'unknown', name: 'isCi()', text: 'isCi()' }],
+    ],
+    [
+      "const onCi = (name) => Boolean(process.env[name]);\ntest.skipIf(onCi('CI'))('x', () => {});",
+      [{ kind: 'unknown', name: "onCi('CI')", text: "onCi('CI')" }],
+    ],
+    [
+      "test.skipIf(!process.env.OK_PACKAGE_DIR?.trim())('x', () => {});",
+      [
+        {
+          kind: 'unknown',
+          name: 'process.env.OK_PACKAGE_DIR?.trim()',
+          text: 'process.env.OK_PACKAGE_DIR?.trim()',
+        },
+        { kind: 'env', name: 'OK_PACKAGE_DIR', text: 'process.env.OK_PACKAGE_DIR' },
+      ],
+    ],
+    [
+      "test.skipIf(process.getegid?.() === 0)('x', () => {});",
+      [{ kind: 'uid', name: 'process.getegid', text: 'process.getegid?.() === 0' }],
+    ],
+    [
+      "const key = 'OK_LIVE_API';\ntest.skipIf(process.env[key] === '1')('x', () => {});",
+      [{ kind: 'env', name: 'OK_LIVE_API', text: "process.env[key] === '1'" }],
+    ],
+    [
+      "import { isCI } from 'ci-info';\ntest.skipIf(isCI)('x', () => {});",
+      [{ kind: 'ci', name: 'ci-info', text: 'isCI' }],
+    ],
+    [
+      "const key = 'CI';\ntest.skipIf(key in process.env)('x', () => {});",
+      [{ kind: 'ci', name: 'CI', text: 'key in process.env' }],
+    ],
+    [
+      "const { ...rest } = process.env;\ntest.skipIf(rest)('x', () => {});",
+      [{ kind: 'unknown', name: 'rest', text: 'rest' }],
+    ],
+    [
+      "const { ...platform } = process;\ntest.skipIf(platform)('x', () => {});",
+      [{ kind: 'unknown', name: 'platform', text: 'platform' }],
+    ],
+    [
+      "const { env: { CI } } = process;\ntest.skipIf(CI)('x', () => {});",
+      [{ kind: 'unknown', name: 'CI', text: 'CI' }],
+    ],
+    [
+      "function onCi() { const v = process.env.CI; return Boolean(v); }\ntest.skipIf(onCi())('x', () => {});",
+      [{ kind: 'unknown', name: 'onCi()', text: 'onCi()' }],
+    ],
   ])('reads the atoms of %s', (source, atoms) => {
     expect(atomsOf(source)).toEqual([atoms]);
   });
@@ -510,7 +631,7 @@ describe('known-reds feed: gate atoms and title chains', () => {
       '});',
     ].join('\n');
     expect(atomsOf(source)).toEqual([
-      [{ kind: 'runtime', name: 'localProbe()', text: 'localProbe()' }],
+      [{ kind: 'unknown', name: 'localProbe()', text: 'localProbe()' }],
     ]);
   });
 
@@ -552,7 +673,7 @@ describe('known-reds feed: gate atoms and title chains', () => {
       '});',
     ].join('\n');
     expect(atomsOf(source)).toEqual([
-      [{ kind: 'runtime', name: 'platform', text: "platform === 'win32'" }],
+      [{ kind: 'unknown', name: 'platform', text: "platform === 'win32'" }],
     ]);
   });
 
@@ -615,7 +736,7 @@ describe('known-reds feed: gate atoms and title chains', () => {
     ].join('\n');
     const { gates, earlyReturns } = scanSource('packages/server/src/a.test.ts', source);
     expect(gates.map(({ ci, atoms }) => ({ ci, atoms }))).toEqual([
-      { ci: null, atoms: [{ kind: 'runtime', name: 'capability()', text: 'capability()' }] },
+      { ci: null, atoms: [{ kind: 'unknown', name: 'capability()', text: 'capability()' }] },
     ]);
     expect(earlyReturns.map(({ line, condition }) => ({ line, condition }))).toEqual([
       { line: 8, condition: 'FLAG' },
@@ -635,7 +756,7 @@ describe('known-reds feed: gate atoms and title chains', () => {
       ].join('\n');
       const { gates } = scanSource('packages/server/src/a.test.ts', source);
       expect(gates.map(({ ci, atoms }) => ({ ci, atoms }))).toEqual([
-        { ci: null, atoms: [{ kind: 'runtime', name: 'FLAG', text: 'FLAG' }] },
+        { ci: null, atoms: [{ kind: 'unknown', name: 'FLAG', text: 'FLAG' }] },
       ]);
     },
   );
@@ -659,7 +780,7 @@ describe('known-reds feed: gate atoms and title chains', () => {
     const source = `const FLAG = process.env.CI;\n${body}`;
     const { gates } = scanSource('packages/server/src/a.test.ts', source);
     expect(gates.map(({ ci, atoms }) => ({ ci, atoms }))).toEqual([
-      { ci: null, atoms: [{ kind: 'runtime', name: 'FLAG', text: 'FLAG' }] },
+      { ci: null, atoms: [{ kind: 'unknown', name: 'FLAG', text: 'FLAG' }] },
     ]);
   });
 
@@ -694,7 +815,8 @@ describe('known-reds feed: gate atoms and title chains', () => {
     ].join('\n');
     const { gates, earlyReturns } = scanSource('packages/server/src/a.test.ts', source);
     expect(gates[0].ci).toBeNull();
-    expect(gates[0].atoms).toEqual([{ kind: 'runtime', name: condition, text: condition }]);
+    expect(gates[0].atoms).toContainEqual({ kind: 'unknown', name: condition, text: condition });
+    expect(gates[0].atoms.every((atom) => atom.kind === 'unknown')).toBe(true);
     expect(earlyReturns).toEqual([]);
   });
 
@@ -714,7 +836,7 @@ describe('known-reds feed: gate atoms and title chains', () => {
     ].join('\n');
     const { gates, earlyReturns } = scanSource('packages/server/src/a.test.ts', source);
     expect(gates.map(({ ci, atoms }) => ({ ci, atoms }))).toEqual([
-      { ci: null, atoms: [{ kind: 'runtime', name: 'FIRST', text: 'FIRST' }] },
+      { ci: null, atoms: [{ kind: 'unknown', name: 'FIRST', text: 'FIRST' }] },
       { ci: 'skips-on-ci', atoms: [{ kind: 'ci', name: 'CI', text: 'process.env.CI' }] },
     ]);
     expect(earlyReturns.map(({ condition }) => condition)).toEqual(['A']);
@@ -784,6 +906,8 @@ describe('known-reds scanner: early returns and not-run tests', () => {
     "import os from 'node:os';\ntest('x', () => { if (os.platform() !== 'darwin') return; expect(1).toBe(1); });",
     "test('x', () => { if (process.env.OK_AUDIT === '1') { report(); return; } expect(1).toBe(1); });",
     "describe('x', () => { const isWin = process.platform === 'win32'; test('y', () => { if (isWin) return; expect(1).toBe(1); }); });",
+    "const { OK_LIVE_API } = process.env;\ntest('x', () => { if (!OK_LIVE_API) return; expect(1).toBe(1); });",
+    "const { platform } = process;\ntest('x', () => { if (platform === 'win32') return; expect(1).toBe(1); });",
   ])('flags the environment early return in %s', (source) => {
     expect(scanSource('packages/server/src/a.test.ts', source).earlyReturns).toHaveLength(1);
   });
@@ -796,8 +920,22 @@ describe('known-reds scanner: early returns and not-run tests', () => {
     "test('x', () => { if (process.platform === 'win32') return promise; expect(1).toBe(1); });",
     "test('x', (ctx) => { if (process.platform === 'win32') { ctx.skip(); return; } expect(1).toBe(1); });",
     "describe('x', () => { if (process.platform === 'win32') return; test('y', () => { expect(1).toBe(1); }); });",
+    "const { value } = config;\ntest('x', () => { if (!value) return; expect(1).toBe(1); });",
+    "const { platform } = opts;\ntest('x', () => { if (platform === 'win32') return; expect(1).toBe(1); });",
+    "const { argv } = process;\ntest('x', () => { if (!argv) return; expect(1).toBe(1); });",
   ])('leaves %s alone', (source) => {
     expect(scanSource('packages/server/src/a.test.ts', source).earlyReturns).toEqual([]);
+  });
+
+  test.each([
+    ["function f() { return f(); }\ntest.skipIf(f())('x', () => {});", 'f()'],
+    ["const a = b;\nconst b = a;\ntest.skipIf(process.env[a])('x', () => {});", null],
+    ["const e = f;\nconst f = e;\ntest.skipIf(e.CI)('x', () => {});", null],
+  ])('terminates on the cyclic declarations in %s', (source, unknownName) => {
+    const [gate] = scanSource('packages/server/src/a.test.ts', source).gates;
+    expect(gate.ci).toBeNull();
+    if (unknownName !== null)
+      expect(gate.atoms).toContainEqual({ kind: 'unknown', name: unknownName, text: unknownName });
   });
 
   test('flags a Playwright early return too', () => {
@@ -889,21 +1027,82 @@ describe('known-reds validation', () => {
       { owner: 'someone-else' },
       `known-bug pin has owner "someone-else", which is not one of ${OWNERS.join(', ')}`,
     ],
-    [{ issue: undefined }, 'known-bug pin has no issue link'],
+    [{ issue: undefined }, 'known-bug pin has no issue'],
     [
       { issue: 'inkeep/agents-private#1056' },
-      'known-bug pin has issue "inkeep/agents-private#1056", which is not a GitHub or Linear issue URL',
+      `known-bug pin has issue "inkeep/agents-private#1056", which is not ${ISSUE_URL_RULE}`,
     ],
-    [{ until: undefined }, 'known-bug pin has no until date'],
-    [{ until: '15/10/2026' }, 'known-bug pin has until "15/10/2026", which is not YYYY-MM-DD'],
-    [{ until: '2026-02-30' }, 'known-bug pin has until "2026-02-30", which is not a date'],
-    [{ until: '2026-09-30' }, 'known-bug pin expired on 2026-09-30'],
+    [{ until: undefined }, 'known-bug pin has no until'],
+    [
+      { until: '15/10/2026' },
+      'known-bug pin has until "15/10/2026", which is not a YYYY-MM-DD date',
+    ],
+    [
+      { until: '2026-02-30' },
+      'known-bug pin has until "2026-02-30", which is not a YYYY-MM-DD date',
+    ],
     [
       { until: '2026-12-31' },
       `known-bug pin has until 2026-12-31, beyond the ${MAX_HORIZON_DAYS}-day horizon (2026-12-30)`,
     ],
   ])('refuses %j', (fields, message) => {
     expect(messages(pinReport(fields))).toEqual([message]);
+  });
+
+  test('reports a pin past its until date instead of refusing it', () => {
+    const report = pinReport({ until: '2026-09-30' });
+    expect(messages(report)).toEqual([]);
+    expect(expired(report, { today: TODAY, allowlist: NO_ALLOWLIST })).toEqual([
+      {
+        kind: 'pin',
+        path: 'a.test.ts',
+        line: 1,
+        owner: 'get-main-green',
+        issue: ISSUE,
+        until: '2026-09-30',
+      },
+    ]);
+    expect(expired(pinReport({}), { today: TODAY, allowlist: NO_ALLOWLIST })).toEqual([]);
+  });
+
+  test('a pin dated its own day is neither expired nor refused', () => {
+    const report = pinReport({ until: TODAY });
+    expect(messages(report)).toEqual([]);
+    expect(expired(report, { today: TODAY, allowlist: NO_ALLOWLIST })).toEqual([]);
+  });
+
+  test('an expired pin with a malformed issue is still refused for the issue', () => {
+    expect(messages(pinReport({ until: '2026-09-30', issue: 'PRD-1' }))).toEqual([
+      `known-bug pin has issue "PRD-1", which is not ${ISSUE_URL_RULE}`,
+    ]);
+  });
+
+  test('reports an expired quarantine and an expired allowlist entry the same way', () => {
+    const report = {
+      ...pinReport({}),
+      quarantines: [
+        { path: 'q.test.ts', line: 4, issue: ISSUE, owner: 'get-main-green', until: '2026-09-01' },
+      ],
+    };
+    const allowlist = {
+      ciSkips: [
+        {
+          path: 'd.test.ts',
+          condition: 'CI',
+          issue: ISSUE,
+          owner: 'known-reds',
+          until: '2026-09-02',
+          reason: 'r',
+          exit: 'e',
+        },
+      ],
+    };
+    expect(
+      expired(report, { today: TODAY, allowlist }).map((row) => `${row.kind} ${row.until}`),
+    ).toEqual(['quarantine 2026-09-01', 'ci-skip-entry 2026-09-02']);
+    expect(
+      validate(report, { today: TODAY, allowlist }).map((violation) => violation.rule),
+    ).toEqual(['allowlist-stale']);
   });
 
   test(`lists what expires within ${EXPIRY_WARNING_DAYS} days, without failing it`, () => {
@@ -919,13 +1118,28 @@ describe('known-reds validation', () => {
       ciSkips: [{ path: 'd.test.ts', condition: 'CI', owner: 'known-reds', until: '2026-10-02' }],
     };
     expect(expiringSoon(report, { today: TODAY, allowlist })).toEqual([
-      { kind: 'pin', path: 'a.test.ts', line: 1, owner: 'get-main-green', until: '2026-10-08' },
-      { kind: 'pin', path: 'b.test.ts', line: 2, owner: 'get-main-green', until: '2026-10-15' },
+      {
+        kind: 'pin',
+        path: 'a.test.ts',
+        line: 1,
+        owner: 'get-main-green',
+        issue: null,
+        until: '2026-10-08',
+      },
+      {
+        kind: 'pin',
+        path: 'b.test.ts',
+        line: 2,
+        owner: 'get-main-green',
+        issue: null,
+        until: '2026-10-15',
+      },
       {
         kind: 'ci-skip-entry',
         path: 'd.test.ts',
         line: null,
         owner: 'known-reds',
+        issue: null,
         until: '2026-10-02',
       },
     ]);
@@ -956,6 +1170,60 @@ describe('known-reds validation', () => {
     );
   });
 
+  test('the listing counts gates it cannot read, and lists them with --all', () => {
+    const unread = { kind: 'unknown', name: 'isCi()', text: 'isCi()' };
+    const report = {
+      files: 1,
+      problems: [],
+      pins: [],
+      quarantines: [],
+      earlyReturns: [],
+      ciSkips: [],
+      notRun: [],
+      envGates: [
+        {
+          path: 'a.test.ts',
+          line: 3,
+          form: 'skipIf',
+          condition: 'isCi()',
+          ci: null,
+          atoms: [unread],
+        },
+        {
+          path: 'b.test.ts',
+          line: 5,
+          form: 'skipIf',
+          condition: "process.platform === 'win32'",
+          ci: null,
+          atoms: [{ kind: 'platform', name: 'process.platform', text: 'process.platform' }],
+        },
+      ],
+    };
+    report.ciSkips = [
+      {
+        path: 'c.test.ts',
+        line: 7,
+        form: 'skipIf',
+        scope: 'test',
+        condition: 'process.env.CI && isFoo()',
+        ci: 'skips-on-ci',
+        atoms: [
+          { kind: 'ci', name: 'CI', text: 'process.env.CI' },
+          { kind: 'unknown', name: 'isFoo()', text: 'isFoo()' },
+        ],
+      },
+    ];
+    const heading = 'Gates with a condition the scanner cannot read (2)';
+    const rows = [
+      '  c.test.ts:7  skipIf  cannot read: isFoo()',
+      '  a.test.ts:3  skipIf  cannot read: isCi()',
+    ];
+    const brief = render(report, [], [], TODAY, { all: false });
+    expect(brief).toContain(heading);
+    for (const row of rows) expect(brief).not.toContain(row);
+    expect(render(report, [], [], TODAY, { all: true })).toContain([heading, ...rows].join('\n'));
+  });
+
   test('the date boundaries are inclusive', () => {
     expect(messages(pinReport({ until: TODAY }))).toEqual([]);
     expect(messages(pinReport({ until: '2026-12-30' }))).toEqual([]);
@@ -975,7 +1243,7 @@ describe('known-reds validation', () => {
         { path: 'a.test.ts', line: 1, title: 't', issue: ISSUE, owner: 'get-main-green' },
       ],
     };
-    expect(messages(report)).toEqual(['quarantine has no until date']);
+    expect(messages(report)).toEqual(['quarantine has no until']);
   });
 
   test('refuses an environment early return', () => {
@@ -1002,9 +1270,11 @@ describe('known-reds validation', () => {
     const entry = {
       path: skip.path,
       condition: skip.condition,
+      issue: ISSUE,
       owner: 'known-reds',
       until: '2026-11-01',
       reason: 'skips the whole file on CI',
+      exit: 'run the file on CI, then delete this entry',
     };
     const report = { ...pinReport({}), pins: [], ciSkips: [skip] };
     const ruleNames = (allowlist) =>
@@ -1014,8 +1284,18 @@ describe('known-reds validation', () => {
       expect(ruleNames(NO_ALLOWLIST)).toEqual(['ci-skip']);
     });
 
-    test('accepts a listed, owned, dated CI skip', () => {
+    test('accepts a listed CI skip that carries all five fields', () => {
+      expect(ALLOWANCE_FIELDS).toEqual(['issue', 'owner', 'until', 'reason', 'exit']);
       expect(ruleNames({ ciSkips: [entry] })).toEqual([]);
+    });
+
+    test.each(ALLOWANCE_FIELDS)('refuses an entry without %s, by exactly that field', (field) => {
+      const { [field]: _dropped, ...missing } = entry;
+      expect(
+        validate(report, { today: TODAY, allowlist: { ciSkips: [missing] } }).map(
+          (violation) => violation.message,
+        ),
+      ).toEqual([`entry ${entry.path} has no ${field}`]);
     });
 
     test('permits exactly one site per entry', () => {
@@ -1033,17 +1313,24 @@ describe('known-reds validation', () => {
       ).toEqual(['ci-skip', 'allowlist-stale']);
     });
 
-    test('refuses a stale, expired, unowned or unexplained entry', () => {
+    test('refuses a stale, unowned or unexplained entry, a whitespace-only reason included', () => {
       expect(
         validate({ ...report, ciSkips: [] }, { today: TODAY, allowlist: { ciSkips: [entry] } }).map(
           (violation) => violation.rule,
         ),
       ).toEqual(['allowlist-stale']);
-      expect(ruleNames({ ciSkips: [{ ...entry, until: '2026-09-01' }] })).toEqual([
-        'allowlist-fields',
-      ]);
       expect(ruleNames({ ciSkips: [{ ...entry, owner: 'nobody' }] })).toEqual(['allowlist-fields']);
       expect(ruleNames({ ciSkips: [{ ...entry, reason: '' }] })).toEqual(['allowlist-fields']);
+      expect(ruleNames({ ciSkips: [{ ...entry, reason: ' \t ' }] })).toEqual(['allowlist-fields']);
+      expect(ruleNames({ ciSkips: [{ ...entry, exit: '  ' }] })).toEqual(['allowlist-fields']);
+    });
+
+    test('reports an expired entry and still consumes its site', () => {
+      const lapsed = { ...entry, until: '2026-09-01' };
+      expect(ruleNames({ ciSkips: [lapsed] })).toEqual([]);
+      expect(
+        expired(report, { today: TODAY, allowlist: { ciSkips: [lapsed] } }).map((row) => row.kind),
+      ).toEqual(['ci-skip-entry']);
     });
   });
 });
@@ -1080,6 +1367,7 @@ describe('known-reds through its real invocation', () => {
     windowsHide: true,
     encoding: 'utf8',
   });
+  if (init.status === 0) configureTestGitRepository(root);
 
   test('scans test files and helpers that can declare their tests', () => {
     expect(init.status).toBe(0);
@@ -1135,7 +1423,8 @@ describe('known-reds through its real invocation', () => {
     });
     expect(run.status).toBe(1);
     const feed = JSON.parse(run.stdout);
-    expect(feed.schemaVersion).toBe(2);
+    expect(feed.schemaVersion).toBe(4);
+    expect(feed.expired).toEqual([]);
     expect(feed.files).toBe(4);
     expect(feed.violations.map((violation) => violation.rule)).toEqual(
       expect.arrayContaining(['pin-retries', 'ci-skip', 'early-return']),
@@ -1163,6 +1452,7 @@ describe('known-reds through its real invocation', () => {
             path: 'packages/server/src/expiring.test.ts',
             line: 4,
             owner: 'get-main-green',
+            issue: ISSUE,
             until: soon,
           },
         ]),
@@ -1211,6 +1501,75 @@ describe('known-reds through its real invocation', () => {
     } finally {
       rmSync(notARepo, { recursive: true, force: true });
     }
+  });
+});
+
+describe('an expired date through the real invocation', () => {
+  const yesterday = new Date(Date.parse(`${todayUtc()}T00:00:00Z`) - 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+  const treeWith = (until) => {
+    const root = mkdtempSync(join(tmpdir(), 'ok-known-reds-expiry-'));
+    const file = join(root, 'packages/server/src/lapsed.test.ts');
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(
+      file,
+      vitestPin({ meta: `{ issue: '${ISSUE}', owner: 'get-main-green', until: '${until}' }` }),
+    );
+    const init = spawnSync('git', ['init', '-q'], {
+      cwd: root,
+      env: gitCleanEnv(),
+      windowsHide: true,
+      encoding: 'utf8',
+    });
+    if (init.status === 0) configureTestGitRepository(root);
+    return { root, init };
+  };
+  const roots = [];
+  afterAll(() => {
+    for (const root of roots) rmSync(root, { recursive: true, force: true });
+  });
+  const run = (until, args) => {
+    const { root, init } = treeWith(until);
+    roots.push(root);
+    expect(init.status).toBe(0);
+    return spawnSync(process.execPath, [SCRIPT, ...args, '--root', root], {
+      encoding: 'utf8',
+      env: gitCleanEnv(),
+      windowsHide: true,
+    });
+  };
+
+  test('a pin past its until exits 0, and the feed and the listing report it', () => {
+    const json = run(yesterday, ['--json']);
+    expect(json.status, json.stderr).toBe(0);
+    const feed = JSON.parse(json.stdout);
+    expect(feed.files).toBe(1);
+    expect(feed.pins.map((pin) => pin.until)).toEqual([yesterday]);
+    expect(feed.violations).toEqual([]);
+    expect(feed.expired).toEqual([
+      {
+        kind: 'pin',
+        path: 'packages/server/src/lapsed.test.ts',
+        line: 4,
+        owner: 'get-main-green',
+        issue: ISSUE,
+        until: yesterday,
+      },
+    ]);
+    const listing = run(yesterday, []);
+    expect(listing.status, listing.stderr).toBe(0);
+    expect(listing.stdout).toContain(
+      `Expired, reported and not failed (1)\n  pin  packages/server/src/lapsed.test.ts:4  owner get-main-green, until ${yesterday}, issue ${ISSUE}`,
+    );
+  });
+
+  test('the same pin with a date that is not a real day exits 1', () => {
+    const json = run('2026-02-30', ['--json']);
+    expect(json.status).toBe(1);
+    expect(JSON.parse(json.stdout).violations.map((violation) => violation.message)).toEqual([
+      'known-bug pin has until "2026-02-30", which is not a YYYY-MM-DD date',
+    ]);
   });
 });
 
@@ -1276,6 +1635,7 @@ describe('known-reds on this tree', () => {
       `no more than ${MAX_HORIZON_DAYS} days away`,
       `at least ${MIN_SIGNATURE_LITERAL} literal characters in a row`,
       `Expiring within ${EXPIRY_WARNING_DAYS} days`,
+      'Expired, reported and not failed',
       `(\`schemaVersion\` ${SCHEMA_VERSION})`,
     ]) {
       expect(doc, `${CONVENTION_DOC} must mention ${cited}`).toContain(cited);

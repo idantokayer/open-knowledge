@@ -1,15 +1,15 @@
 import type { HocuspocusProvider } from '@hocuspocus/provider';
 import {
-  type AgentFlashEntry,
-  sharedExtensions as coreExtensions,
-  deriveIconColor,
   evictStaleEntries,
   FLASH_DEBOUNCE_MS,
   FLASH_DURATION_MS,
   hasNewEntries,
-  MarkdownManager,
-  randomUUID,
-} from '@inkeep/open-knowledge-core';
+} from '@inkeep/open-knowledge-core/constants/activity';
+import { sharedExtensions as coreExtensions } from '@inkeep/open-knowledge-core/extensions/shared';
+import { MarkdownManager } from '@inkeep/open-knowledge-core/markdown';
+import type { AgentFlashEntry } from '@inkeep/open-knowledge-core/types/awareness';
+import { deriveIconColor } from '@inkeep/open-knowledge-core/utils/identity';
+import { randomUUID } from '@inkeep/open-knowledge-core/utils/random-uuid';
 import { t } from '@lingui/core/macro';
 import { type AnyExtension, Editor, type EditorOptions, Extension } from '@tiptap/core';
 import Collaboration from '@tiptap/extension-collaboration';
@@ -48,7 +48,7 @@ import { anchorFromHash } from '@/lib/doc-hash';
 import { claimNoteWindowInitialFocus } from '@/lib/note-window-focus';
 import { mark } from '@/lib/perf';
 import { wrapExtensionsWithTiming } from '@/lib/perf/cold-mount-instrumentation';
-import { useReadOnlyMode } from '@/lib/read-only-mode';
+import { useSingleFileMode } from '@/lib/single-file-mode';
 import { useIdentity } from '../presence/identity';
 import { registerEditor, unregisterEditor } from './active-editor';
 import { changedRangeIsOnScreen } from './agent-follow-scroll';
@@ -68,10 +68,10 @@ import { useDocumentContext } from './DocumentContext';
 import { isUserIntentOrigin } from './extensions/autonomous-fragment-edit.ts';
 import { createBareHtmlImageDecoration } from './extensions/bare-html-image-decoration';
 import { setEditorDocName } from './extensions/doc-context.ts';
-import { setEditorSourceMode } from './extensions/editor-mode-context.ts';
+import { setEditorSingleFileMode, setEditorSourceMode } from './extensions/editor-mode-context.ts';
 import { FrozenTableHeaders } from './extensions/frozen-table-headers.ts';
 import { MarkdownLintDecorations } from './extensions/markdown-lint-decorations.ts';
-import { sharedExtensions } from './extensions/shared.ts';
+import { scopeExtensionsToDocument, sharedExtensions } from './extensions/shared.ts';
 import { SkillPathLinks } from './extensions/skill-path-links';
 import { uploadDecorationPlugin } from './image-upload/index.ts';
 import type { LandingHandle } from './landing-controller';
@@ -251,18 +251,7 @@ export function buildExtensionList(args: BuildEditorOptionsArgs): AnyExtension[]
   const { provider, placeholder, prebuiltMapping, onWedged } = args;
   const { collaboration, guard } = buildPrewarmBoundCollaboration(provider, prebuiltMapping);
   return [
-    ...sharedExtensions.map((ext) => {
-      if (
-        ext.name === 'link' ||
-        ext.name === 'wikiLink' ||
-        ext.name === 'jsxComponent' ||
-        ext.name === 'jsxInline' ||
-        ext.name === 'imageReference'
-      ) {
-        return ext.configure({ docName: provider.configuration.name ?? '' });
-      }
-      return ext;
-    }),
+    ...scopeExtensionsToDocument(sharedExtensions, provider.configuration.name ?? ''),
     createBareHtmlImageDecoration(provider.configuration.name ?? ''),
     Placeholder.configure({
       placeholder: () => placeholder ?? t`Type '/' for commands`,
@@ -494,6 +483,7 @@ const TiptapEditorChrome: FC<TiptapEditorChromeProps> = ({
   portalTarget,
 }) => {
   const portalSlotRef = useRef<HTMLDivElement | null>(null);
+  const singleFile = useSingleFileMode();
   const [editorContentRevision, setEditorContentRevision] = useState(0);
   useLayoutEffect(() => {
     const slot = portalSlotRef.current;
@@ -1184,6 +1174,11 @@ const TiptapEditorChrome: FC<TiptapEditorChromeProps> = ({
       setEditorSourceMode(editor, false);
     };
   }, [editor, isSourceMode]);
+
+  useLayoutEffect(() => {
+    setEditorSingleFileMode(editor, singleFile);
+    return () => setEditorSingleFileMode(editor, false);
+  }, [editor, singleFile]);
 
   return (
     <div

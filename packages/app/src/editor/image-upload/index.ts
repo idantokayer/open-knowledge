@@ -2,25 +2,29 @@ import {
   AUDIO_EXTENSIONS,
   DEFAULT_DEDUP_UI,
   DEFAULT_EMIT_FORMAT,
-  extensionOf,
   FILE_ATTACHMENT_EXTENSIONS,
-  formatFileSize,
   IMAGE_EXTENSIONS,
-  ProblemDetailsSchema,
-  randomUUID,
-  type UploadAssetSuccess,
-  UploadAssetSuccessSchema,
   VIDEO_EXTENSIONS,
   WIKI_EMBED_EXTENSIONS,
-} from '@inkeep/open-knowledge-core';
+} from '@inkeep/open-knowledge-core/constants/upload';
+import {
+  ProblemDetailsSchema,
+  type UploadAssetSuccess,
+  UploadAssetSuccessSchema,
+} from '@inkeep/open-knowledge-core/schemas/api';
+import { extensionOf } from '@inkeep/open-knowledge-core/utils/extension';
+import { formatFileSize } from '@inkeep/open-knowledge-core/utils/file-size';
+import { randomUUID } from '@inkeep/open-knowledge-core/utils/random-uuid';
 import { t } from '@lingui/core/macro';
 import type { Editor } from '@tiptap/core';
 import { NodeSelection, Plugin, PluginKey } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import { toast } from 'sonner';
 import { getEditorDocName } from '../extensions/doc-context.ts';
+import { getEditorSingleFileMode } from '../extensions/editor-mode-context.ts';
 import { buildUnresolvedWikiLinkAttrs } from '../extensions/wiki-link-helpers.ts';
 import { HttpResponseParseError } from '../http-client.ts';
+import { singleFileUploadMessage } from './upload-admission.ts';
 import { reportUploadFailure, type UploadFailureReport } from './upload-failure.ts';
 
 const uploadPluginKey = new PluginKey<UploadPluginState>('imageUpload');
@@ -207,11 +211,18 @@ export function pickInsertShape(filename: string): InsertShape {
   return { kind: 'markdown-link', ext };
 }
 
+export function admitAssetUpload(editor: Editor): boolean {
+  if (!getEditorSingleFileMode(editor)) return true;
+  toast.error(singleFileUploadMessage());
+  return false;
+}
+
 export async function uploadAndInsert(
   file: File,
   editor: Editor,
   insertPos: number,
 ): Promise<void> {
+  if (!admitAssetUpload(editor)) return;
   const docName = docNameFromEditor(editor);
   const parentDocName = docName ? `${docName}.md` : '';
   if (!parentDocName) {

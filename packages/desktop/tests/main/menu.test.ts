@@ -13,6 +13,7 @@ function makeDeps(overrides: Partial<MenuDeps> = {}): MenuDeps {
     showDevToolsMenu: true,
     terminalCapable: true,
     dialog: {} as MenuDeps['dialog'],
+    errorDialogParent: () => null,
     openNavigator: vi.fn(() => {}),
     openProject: vi.fn(() => Promise.resolve()),
     getRecentProjects: vi.fn(() => []),
@@ -124,6 +125,21 @@ describe('buildMenuTemplate', () => {
     expect(openFolder).toBeDefined();
     await (openFolder?.click as (() => Promise<void>) | undefined)?.();
     expect(openProject).toHaveBeenCalledWith('/tmp/picked', 'pick-existing');
+  });
+
+  test('File → Open folder reports a picker that closes without a folder', async () => {
+    const openProject = vi.fn(() => Promise.resolve());
+    const showOpenDialog = vi.fn(() => Promise.resolve({ canceled: false, filePaths: [] }));
+    const showMessageBox = vi.fn(() => Promise.resolve({ response: 0, checkboxChecked: false }));
+    const deps = makeDeps({
+      openProject,
+      dialog: { showOpenDialog, showMessageBox } as unknown as MenuDeps['dialog'],
+    });
+    const template = buildMenuTemplate(deps);
+    const openFolder = findByLabel(template, 'Open folder…');
+    await (openFolder?.click as (() => Promise<void>) | undefined)?.();
+    expect(showMessageBox).toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }));
+    expect(openProject).not.toHaveBeenCalled();
   });
 
   test('Clear menu click dispatches deps.clearRecentProjects()', () => {
@@ -400,6 +416,60 @@ describe('buildMenuTemplate', () => {
       (item.click as () => void)();
       expect(onSendFeedback).toHaveBeenCalledTimes(1);
       expect(onReportBug).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Help resource links', () => {
+    function helpSubmenu(platform: NodeJS.Platform, deps: MenuDeps): MenuItemConstructorOptions[] {
+      const template = buildMenuTemplateForPlatform(platform, deps);
+      const sub = template.find((t) => t.label === 'Help')?.submenu;
+      if (!Array.isArray(sub)) throw new Error('Help submenu missing');
+      return sub;
+    }
+
+    test('Documentation and Discord follow GitHub, ahead of the bug and feedback rows', () => {
+      const labels = helpSubmenu('darwin', makeDeps())
+        .map((item) => item.label)
+        .filter((label) => label !== undefined);
+      expect(labels.slice(0, 5)).toEqual([
+        'OpenKnowledge on GitHub',
+        'Documentation',
+        'Join us on Discord',
+        'Report a bug…',
+        'Send feedback…',
+      ]);
+    });
+
+    test.each([
+      ['Documentation', 'https://openknowledge.ai/docs'],
+      ['Join us on Discord', 'https://discord.gg/VRKk2EaGHN'],
+    ])('%s opens %s externally', (label, url) => {
+      const openExternalUrl = vi.fn(() => {});
+      const item = helpSubmenu('darwin', makeDeps({ openExternalUrl })).find(
+        (i) => i.label === label,
+      );
+      if (!item || typeof item.click !== 'function') throw new Error(`${label} click missing`);
+      (item.click as () => void)();
+      expect(openExternalUrl).toHaveBeenCalledWith(url);
+    });
+
+    test.each([
+      ['win32', 'About OpenKnowledge'],
+      ['linux', 'About'],
+    ] as const)('%s ends the Help menu with a separated About entry', (platform, label) => {
+      const sub = helpSubmenu(platform, makeDeps({ onCheckForUpdates: vi.fn(() => {}) }));
+      expect(sub.at(-1)).toMatchObject({ role: 'about', label });
+      expect(sub.at(-2)?.type).toBe('separator');
+    });
+
+    test('macOS keeps About in the App menu only', () => {
+      const deps = makeDeps();
+      const template = buildMenuTemplateForPlatform('darwin', deps);
+      const help = template.find((t) => t.label === 'Help')?.submenu;
+      const appMenu = template.find((t) => t.label === deps.appName)?.submenu;
+      if (!Array.isArray(help) || !Array.isArray(appMenu)) throw new Error('menus missing');
+      expect(help.some((i) => i.role === 'about')).toBe(false);
+      expect(appMenu.some((i) => i.role === 'about')).toBe(true);
     });
   });
 

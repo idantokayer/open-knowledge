@@ -1,9 +1,20 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { appendFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import { realGit } from '../../scripts/compute-stable-version.mjs';
+import {
+  parseBumpVerdicts,
+  realGit,
+  recordBumpVerdicts,
+  serializeBumpVerdicts,
+  withBumpVerdicts,
+} from '../../scripts/compute-stable-version.mjs';
 import { gitCleanEnv } from '../../scripts/git-clean-env.mjs';
 import { makeResolveChangesetPrUrl, makeResolveIssuesForUrl } from './select-beta-to-promote.mjs';
+import {
+  createShippedFixCheck,
+  refusalHeadline,
+  unpublishedBaseReason,
+} from './shipped-fix-containment.mjs';
 
 const STABLE_TAG_RE = /^v\d+\.\d+\.\d+$/;
 const DEFAULT_LINK_REPO = 'inkeep/agents-private';
@@ -115,6 +126,17 @@ export async function evaluateBugLane({
   };
 }
 
+export function holdBugLaneBatch({ stable, check }) {
+  const unpublished = unpublishedBaseReason({
+    latestStableTag: stable,
+    publishedTags: check.publishedStableTags(),
+  });
+  if (unpublished !== null) return unpublished;
+  const verdict = check.evaluate(`refs/tags/${stable}`);
+  if (verdict.ok) return null;
+  return `${refusalHeadline(verdict, stable)} point-release.yml refuses a point release over ${stable} unless its batch also carries those fixes.`;
+}
+
 export function ticketsByRef(result) {
   const out = {};
   for (const c of result.perCommit) {
@@ -152,12 +174,19 @@ export function makeIsInStable(stable, git = (args) => spawnSync('git', args, { 
   };
 }
 
-function realPendingChangesets() {
-  const ids = realGit.changesetIds('HEAD');
+export function readPendingBumps(git) {
+  const verdicts = new Map();
+  const reading = recordBumpVerdicts(git, verdicts);
+  for (const id of git.changesetIds('HEAD')) reading.bumpTypeOf('HEAD', id);
+  return verdicts;
+}
+
+function realPendingChangesets(git) {
+  const ids = git.changesetIds('HEAD');
 
   const entries = [];
   for (const id of ids) {
-    const bump = realGit.bumpTypeOf('HEAD', id);
+    const bump = git.bumpTypeOf('HEAD', id);
     const line = runGit([
       'log',
       '--diff-filter=A',
@@ -173,7 +202,24 @@ function realPendingChangesets() {
   return entries;
 }
 
+function readBumpsMain() {
+  const verdicts = readPendingBumps(realGit);
+  console.log(`bug-lane: read the bump of ${verdicts.size} pending changeset(s).`);
+  if (process.env.GITHUB_OUTPUT) {
+    appendFileSync(process.env.GITHUB_OUTPUT, `bump_verdicts=${serializeBumpVerdicts(verdicts)}\n`);
+  }
+}
+
 async function main() {
+  if (process.argv[2] === '--read-bumps') {
+    readBumpsMain();
+    return;
+  }
+
+  const git =
+    process.env.BUMP_VERDICTS === undefined
+      ? realGit
+      : withBumpVerdicts(realGit, parseBumpVerdicts(process.env.BUMP_VERDICTS));
   const stable = realNewestStableTag();
   if (!stable) {
     console.log('::notice::bug-lane: no stable tag exists yet; nothing to point-release over.');
@@ -182,7 +228,7 @@ async function main() {
   }
 
   const result = await evaluateBugLane({
-    pendingChangesets: realPendingChangesets(),
+    pendingChangesets: realPendingChangesets(git),
     isInStable: makeIsInStable(stable),
     resolveChangesetPrUrl: makeResolveChangesetPrUrl(process.env.LINK_REPO || DEFAULT_LINK_REPO),
     resolveIssuesForUrl: makeResolveIssuesForUrl(process.env.LINEAR_API_KEY),
@@ -201,13 +247,21 @@ async function main() {
       : `::notice::bug-lane: no qualifying fixes this tick (${result.reason}).`,
   );
 
+  const held =
+    result.fixRefs.length > 0 ? holdBugLaneBatch({ stable, check: createShippedFixCheck() }) : null;
+  if (held !== null) {
+    console.log(
+      `::notice::bug-lane: holding ${result.fixRefs.length} qualifying fix(es) this tick, so no point release is attempted. ${held}`,
+    );
+  }
+
   if (process.env.GITHUB_OUTPUT) {
     appendFileSync(
       process.env.GITHUB_OUTPUT,
       [
-        `fix_refs=${result.fixRefs.join(',')}`,
+        `fix_refs=${held === null ? result.fixRefs.join(',') : ''}`,
         `stable=${stable}`,
-        `fix_tickets=${JSON.stringify(ticketsByRef(result))}`,
+        `fix_tickets=${held === null ? JSON.stringify(ticketsByRef(result)) : '{}'}`,
         '',
       ].join('\n'),
     );

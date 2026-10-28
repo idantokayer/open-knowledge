@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
+import { configureTestGitRepository } from '../../../../../test-support/configure-git-fixture.test-helper.ts';
 import { SkillPreviewSchema } from '../schema.ts';
 import { fetchSource, parseSkillsShSource, parseSource, SkillFetchError } from './fetch.ts';
 import {
@@ -12,7 +13,7 @@ import {
   SkillsLockSchema,
   upsertLockEntry,
 } from './lockfile.ts';
-import { discoverSkillDirs, parseSkillDir } from './parse.ts';
+import { discoverSkillDirs, parseSkillDir, parseSkillDirAsync } from './parse.ts';
 import { resolveSkillsShImportSource } from './skills-sh.ts';
 import { discoverWellKnownSkills } from './well-known.ts';
 
@@ -114,6 +115,27 @@ describe('parseSkillDir', () => {
     expect(parseSkillDir(bad)?.name).toBe('degraded');
     mkdirSync(join(root, 'empty'), { recursive: true });
     expect(parseSkillDir(join(root, 'empty'))).toBeNull();
+  });
+
+  test('the async parser returns exactly what the sync parser returns', async () => {
+    const dir = join(root, 'async-parity');
+    writeSkill(dir, 'name: parity\ndescription: Same either way');
+    mkdirSync(join(dir, 'references', 'deep'), { recursive: true });
+    writeFileSync(join(dir, 'references', 'deep', 'notes.md'), '# Notes\n', 'utf-8');
+    mkdirSync(join(dir, 'assets'), { recursive: true });
+    writeFileSync(join(dir, 'assets', 'blob.bin'), Buffer.from([0, 255, 1, 0, 7]));
+    mkdirSync(join(dir, 'node_modules', 'dep'), { recursive: true });
+    writeFileSync(join(dir, 'node_modules', 'dep', 'index.js'), 'ignored\n', 'utf-8');
+    writeFileSync(join(dir, 'z.txt'), 'last\n', 'utf-8');
+
+    const sync = parseSkillDir(dir);
+    expect(sync?.files.map((f) => f.relPath)).toEqual([
+      'assets/blob.bin',
+      'references/deep/notes.md',
+      'z.txt',
+    ]);
+    expect(await parseSkillDirAsync(dir)).toEqual(sync);
+    expect(await parseSkillDirAsync(join(root, 'empty-async'))).toBeNull();
   });
 });
 
@@ -535,12 +557,14 @@ describe('fetchSource', () => {
         env: { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_SYSTEM: '/dev/null' },
       });
     git(['init', '-q']);
+    configureTestGitRepository(repo);
     git(['config', 'user.email', 't@t.t']);
     git(['config', 'user.name', 't']);
     git(['add', '-A']);
     git(['commit', '-q', '-m', 'init']);
 
     const f = await fetchSource({ kind: 'git', url: repo });
+    configureTestGitRepository(f.dir);
     try {
       expect(parseSkillDir(f.dir)?.name).toBe('cloned');
     } finally {
@@ -558,6 +582,7 @@ describe('fetchSource', () => {
         env: { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_SYSTEM: '/dev/null' },
       });
     git(['init', '-q']);
+    configureTestGitRepository(repo);
     git(['config', 'user.email', 't@t.t']);
     git(['config', 'user.name', 't']);
     git(['add', '-A']);

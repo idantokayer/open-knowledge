@@ -539,7 +539,7 @@ describe('TerminalPanel', () => {
     await waitFor(() => expect(terminal.adopt).toHaveBeenCalledWith('pty-survivor'));
     expect(lastTerm?.write).toHaveBeenCalledWith('REPLAYED-SCREEN-BYTES', expect.any(Function));
     expect(terminal.create).not.toHaveBeenCalled();
-    expect(screen.queryByTestId('terminal-starting-notice')).toBeNull();
+    await waitFor(() => expect(screen.queryByTestId('terminal-starting-notice')).toBeNull());
   });
 
   test('reload rehydration: does not send replay-generated terminal replies into the live shell', async () => {
@@ -2920,6 +2920,10 @@ describe('TerminalPanel', () => {
       openAsset.mockResolvedValueOnce({ ok: false, reason: 'extension-blocked' });
       link?.activate({} as MouseEvent, link.text);
       await waitFor(() => expect(revealAsset).toHaveBeenCalledWith('data/x.csv'));
+
+      openAsset.mockResolvedValueOnce({ ok: false, reason: 'not-a-file' });
+      link?.activate({} as MouseEvent, link.text);
+      await waitFor(() => expect(revealAsset).toHaveBeenCalledTimes(2));
     });
 
     test('clicking an out-of-project absolute path routes the reveal-external dialog', async () => {

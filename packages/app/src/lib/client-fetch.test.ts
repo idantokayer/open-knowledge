@@ -60,28 +60,17 @@ describe('installClientFetchWrapper', () => {
     await window.fetch('/api/documents');
     expect(calls[0]?.input).toBe('/api/documents');
     expect(header(calls[0], PROTOCOL)).toBe('2');
-    expect(header(calls[0], KIND)).toBe('web');
+    expect(header(calls[0], KIND)).toBe('browser');
     expect(typeof header(calls[0], RUNTIME)).toBe('string');
   });
 
-  test('web mode prefixes API paths using the configured base element', async () => {
+  test('web mode passes an absolute same-origin /api/* string through unchanged with headers', async () => {
     const { calls } = stubWindowFetch();
-    g.document = {
-      querySelector: () => ({ getAttribute: () => '/plm/' }),
-    } as unknown as Document;
     installClientFetchWrapper();
-    await window.fetch('/api/documents');
-    expect(calls[0]?.input).toBe('/plm/api/documents');
-  });
-
-  test('web mode does not double-prefix API paths already under the mount', async () => {
-    const { calls } = stubWindowFetch();
-    g.document = {
-      querySelector: () => ({ getAttribute: () => '/plm/' }),
-    } as unknown as Document;
-    installClientFetchWrapper();
-    await window.fetch('/plm/api/documents');
-    expect(calls[0]?.input).toBe('/plm/api/documents');
+    await window.fetch('http://localhost:5173/api/pages?depth=1');
+    expect(calls[0]?.input).toBe('http://localhost:5173/api/pages?depth=1');
+    expect(header(calls[0], PROTOCOL)).toBe('2');
+    expect(header(calls[0], KIND)).toBe('browser');
   });
 
   test('desktop mode rewrites relative /api/* to apiOrigin AND injects headers', async () => {
@@ -90,7 +79,6 @@ describe('installClientFetchWrapper', () => {
     await window.fetch('/api/document?docName=foo&cache=bust');
     expect(calls[0]?.input).toBe('http://localhost:59534/api/document?docName=foo&cache=bust');
     expect(header(calls[0], PROTOCOL)).toBe('2');
-    expect(header(calls[0], KIND)).toBe('web');
   });
 
   test('absolute apiOrigin /api/* gets headers without double-rewrite', async () => {
@@ -99,7 +87,22 @@ describe('installClientFetchWrapper', () => {
     await window.fetch('http://localhost:59534/api/install-skill', { method: 'POST' });
     expect(calls[0]?.input).toBe('http://localhost:59534/api/install-skill');
     expect(header(calls[0], PROTOCOL)).toBe('2');
-    expect(header(calls[0], KIND)).toBe('web');
+  });
+
+  test('desktop mode rewrites an absolute file:///api/* string to apiOrigin', async () => {
+    const { calls } = stubWindowFetch();
+    installClientFetchWrapper({ apiOrigin: 'http://localhost:59534' });
+    await window.fetch('file:///api/documents?showAll=true&dir=&depth=1');
+    expect(calls[0]?.input).toBe('http://localhost:59534/api/documents?showAll=true&dir=&depth=1');
+    expect(header(calls[0], PROTOCOL)).toBe('2');
+  });
+
+  test('desktop mode rewrites an absolute same-origin /api/* string to apiOrigin', async () => {
+    const { calls } = stubWindowFetch();
+    installClientFetchWrapper({ apiOrigin: 'http://localhost:59534' });
+    await window.fetch('http://localhost:5173/api/pages');
+    expect(calls[0]?.input).toBe('http://localhost:59534/api/pages');
+    expect(header(calls[0], PROTOCOL)).toBe('2');
   });
 
   test('rewrites URL object with same-origin /api/* path + injects headers', async () => {
@@ -107,7 +110,7 @@ describe('installClientFetchWrapper', () => {
     installClientFetchWrapper({ apiOrigin: 'http://localhost:59534' });
     await window.fetch(new URL('/api/backlinks?docName=foo', 'http://localhost:5173'));
     expect(calls[0]?.input).toBe('http://localhost:59534/api/backlinks?docName=foo');
-    expect(header(calls[0], KIND)).toBe('web');
+    expect(header(calls[0], PROTOCOL)).toBe('2');
   });
 
   test('passes absolute external http:// URLs through unchanged, no headers', async () => {
@@ -156,7 +159,7 @@ describe('installClientFetchWrapper', () => {
     expect(rewritten).toBeInstanceOf(Request);
     expect((rewritten as Request).url).toBe('http://localhost:59534/api/agent-write-md');
     expect((rewritten as Request).method).toBe('POST');
-    expect(header(calls[0], KIND)).toBe('web');
+    expect(header(calls[0], PROTOCOL)).toBe('2');
     expect(header(calls[0], 'content-type')).toBe('application/json');
   });
 

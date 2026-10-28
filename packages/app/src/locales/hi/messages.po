@@ -88,6 +88,10 @@ msgstr "\"{docName}\" मौजूद नहीं है।"
 msgid "\"{docName}\" took too long. Check your connection."
 msgstr "\"{docName}\" में बहुत समय लगा। अपना कनेक्शन जाँचें।"
 
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "\"{name}\""
+msgstr "\"{name}\""
+
 #: src/hooks/use-skill-origin.ts
 msgid "\"{name}\" is already up to date"
 msgstr "\"{name}\" पहले से ही अद्यतित है"
@@ -216,6 +220,11 @@ msgstr "{0, plural, one {पूर्वावलोकन की सुरक�
 msgid "{0, plural, one {# result} other {# results}}"
 msgstr "{0, plural, one {# परिणाम} other {# परिणाम}}"
 
+#. placeholder {0}: templates.length
+#: src/components/empty-state/CreateView.tsx
+msgid "{0, plural, one {# template available} other {# templates available}}"
+msgstr "{0, plural, one {# टेम्पलेट उपलब्ध} other {# टेम्पलेट उपलब्ध}}"
+
 #. placeholder {0}: folder.templateCount
 #: src/components/CreatedItemsList.tsx
 msgid "{0, plural, one {# template} other {# templates}}"
@@ -230,6 +239,11 @@ msgstr "{0, plural, one {# उपयोग} other {# उपयोग}}"
 #: src/components/ProblemsPanel.tsx
 msgid "{0, plural, one {# warning} other {# warnings}}"
 msgstr "{0, plural, one {# चेतावनी} other {# चेतावनियाँ}}"
+
+#. placeholder {0}: templates.length
+#: src/components/empty-state/CreateView.tsx
+msgid "{0, plural, one {At least # template found} other {At least # templates found}}"
+msgstr "{0, plural, one {कम से कम # टेम्पलेट मिला} other {कम से कम # टेम्पलेट मिले}}"
 
 #. placeholder {0}: deleteTargets.length
 #: src/components/FileTree.tsx
@@ -453,11 +467,6 @@ msgstr "{0} इस फ़ोल्डर को साझा करते है
 #: src/components/SkillsTree.tsx
 msgid "{0} skills selected"
 msgstr "{0} स्किलें चुनी गईं"
-
-#. placeholder {0}: templates.length
-#: src/components/empty-state/CreateView.tsx
-msgid "{0} templates available"
-msgstr "{0} टेम्पलेट उपलब्ध"
 
 #. placeholder {0}: formatBundleSize(operation.zipSizeBytes)
 #: src/components/BugReportSendToast.tsx
@@ -750,6 +759,10 @@ msgstr "{count, plural, one {क्या आप वाकई निम्नल
 msgid "{count, plural, one {Are you sure you want to delete the following # file/directory and its contents?} other {Are you sure you want to delete the following # files/directories and their contents?}}"
 msgstr "{count, plural, one {क्या आप वाकई निम्नलिखित # फ़ाइल/फ़ोल्डर और उसकी सामग्री हटाना चाहते हैं?} other {क्या आप वाकई निम्नलिखित # फ़ाइलें/फ़ोल्डर और उनकी सामग्री हटाना चाहते हैं?}}"
 
+#: src/components/ConsentDialogBody.tsx
+msgid "{count, plural, one {Found {formattedCount} markdown file} other {Found {formattedCount} markdown files}}"
+msgstr "{count, plural, one {{formattedCount} markdown फ़ाइल मिली} other {{formattedCount} markdown फ़ाइलें मिलीं}}"
+
 #: src/components/ProblemsPanel.tsx
 msgid "{count, plural, one {Hands the # problem to your AI agent, including what has no automatic fix.} other {Hands all # problems to your AI agent, including what has no automatic fix.}}"
 msgstr "{count, plural, one {# समस्या आपके AI एजेंट को सौंपता है, उसे भी जिसका कोई स्वचालित समाधान नहीं है।} other {सभी # समस्याएँ आपके AI एजेंट को सौंपता है, उन्हें भी जिनका कोई स्वचालित समाधान नहीं है।}}"
@@ -964,6 +977,14 @@ msgstr "{label} ({0})"
 msgid "{label} already loads \"{0}\" from the {1} plugin. Installing here puts a copy at {2} that {label} uses instead of the plugin's — it stops tracking plugin updates."
 msgstr "{label} पहले से \"{0}\" को {1} प्लगइन से लोड करता है। यहाँ इंस्टॉल करने पर {2} पर एक प्रति बनती है जिसे {label} प्लगइन की जगह इस्तेमाल करता है — यह प्लगइन के अपडेट लेना बंद कर देती है।"
 
+#: src/components/InstanceBadge.tsx
+msgid "{label} build, v{version}. Its settings and data are kept separate from other OpenKnowledge apps."
+msgstr "{label} बिल्ड, v{version}। इसकी सेटिंग्स और डेटा अन्य OpenKnowledge ऐप्स से अलग रखे जाते हैं।"
+
+#: src/components/InstanceBadge.tsx
+msgid "{label} build. Its settings and data are kept separate from other OpenKnowledge apps."
+msgstr "{label} बिल्ड। इसकी सेटिंग्स और डेटा अन्य OpenKnowledge ऐप्स से अलग रखे जाते हैं।"
+
 #: src/components/settings/plugin-enabled-notice.ts
 msgid "{label} enabled"
 msgstr "{label} सक्षम"
@@ -971,10 +992,6 @@ msgstr "{label} सक्षम"
 #: src/components/file-tree-problem-indicators.ts
 msgid "{label} problems"
 msgstr "{label} समस्याएँ"
-
-#: src/components/InstanceBadge.tsx
-msgid "{label} uses isolated app data"
-msgstr "{label} अलग ऐप डेटा का उपयोग करता है"
 
 #: src/components/ActivityPanelBurstRow.tsx
 msgid "{laterEdits, plural, one {Removes # newer edit on this file.} other {Removes # newer edits on this file.}}"
@@ -1034,6 +1051,7 @@ msgid "{openedWorktreeCount, plural, one {worktree} other {worktrees}}"
 msgstr "{openedWorktreeCount, plural, one {वर्कट्री} other {वर्कट्री}}"
 
 #: src/lib/acp/image-attachment.ts
+#: src/lib/install-stale-tab-reload-prompt.ts
 msgid "{others, plural, one {# other} other {# others}}"
 msgstr "{others, plural, one {# अन्य} other {# अन्य}}"
 
@@ -1544,6 +1562,10 @@ msgstr "<0>{trimmedSlug}</0> नाम का एक टेम्पलेट �
 msgid "A title, description, tags — anything that describes this folder."
 msgstr "एक शीर्षक, विवरण, टैग — कुछ भी जो इस फ़ोल्डर का वर्णन करता हो।"
 
+#: src/components/settings/AccountSection.tsx
+msgid "A token added here only applies to HTTPS remotes, and this project's remote doesn't use HTTPS."
+msgstr "यहाँ जोड़ा गया टोकन केवल HTTPS रिमोट पर लागू होता है, और इस प्रोजेक्ट का रिमोट HTTPS का उपयोग नहीं करता।"
+
 #: src/components/ShareBranchSwitchDialog.tsx
 msgid "A worktree folder for {shareBranch} already exists."
 msgstr "{shareBranch} के लिए एक वर्कट्री फ़ोल्डर पहले से मौजूद है।"
@@ -1552,13 +1574,26 @@ msgstr "{shareBranch} के लिए एक वर्कट्री फ़ो
 msgid "A worktree folder for that branch already exists."
 msgstr "उस ब्रांच के लिए एक वर्कट्री फ़ोल्डर पहले से मौजूद है।"
 
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "about"
+msgstr "परिचय"
+
 #: src/lib/native-menu-catalog.ts
+#: src/lib/platform-labels.ts
 msgid "About"
 msgstr "परिचय"
 
 #: src/lib/native-menu-catalog.ts
+#: src/lib/platform-labels.ts
 msgid "About {appName}"
 msgstr "{appName} के बारे में"
+
+#: src/components/HelpPopover.tsx
+#: src/components/settings/AboutSection.tsx
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "About & updates"
+msgstr "परिचय और अपडेट"
 
 #: src/editor/slash-command/items.tsx
 msgid "Above"
@@ -1596,9 +1631,8 @@ msgid "Accept their deletion"
 msgstr "उनका विलोपन स्वीकारें"
 
 #: src/components/settings/AccountSection.tsx
-#: src/components/settings/SettingsDialogShell.tsx
-msgid "Account"
-msgstr "खाता"
+msgid "Access token"
+msgstr "पहुँच टोकन"
 
 #: src/components/TemplateRow.tsx
 msgid "Actions for {label}"
@@ -1676,6 +1710,10 @@ msgstr "एक प्रॉपर्टी जोड़ें"
 #: src/components/empty-state/CreateView.tsx
 msgid "Add a starter pack"
 msgstr "एक स्टार्टर पैक जोड़ें"
+
+#: src/components/settings/AccountSection.tsx
+msgid "Add an access token for a GitLab, Gitea, Bitbucket, Azure DevOps or self-hosted git server. Without one, git uses the credentials it already has saved for that host; with one, OpenKnowledge uses the token instead."
+msgstr "GitLab, Gitea, Bitbucket, Azure DevOps या स्व-होस्ट किए गए git सर्वर के लिए पहुँच टोकन जोड़ें। टोकन न होने पर git उस होस्ट के लिए पहले से सहेजे गए क्रेडेंशियल उपयोग करता है; टोकन होने पर OpenKnowledge उनकी जगह टोकन उपयोग करता है।"
 
 #: src/components/settings/OkignoreSection.tsx
 msgid "Add another pattern"
@@ -1806,6 +1844,12 @@ msgstr "शब्दकोश में जोड़ें"
 msgid "Add to prompt"
 msgstr "प्रॉम्प्ट में जोड़ें"
 
+#: src/components/settings/AccountSection.tsx
+#: src/components/SyncStatusBadge.tsx
+#: src/hooks/use-sync-auth-prompt.ts
+msgid "Add token"
+msgstr "टोकन जोड़ें"
+
 #: src/components/settings/frontmatter-schema-field-editor.tsx
 msgid "Add value"
 msgstr "मान जोड़ें"
@@ -1815,6 +1859,10 @@ msgstr "मान जोड़ें"
 #: src/components/SyncStatusBadge.tsx
 msgid "Added"
 msgstr "जोड़ा गया"
+
+#: src/components/settings/AccountSection.tsx
+msgid "Adding"
+msgstr "जोड़ा जा रहा है"
 
 #: src/components/settings/AgentConnectionDialogs.tsx
 msgid "Adds a global OpenKnowledge MCP entry for this agent."
@@ -1905,8 +1953,7 @@ msgstr "एजेंट चैट"
 msgid "Agent configuration file"
 msgstr "एजेंट कॉन्फ़िगरेशन फ़ाइल"
 
-#: src/components/settings/AgentConnectionsSection.tsx
-#: src/components/settings/SettingsDialogShell.tsx
+#: src/components/settings/settings-section-labels.ts
 msgid "Agent connections"
 msgstr "एजेंट कनेक्शन"
 
@@ -2012,6 +2059,11 @@ msgstr "लगभग पूरा हो गया। देखें कि क
 msgid "Already at {assetContentPath} — reusing."
 msgstr "पहले से ही {assetContentPath} पर — पुन: उपयोग किया जा रहा है।"
 
+#. Status under the unticked AI-tools checkbox; replacingToolList names the tools that already have an OpenKnowledge MCP entry, which stay as they are while the box is unticked
+#: src/components/McpConsentDialogBody.tsx
+msgid "Already connected to {replacingToolList}"
+msgstr "पहले से जुड़ा हुआ: {replacingToolList}"
+
 #: src/components/settings/applies-to-folder-picker.tsx
 msgid "Already covered by a picked parent folder"
 msgstr "पहले से चुने गए मूल फ़ोल्डर में शामिल है"
@@ -2111,9 +2163,17 @@ msgstr "कुछ और जोड़ना चाहेंगे? (वैकल
 msgid "API key set"
 msgstr "API कुंजी सेट है"
 
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "App"
+msgstr "ऐप"
+
 #: src/components/InstanceBadge.tsx
 msgid "App instance: {label}"
 msgstr "ऐप इंस्टेंस: {label}"
+
+#: src/components/InstanceBadge.tsx
+msgid "App instance: {label}, v{version}"
+msgstr "ऐप इंस्टेंस: {label}, v{version}"
 
 #: src/components/CreatedItemsList.tsx
 msgid "Append-only log of what changed."
@@ -2331,6 +2391,10 @@ msgstr "संलग्नकों का कुल आकार 3 MB से �
 msgid "Authenticated as {login}."
 msgstr "{login} के रूप में प्रमाणित किया गया।"
 
+#: src/components/SyncStatusBadge.tsx
+msgid "Authentication failed for this git host. Add a token for it in Settings, or replace the one stored."
+msgstr "इस git होस्ट के लिए प्रमाणीकरण विफल रहा। सेटिंग में इसके लिए एक टोकन जोड़ें, या सहेजे गए टोकन को बदलें।"
+
 #: src/editor/slash-command/component-items.tsx
 msgid "Authoritative content; mirrored verbatim everywhere it's referenced."
 msgstr "आधिकारिक सामग्री; जहाँ भी संदर्भित हो वहाँ हूबहू प्रतिबिंबित।"
@@ -2395,6 +2459,10 @@ msgid "Auto-save"
 msgstr "स्वत: सहेजना"
 
 #: src/components/settings/SyncSection.tsx
+msgid "Auto-sync is on, but there's no remote to sync with yet. It starts as soon as a remote is connected."
+msgstr "स्वत: सिंक चालू है, लेकिन अभी सिंक करने के लिए कोई रिमोट नहीं है। रिमोट जुड़ते ही यह शुरू हो जाएगा।"
+
+#: src/components/settings/SyncSection.tsx
 msgid "Auto-sync is paused — sign in to resume."
 msgstr "स्वत: सिंक रुका हुआ है — फिर से शुरू करने के लिए साइन इन करें।"
 
@@ -2435,6 +2503,14 @@ msgstr "स्वचालित"
 #: src/components/settings/NetworkAccessSection.tsx
 msgid "Automatic picks a free port each start. Choose a fixed port to keep the same address across restarts."
 msgstr "स्वचालित हर बार प्रारंभ पर एक मुक्त port चुनता है। पुनः प्रारंभ के बीच समान पता बनाए रखने के लिए एक निश्चित port चुनें।"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "Automatic updates"
+msgstr "स्वचालित अपडेट"
+
+#: src/components/settings/AboutSection.tsx
+msgid "Automatic updates are not available right now."
+msgstr "स्वचालित अपडेट अभी उपलब्ध नहीं हैं।"
 
 #: src/components/PublishToGitHubDialog.tsx
 msgid "Available"
@@ -2531,6 +2607,11 @@ msgstr "बड़ा अनुभाग शीर्षक।"
 #: src/components/empty-state/use-create-suggestions.ts
 msgid "Bird wiki"
 msgstr "पक्षी विकी"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "Bitbucket"
+msgstr "Bitbucket"
 
 #: src/components/NewItemDialog.tsx
 msgid "Blank note"
@@ -2879,6 +2960,10 @@ msgid "Chat name"
 msgstr "चैट का नाम"
 
 #: src/components/command-palette-commands.ts
+#: src/components/HelpPopover.tsx
+#: src/components/settings/AboutSection.tsx
+#: src/components/settings/SettingsDialogShell.tsx
+#: src/components/UpdateNotices.shared.ts
 msgid "Check for updates"
 msgstr "अपडेट देखें"
 
@@ -2930,6 +3015,7 @@ msgstr "एजेंट खोजे जा रहे हैं"
 msgid "Checking for Slidev"
 msgstr "Slidev खोजा जा रहा है"
 
+#: src/components/settings/AboutSection.tsx
 #: src/components/SyncStatusBadge.tsx
 msgid "Checking for updates"
 msgstr "अपडेट देखे जा रहे हैं"
@@ -2939,6 +3025,7 @@ msgstr "अपडेट देखे जा रहे हैं"
 msgid "Checking for updates on GitHub"
 msgstr "GitHub पर अपडेट देखे जा रहे हैं"
 
+#: src/components/settings/SettingsDialogShell.tsx
 #: src/components/UpdateNotices.shared.ts
 msgid "Checking for updates…"
 msgstr "अपडेट देखे जा रहे हैं…"
@@ -3058,8 +3145,8 @@ msgid "Choose where to send this message"
 msgstr "चुनें कि यह संदेश कहाँ भेजना है"
 
 #: src/components/settings/SharingSection.tsx
-msgid "Choose whether this project's OpenKnowledge setup, including its AI-tool connections, is saved with the project so teammates get it too, or kept only on your computer."
-msgstr "चुनें कि इस प्रोजेक्ट का OpenKnowledge सेटअप, उसके AI-टूल कनेक्शन सहित, प्रोजेक्ट के साथ सहेजा जाए ताकि सहकर्मियों को भी मिले, या केवल आपके कंप्यूटर पर रखा जाए।"
+msgid "Choose whether this project's OpenKnowledge setup, including its AI-tool connections and the Shared default sync mode, is saved with the project so teammates get it too, or kept only on your computer."
+msgstr "चुनें कि इस प्रोजेक्ट का OpenKnowledge सेटअप, उसके AI-टूल कनेक्शन और साझा डिफ़ॉल्ट सिंक मोड सहित, प्रोजेक्ट के साथ सहेजा जाए ताकि सहकर्मियों को भी मिले, या केवल आपके कंप्यूटर पर रखा जाए।"
 
 #: src/components/settings/AgentConnectionsSection.tsx
 msgid "Choose which agents appear in agent menus across the app, and set them up to read and update your documents."
@@ -3297,6 +3384,10 @@ msgstr "टर्मिनल बंद करें"
 #: src/components/acp/ThreadHistoryPanel.tsx
 msgid "Close this chat's tab to delete it"
 msgstr "इसे हटाने के लिए इस चैट का टैब बंद करें"
+
+#: src/editor/image-upload/upload-admission.ts
+msgid "Close this preview, then open the folder to upload files"
+msgstr "यह प्रीव्यू बंद करें, फिर फ़ाइलें अपलोड करने के लिए फ़ोल्डर खोलें"
 
 #: src/components/NoteWindowDeletedState.tsx
 msgid "Close window"
@@ -3601,8 +3692,8 @@ msgid "Connect"
 msgstr "जोड़ें"
 
 #: src/components/settings/AccountSection.tsx
-msgid "Connect a GitHub account to browse and sync your repositories."
-msgstr "अपनी रिपॉज़िटरी ब्राउज़ और सिंक करने के लिए कोई GitHub खाता जोड़ें।"
+msgid "Connect a GitHub account to browse and publish GitHub repositories."
+msgstr "GitHub रिपॉज़िटरी ब्राउज़ और प्रकाशित करने के लिए कोई GitHub खाता जोड़ें।"
 
 #: src/components/settings/SyncSection.tsx
 msgid "Connect an existing repository"
@@ -3660,7 +3751,6 @@ msgid "Connected — this endpoint returns {0}-dimension vectors."
 msgstr "जुड़ गया — यह एंडपॉइंट {0}-आयाम वाले वेक्टर लौटाता है।"
 
 #: src/components/AuthModal.tsx
-#: src/components/settings/AccountSection.tsx
 msgid "Connected as @{login}"
 msgstr "@{login} के रूप में जुड़े"
 
@@ -3671,6 +3761,10 @@ msgstr "<0>@{signedInLogin}</0> के रूप में जुड़े"
 #: src/components/settings/SyncSection.tsx
 msgid "Connected to"
 msgstr "इससे जुड़ा"
+
+#: src/components/settings/AccountSection.tsx
+msgid "Connected to {host} as @{login}"
+msgstr "{host} से @{login} के रूप में जुड़े"
 
 #: src/components/AuthModal.tsx
 msgid "Connected to GitHub"
@@ -3694,6 +3788,7 @@ msgid "Connection dropped"
 msgstr "कनेक्शन टूट गया"
 
 #: src/components/AuthModal.tsx
+#: src/components/settings/AccountSection.tsx
 #: src/lib/transports/auth-transport.ts
 msgid "Connection error — try again"
 msgstr "कनेक्शन त्रुटि — फिर कोशिश करें"
@@ -4409,6 +4504,10 @@ msgstr "एंडपॉइंट तक नहीं पहुँचा जा �
 msgid "Couldn't reach the Open Knowledge server to upload {fileName}."
 msgstr "{fileName} अपलोड करने के लिए Open Knowledge सर्वर तक नहीं पहुँचा जा सका।"
 
+#: src/components/settings/SyncSection.tsx
+msgid "Couldn't reach the OpenKnowledge server, so sync options are hidden. They appear here as soon as the sync status loads; closing and reopening Settings also retries."
+msgstr "OpenKnowledge सर्वर तक नहीं पहुँचा जा सका, इसलिए सिंक विकल्प छिपा दिए गए हैं। सिंक स्थिति लोड होते ही वे यहाँ दिखेंगे; सेटिंग बंद करके दोबारा खोलने से भी फिर से कोशिश होती है।"
+
 #: src/components/acp/ThreadView.tsx
 #: src/editor/use-composer-attachments.ts
 msgid "Couldn't read {fileName}."
@@ -4557,6 +4656,10 @@ msgstr "कुंजी नहीं सहेजी जा सकी — कृ
 #: src/components/DiffViewBoundary.tsx
 msgid "Couldn't save the resolution for {filePath}."
 msgstr "{filePath} का समाधान नहीं सहेजा जा सका।"
+
+#: src/components/settings/AboutSection.tsx
+msgid "Couldn't save this setting. Try again."
+msgstr "यह सेटिंग सहेजी नहीं जा सकी। फिर से कोशिश करें।"
 
 #: src/components/McpConsentDialogBody.tsx
 msgid "Couldn't save your theme preference."
@@ -5319,6 +5422,8 @@ msgstr "दस्तावेज़ संरचना"
 msgid "Document the architecture of this repo: create an overview page that links to a page per major module describing its responsibilities and entry points."
 msgstr "इस रिपॉज़िटरी की संरचना का दस्तावेज़ीकरण करें: एक सिंहावलोकन पेज बनाएँ जो हर प्रमुख मॉड्यूल के पेज से जुड़ता हो और उसकी ज़िम्मेदारियाँ तथा प्रवेश बिंदु बताता हो।"
 
+#: src/components/AppMenubar.tsx
+#: src/components/command-palette-commands.ts
 #: src/components/settings/markdownlint-rule-browser.tsx
 msgid "Documentation"
 msgstr "दस्तावेज़ीकरण"
@@ -5378,6 +5483,10 @@ msgstr "संपादित करने के लिए डबल-क्ल�
 #: src/components/acp/ThreadView.tsx
 msgid "Download {0}"
 msgstr "{0} डाउनलोड करें"
+
+#: src/components/settings/AboutSection.tsx
+msgid "Download and install updates automatically"
+msgstr "अपडेट अपने-आप डाउनलोड और इंस्टॉल करें"
 
 #: src/components/HelpPopover.tsx
 msgid "Download app"
@@ -5933,6 +6042,10 @@ msgstr "{minimum} और {maximum} के बीच एक पूर्णां
 msgid "Enter at least 3 characters to search by meaning."
 msgstr "अर्थ के आधार पर खोजने के लिए कम से कम 3 अक्षर दर्ज करें।"
 
+#: src/components/settings/AccountSection.tsx
+msgid "Enter the host name git connects to, with an optional :port and no scheme or path, for example git.example.com."
+msgstr "वह होस्ट नाम दर्ज करें जिससे git जुड़ता है, वैकल्पिक :port के साथ और बिना स्कीम या पाथ के, जैसे git.example.com।"
+
 #: src/components/settings/NetworkAccessSection.tsx
 msgid "Enter the public origin your tunnel serves, for example https://notes.example.com"
 msgstr "वह सार्वजनिक ऑरिजिन दर्ज करें जिसे आपका tunnel सर्व करता है, उदाहरण के लिए https://notes.example.com"
@@ -5997,6 +6110,18 @@ msgstr "Excalidraw बोर्ड लोड नहीं हो सका।"
 #: src/components/ExcalidrawDocEditor.tsx
 msgid "Excalidraw canvas"
 msgstr "Excalidraw कैनवास"
+
+#: src/components/LinksPanel.tsx
+msgid "Excluded"
+msgstr "बहिष्कृत"
+
+#: src/components/LinksPanel.tsx
+msgid "Excluded file {identity}. Go to reference."
+msgstr "बहिष्कृत फ़ाइल {identity}। संदर्भ पर जाएँ।"
+
+#: src/components/LinksPanel.tsx
+msgid "Excluded image {identity}. Go to reference."
+msgstr "बहिष्कृत चित्र {identity}। संदर्भ पर जाएँ।"
 
 #: src/components/NewWorktreeDialog.tsx
 msgid "Existing branch <0>{trimmed}</0> will be checked out into its own window, under <1>.ok/worktrees/</1>."
@@ -6408,6 +6533,7 @@ msgid "Failed to start sign-in — try again"
 msgstr "साइन-इन शुरू करने में विफल — फिर कोशिश करें"
 
 #: src/components/AuthModal.tsx
+#: src/components/settings/AccountSection.tsx
 #: src/lib/transports/auth-transport.ts
 msgid "Failed to store the token — try again"
 msgstr "टोकन सहेजने में विफल — फिर कोशिश करें"
@@ -6878,8 +7004,18 @@ msgstr "वह लिंक लाता है जो इस प्रोजे
 
 #: src/components/settings/SettingsDialogShell.tsx
 msgctxt "settings search keyword"
+msgid "gh"
+msgstr "gh"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
 msgid "GHES"
 msgstr "GHES"
+
+#: src/components/settings/AccountSection.tsx
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "Git"
+msgstr "Git"
 
 #: src/components/ExploreSkills.tsx
 msgid "Git & PRs"
@@ -6888,6 +7024,10 @@ msgstr "Git और PR"
 #: src/components/ShareFreshnessWarning.tsx
 msgid "Git can't track this folder — it's empty or contains only ignored files. The link won't work until you add a tracked document."
 msgstr "Git इस फ़ोल्डर पर नज़र नहीं रख सकता — यह खाली है या इसमें केवल अनदेखी की गई फ़ाइलें हैं। जब तक आप कोई ट्रैक की गई दस्तावेज़ नहीं जोड़ते तब तक लिंक काम नहीं करेगा।"
+
+#: src/hooks/use-sync-auth-prompt.ts
+msgid "Git couldn't authenticate with this host. Check the SSH key or saved credentials git uses for it."
+msgstr "git इस होस्ट के साथ प्रमाणीकरण नहीं कर सका। इसके लिए git जो SSH कुंजी या सहेजे गए क्रेडेंशियल उपयोग करता है, उन्हें जाँचें।"
 
 #: src/components/RecentProjectsMenu.tsx
 msgid "Git has locked this worktree, but it can still be opened."
@@ -6927,9 +7067,19 @@ msgstr "Git सिंक"
 msgid "Git syncing is paused because a Git operation or unresolved conflicts need attention. Your edits still save locally. Finish the operation or resolve the conflicts in your terminal, then retry sync."
 msgstr "Git की किसी प्रक्रिया या अनसुलझे टकरावों पर ध्यान देने की ज़रूरत है, इसलिए Git सिंक रुका हुआ है। आपके बदलाव अब भी स्थानीय रूप से सहेजे जाते हैं। अपने टर्मिनल में प्रक्रिया पूरी करें या टकराव सुलझाएँ, फिर सिंक दोबारा आज़माएँ।"
 
+#: src/components/settings/AccountSection.tsx
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "GitHub"
+msgstr "GitHub"
+
 #: src/components/SyncStatusBadge.tsx
 msgid "GitHub authentication failed. Try signing in again."
 msgstr "GitHub प्रमाणीकरण विफल। फिर से साइन इन करके देखें।"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "GitHub CLI"
+msgstr "GitHub CLI"
 
 #: src/lib/share/publish-wizard.ts
 msgid "GitHub connection expired. Connect again to continue."
@@ -6948,10 +7098,6 @@ msgstr "GitHub Enterprise Server होस्ट"
 msgid "GitHub sign-in is missing or expired. Reconnect to resume syncing."
 msgstr "GitHub साइन-इन अनुपस्थित है या उसकी अवधि समाप्त हो चुकी है। सिंक फिर से शुरू करने के लिए दोबारा जुड़ें।"
 
-#: src/components/settings/AccountSection.tsx
-msgid "GitHub sign-in isn't available for this project"
-msgstr "इस प्रोजेक्ट के लिए GitHub साइन-इन उपलब्ध नहीं है"
-
 #: src/components/ImportSkillForm.tsx
 msgid "GitHub, a git URL, or a local path."
 msgstr "GitHub, एक git URL, या एक स्थानीय पथ।"
@@ -6959,6 +7105,11 @@ msgstr "GitHub, एक git URL, या एक स्थानीय पथ।"
 #: src/components/settings/EnterpriseHostsSection.tsx
 msgid "github.com is always recognized, so it doesn't need to be added."
 msgstr "github.com हमेशा पहचाना जाता है, इसलिए इसे जोड़ने की ज़रूरत नहीं है।"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "GitLab"
+msgstr "GitLab"
 
 #: src/components/settings/SavedThemesTiles.tsx
 msgid "Give it a name before editing its colors."
@@ -7314,6 +7465,10 @@ msgstr "क्षैतिज पिल पट्टी + नीचे सक्
 msgid "Horizontal rule that divides sections."
 msgstr "अनुभागों को विभाजित करने वाली क्षैतिज रेखा।"
 
+#: src/components/settings/AccountSection.tsx
+msgid "Host"
+msgstr "होस्ट"
+
 #: src/components/settings/NetworkAccessSection.tsx
 msgid "Hosting is on. The server is running on port {boundPort}. Reach it through your tunnel."
 msgstr "होस्टिंग चालू है। सर्वर पोर्ट {boundPort} पर चल रहा है। इसे अपने टनल के माध्यम से एक्सेस करें।"
@@ -7484,6 +7639,10 @@ msgstr "चित्र लक्ष्य \"{shown}\" को प्रोजे
 #: src/editor/localized-validation-message.ts
 msgid "Image target \"{shown}\" does not resolve to an existing file."
 msgstr "चित्र लक्ष्य \"{shown}\" किसी मौजूदा फ़ाइल पर हल नहीं होता।"
+
+#: src/editor/localized-validation-message.ts
+msgid "Image target \"{shown}\" exists but is excluded by .gitignore or .okignore. Re-include it, or its folder, with a \"!\" rule in .okignore."
+msgstr "चित्र लक्ष्य \"{shown}\" मौजूद है, लेकिन .gitignore या .okignore ने उसे बहिष्कृत किया है। उसे, या उसके फ़ोल्डर को, .okignore में \"!\" नियम से फिर से शामिल करें।"
 
 #: src/components/ReportBugDialogBody.tsx
 msgid "Images aren't redacted."
@@ -7971,8 +8130,24 @@ msgid "Invalid YAML"
 msgstr "अमान्य YAML"
 
 #: src/components/ReportBugDialogBody.tsx
+msgid "It also adds any display-connection errors OpenKnowledge wrote to your user journal in the past week, each message cut to 200 characters."
+msgstr "यह पिछले सप्ताह OpenKnowledge द्वारा आपके उपयोगकर्ता जर्नल में लिखी गई डिस्प्ले कनेक्शन की त्रुटियाँ भी जोड़ता है, हर संदेश को 200 वर्णों तक छोटा करके।"
+
+#: src/components/ReportBugDialogBody.tsx
+msgid "It also adds the crash and hang records Windows logged for OpenKnowledge in the past week, without file paths, and the times of every shutdown, restart, power loss, and low-memory warning on this computer in that week, whatever caused them."
+msgstr "यह पिछले सप्ताह Windows द्वारा OpenKnowledge के लिए दर्ज क्रैश और अटकने के रिकॉर्ड, फ़ाइल पाथ के बिना, और उस सप्ताह इस कंप्यूटर पर हर शटडाउन, रीस्टार्ट, बिजली जाने और कम मेमोरी चेतावनी का समय भी जोड़ता है, कारण चाहे जो हो।"
+
+#: src/components/ReportBugDialogBody.tsx
 msgid "It also adds the crash reports macOS recorded for OpenKnowledge and its helper processes, never another app's report, though ours do name the processes they were running alongside. Each one carries machine details macOS puts in every report: your account uid, the Mac model, and the name of the process that launched the app. On a managed machine, that launching process can be internal tooling. The identifiers that would link the bug reports you file to each other are replaced first, so a collected report is not byte-identical to the one macOS wrote."
 msgstr "यह macOS द्वारा OpenKnowledge और उसकी सहायक प्रक्रियाओं के लिए दर्ज की गई क्रैश रिपोर्ट भी जोड़ता है, किसी दूसरे ऐप की रिपोर्ट कभी नहीं, हालाँकि हमारी रिपोर्ट उन प्रक्रियाओं के नाम बताती हैं जो साथ-साथ चल रही थीं। हर रिपोर्ट में मशीन का वह विवरण होता है जो macOS हर रिपोर्ट में डालता है: आपका खाता uid, Mac मॉडल, और उस प्रक्रिया का नाम जिसने ऐप शुरू किया। प्रबंधित मशीन पर वह शुरू करने वाली प्रक्रिया आंतरिक टूल हो सकती है। जो पहचानकर्ता आपकी भेजी गई बग रिपोर्टों को आपस में जोड़ सकते हैं उन्हें पहले बदल दिया जाता है, इसलिए एकत्र की गई रिपोर्ट macOS द्वारा लिखी गई रिपोर्ट से बाइट-दर-बाइट समान नहीं होती।"
+
+#: src/components/ReportBugDialogBody.tsx
+msgid "It also adds the low-memory reports macOS wrote in the past week that list OpenKnowledge's processes, with each one's memory use and whether macOS ended it."
+msgstr "यह पिछले सप्ताह macOS द्वारा लिखी गई कम मेमोरी रिपोर्टें भी जोड़ता है जिनमें OpenKnowledge की प्रक्रियाएँ सूचीबद्ध हैं, हर एक के मेमोरी उपयोग के साथ और यह भी कि macOS ने उसे बंद किया या नहीं।"
+
+#: src/components/ReportBugDialogBody.tsx
+msgid "It also adds the out-of-memory kills of OpenKnowledge that the system journal recorded in the past week, without the machine name, account id, or folder paths."
+msgstr "यह पिछले सप्ताह सिस्टम जर्नल में दर्ज OpenKnowledge के मेमोरी खत्म होने के कारण बंद किए जाने की घटनाएँ भी जोड़ता है, मशीन के नाम, खाता आईडी या फ़ोल्डर पाथ के बिना।"
 
 #. placeholder {0}: prompt.cwd
 #. placeholder {1}: prompt.agentName
@@ -8005,6 +8180,8 @@ msgstr "तिरछा"
 msgid "Item {0}"
 msgstr "आइटम {0}"
 
+#: src/components/AppMenubar.tsx
+#: src/components/command-palette-commands.ts
 #: src/components/SubscribeCard.tsx
 msgid "Join us on Discord"
 msgstr "Discord पर हमसे जुड़ें"
@@ -8265,6 +8442,10 @@ msgstr "लिंक लक्ष्य \"{shown}\" किसी मौजूद
 msgid "Link target \"{shown}\" does not resolve to an existing file."
 msgstr "लिंक लक्ष्य \"{shown}\" किसी मौजूदा फ़ाइल पर हल नहीं होता।"
 
+#: src/editor/localized-validation-message.ts
+msgid "Link target \"{shown}\" exists but is excluded by .gitignore or .okignore. Re-include it, or its folder, with a \"!\" rule in .okignore."
+msgstr "लिंक लक्ष्य \"{shown}\" मौजूद है, लेकिन .gitignore या .okignore ने उसे बहिष्कृत किया है। उसे, या उसके फ़ोल्डर को, .okignore में \"!\" नियम से फिर से शामिल करें।"
+
 #: src/lib/keyboard-shortcuts.ts
 msgid "Link the selected text, or edit the link under the caret."
 msgstr "चयनित पाठ को लिंक करें, या कर्सर के नीचे वाला लिंक संपादित करें।"
@@ -8452,6 +8633,10 @@ msgstr "स्किल लोड हो रही हैं"
 msgid "Loading starter packs"
 msgstr "स्टार्टर पैक लोड हो रहे हैं"
 
+#: src/components/settings/SyncSection.tsx
+msgid "Loading sync status"
+msgstr "सिंक स्थिति लोड हो रही है"
+
 #: src/components/CommandPalette.tsx
 #: src/editor/tag-suggestion/TagSuggestionMenu.tsx
 msgid "Loading tags"
@@ -8607,8 +8792,8 @@ msgid "Manage skill folders"
 msgstr "स्किल फ़ोल्डर सँभालें"
 
 #: src/components/settings/AccountSection.tsx
-msgid "Manage the GitHub account OpenKnowledge uses to browse and sync your repositories."
-msgstr "आपकी रिपॉज़िटरी ब्राउज़ और सिंक करने के लिए OpenKnowledge जिस GitHub खाते का उपयोग करता है उसे सँभालें।"
+msgid "Manage the accounts and access tokens OpenKnowledge uses to connect to your git hosts."
+msgstr "OpenKnowledge आपके git होस्ट से जुड़ने के लिए जिन खातों और पहुँच टोकन का उपयोग करता है, उन्हें सँभालें।"
 
 #: src/components/settings/AgentConnectionDialogs.tsx
 #: src/components/settings/AgentConnectionsSection.tsx
@@ -8752,6 +8937,12 @@ msgstr "मिरर स्रोत <0>api-spec</0>"
 #: src/components/LinksPanel.tsx
 msgid "Missing"
 msgstr "अनुपस्थित"
+
+#. placeholder {0}: error.slots.length
+#. placeholder {1}: error.slots.join(', ')
+#: src/components/settings/CustomThemeEditor.tsx
+msgid "Missing {0} slot(s): {1}"
+msgstr "गायब रंग स्लॉट ({0}): {1}"
 
 #: src/components/FeedbackForm.tsx
 msgid "Missing a feature"
@@ -9339,10 +9530,12 @@ msgstr "अभी कोई एजेंट सेट अप नहीं है
 msgid "no agents — saved, not installed anywhere"
 msgstr "कोई एजेंट नहीं — सहेजी गईं, कहीं इंस्टॉल नहीं"
 
+#. Composer hint when no agent is set up; agentConnectionsLabel is the Settings sidebar pane name
+#. Composer hint when no agent is set up; agentConnectionsLabel is the Settings sidebar pane name
 #: src/components/BottomComposer.tsx
 #: src/components/empty-state/CreatePromptComposer.tsx
-msgid "No agents are set up yet — add an in-app agent in Agent connections to attach files."
-msgstr "अभी कोई एजेंट सेट अप नहीं है — फ़ाइलें संलग्न करने के लिए एजेंट कनेक्शन में ऐप के भीतर का एजेंट जोड़ें।"
+msgid "No agents are set up yet — add an in-app agent in {agentConnectionsLabel} to attach files."
+msgstr "अभी कोई एजेंट सेट अप नहीं है — फ़ाइलें संलग्न करने के लिए {agentConnectionsLabel} में ऐप के भीतर का एजेंट जोड़ें।"
 
 #: src/components/settings/AgentConnectionsSection.tsx
 msgid "No agents available."
@@ -9365,10 +9558,10 @@ msgstr "आपकी खोज से कोई एजेंट मेल नह
 msgid "No AI agents installed"
 msgstr "कोई AI एजेंट इंस्टॉल नहीं है"
 
-#. Shown in place of the AI-tools checkbox when no AI tool was detected
+#. Shown in place of the AI-tools checkbox when no AI tool was detected; agentConnectionsLabel is the Settings sidebar pane name
 #: src/components/McpConsentDialogBody.tsx
-msgid "No AI tools detected yet. Once you install one, connect it from Settings > AI tools & CLI."
-msgstr "अभी तक कोई AI टूल नहीं मिला। एक इंस्टॉल करने के बाद उसे Settings > AI tools & CLI से जोड़ें।"
+msgid "No AI tools detected yet. Once you install one, connect it from Settings > {agentConnectionsLabel}."
+msgstr "अभी तक कोई AI टूल नहीं मिला। एक इंस्टॉल करने के बाद उसे सेटिंग > {agentConnectionsLabel} से जोड़ें।"
 
 #: src/components/ProjectAiToolsField.tsx
 msgid "No AI tools detected yet. Once you install one, connect it from Settings > This project."
@@ -9437,6 +9630,10 @@ msgstr "इस संस्करण में सामग्री का क�
 #: src/components/TimelineDiffPane.tsx
 msgid "No content changes in this version"
 msgstr "इस संस्करण में सामग्री का कोई बदलाव नहीं"
+
+#: src/components/SyncStatusBadge.tsx
+msgid "No credential is stored for this git host. Add a token in Settings, or let git use the credentials it already has."
+msgstr "इस git होस्ट के लिए कोई क्रेडेंशियल सहेजा नहीं गया है। सेटिंग में एक टोकन जोड़ें, या git को उसके पहले से मौजूद क्रेडेंशियल इस्तेमाल करने दें।"
 
 #: src/components/GraphPanel.tsx
 msgid "No disconnected pages. Pages appear here only when they have no incoming and no outgoing graph edges."
@@ -9744,6 +9941,15 @@ msgstr "इनमें से किसी भी समस्या का क
 msgid "Not a base16 theme"
 msgstr "यह base16 थीम नहीं है"
 
+#. placeholder {0}: error.slots.join(', ')
+#: src/components/settings/CustomThemeEditor.tsx
+msgid "Not a hex color: {0}"
+msgstr "हेक्स रंग नहीं: {0}"
+
+#: src/components/SkillConsentRow.tsx
+msgid "Not added to any AI tool yet."
+msgstr "अभी तक किसी AI टूल में नहीं जोड़ा गया।"
+
 #: src/components/acp/ThreadView.tsx
 msgid "Not answered"
 msgstr "उत्तर नहीं दिया गया"
@@ -9801,6 +10007,7 @@ msgstr "इस प्रोजेक्ट में अभी इंस्ट�
 #: src/components/ReportBugDialogBody.tsx
 #: src/components/settings/SkillsStudioIntroDialog.tsx
 #: src/lib/install-server-drift-listener.ts
+#: src/lib/install-stale-tab-reload-prompt.ts
 msgid "Not now"
 msgstr "अभी नहीं"
 
@@ -10193,6 +10400,10 @@ msgid "Open it there"
 msgstr "इसे वहाँ खोलें"
 
 #: src/components/settings/LintingSection.tsx
+msgid "Open Knowledge could not reach the project server to check index maintenance. The status updates when the project reconnects."
+msgstr "Open Knowledge सूचकांक रखरखाव की जाँच करने के लिए प्रोजेक्ट सर्वर तक नहीं पहुँच सका। प्रोजेक्ट के पुनः कनेक्ट होने पर स्थिति अपडेट हो जाएगी।"
+
+#: src/components/settings/LintingSection.tsx
 msgid "Open Knowledge creates and maintains a navigation file named index.md in every folder that contains Markdown."
 msgstr "Open Knowledge प्रत्येक फ़ोल्डर में index.md नामक एक नेविगेशन फ़ाइल बनाता है और उसका रखरखाव करता है जिसमें Markdown होता है।"
 
@@ -10390,6 +10601,10 @@ msgstr "खोला जा रहा है…"
 msgid "OpenKnowledge"
 msgstr "OpenKnowledge"
 
+#: src/components/AuthModal.tsx
+msgid "OpenKnowledge can't sign in to GitHub for this project."
+msgstr "OpenKnowledge इस प्रोजेक्ट के लिए GitHub में साइन इन नहीं कर सकता।"
+
 #: src/lib/acp/tool-call-display.ts
 msgid "OpenKnowledge checked {subject}"
 msgstr "OpenKnowledge ने {subject} की जाँच की"
@@ -10398,13 +10613,13 @@ msgstr "OpenKnowledge ने {subject} की जाँच की"
 msgid "OpenKnowledge checked the project"
 msgstr "OpenKnowledge ने प्रोजेक्ट की जाँच की"
 
+#: src/components/settings/AboutSection.tsx
+msgid "OpenKnowledge checks for and downloads updates in the background."
+msgstr "OpenKnowledge पृष्ठभूमि में अपडेट देखता और डाउनलोड करता है।"
+
 #: src/components/settings/AgentConnectionDialogs.tsx
 msgid "OpenKnowledge could not find this agent on this machine."
 msgstr "OpenKnowledge को इस मशीन पर यह एजेंट नहीं मिला।"
-
-#: src/components/settings/AccountSection.tsx
-msgid "OpenKnowledge couldn't find a host name in this project's git remote, so it can't tell which GitHub server to sign in to."
-msgstr "OpenKnowledge को इस प्रोजेक्ट के git रिमोट में कोई होस्टनेम नहीं मिला, इसलिए वह यह तय नहीं कर सकता कि किस GitHub सर्वर में साइन इन करना है।"
 
 #: src/lib/worktree-create-error.ts
 msgid "OpenKnowledge couldn't finish setting up this project. The worktree was created but not opened."
@@ -10450,6 +10665,10 @@ msgstr "OpenKnowledge इस प्रविष्टि को नहीं प
 msgid "OpenKnowledge does not recognize this entry. Turning it on replaces it."
 msgstr "OpenKnowledge इस प्रविष्टि को नहीं पहचानता। इसे चालू करने पर यह बदल दी जाएगी।"
 
+#: src/components/settings/AboutSection.tsx
+msgid "OpenKnowledge doesn't check for or download updates on its own. Check for updates still works when you want a newer version."
+msgstr "OpenKnowledge अपने आप अपडेट नहीं देखता या डाउनलोड नहीं करता। नया संस्करण चाहिए तो \"अपडेट देखें\" अब भी काम करता है।"
+
 #: src/lib/acp/tool-call-display.ts
 msgid "OpenKnowledge edited {subject}"
 msgstr "OpenKnowledge ने {subject} को संपादित किया"
@@ -10461,6 +10680,10 @@ msgstr "OpenKnowledge ने एक दस्तावेज़ संपाद�
 #: src/uninstall/UninstallResultScreen.tsx
 msgid "OpenKnowledge files were removed"
 msgstr "OpenKnowledge की फ़ाइलें हटा दी गईं"
+
+#: src/hooks/use-sync-auth-prompt.ts
+msgid "OpenKnowledge has no credential stored for this host. Add a token in Settings, or let git use the credentials it already has."
+msgstr "OpenKnowledge ने इस होस्ट के लिए कोई क्रेडेंशियल नहीं सहेजा है। सेटिंग में एक टोकन जोड़ें, या git को उसके पहले से मौजूद क्रेडेंशियल इस्तेमाल करने दें।"
 
 #: src/lib/acp/tool-call-display.ts
 msgid "OpenKnowledge imported {source}"
@@ -10491,12 +10714,12 @@ msgid "OpenKnowledge is set up at the repository root here, so the pack goes ins
 msgstr "यहाँ OpenKnowledge रिपॉज़िटरी रूट पर सेट होता है, इसलिए पैक रिपॉज़िटरी के शीर्ष के बजाय <0>{sanitized}</0> के अंदर जाता है।"
 
 #: src/components/settings/AccountSection.tsx
-msgid "OpenKnowledge is using a GitHub account provided by the gh CLI. There's no separate OpenKnowledge credential to disconnect."
-msgstr "OpenKnowledge gh CLI द्वारा दिया गया GitHub खाता उपयोग कर रहा है। कनेक्शन तोड़ने के लिए कोई अलग OpenKnowledge क्रेडेंशियल नहीं है।"
-
-#: src/components/settings/AccountSection.tsx
 msgid "OpenKnowledge is using this GitHub account."
 msgstr "OpenKnowledge यही GitHub खाता उपयोग कर रहा है।"
+
+#: src/components/settings/SettingsDialogBody.tsx
+msgid "OpenKnowledge keeps retrying and shows them as soon as the file can be read."
+msgstr "OpenKnowledge फिर से कोशिश करता रहता है और फ़ाइल पढ़ी जा सकते ही उन्हें दिखा देगा।"
 
 #: src/components/settings/AgentConnectionDialogs.tsx
 msgid "OpenKnowledge left this file alone because it could not parse it safely. Fix the file by hand, then try again."
@@ -10538,6 +10761,14 @@ msgstr "OpenKnowledge ने एक दस्तावेज़ ले जाय
 #: src/components/command-palette-commands.ts
 msgid "OpenKnowledge on GitHub"
 msgstr "GitHub पर OpenKnowledge"
+
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "OpenKnowledge on this computer changed to a different build, but this tab is still running the old one."
+msgstr "इस कंप्यूटर पर OpenKnowledge किसी दूसरे बिल्ड में बदल गया है, लेकिन यह टैब अभी भी पुराना बिल्ड चला रहा है।"
+
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "OpenKnowledge on this computer is now v{serverVersion}, but this tab is still running v{tabVersion}."
+msgstr "इस कंप्यूटर पर OpenKnowledge अब v{serverVersion} है, लेकिन यह टैब अभी भी v{tabVersion} चला रहा है।"
 
 #: src/lib/acp/tool-call-display.ts
 msgid "OpenKnowledge opened the live preview"
@@ -10689,6 +10920,11 @@ msgstr "अन्य"
 #: src/components/FeedbackForm.tsx
 msgid "Other"
 msgstr "अन्य"
+
+#: src/components/settings/AccountSection.tsx
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "Other Git hosts"
+msgstr "अन्य Git होस्ट"
 
 #: src/components/settings/SharingSection.tsx
 msgid "Other OK paths are tracked upstream:"
@@ -11242,6 +11478,10 @@ msgstr "प्रोजेक्ट विवरण"
 msgid "Project folder created, but git init failed. Try again."
 msgstr "प्रोजेक्ट फ़ोल्डर बन गया, पर git init विफल रहा। फिर कोशिश करें।"
 
+#: src/components/ConsentDialogBody.tsx
+msgid "Project folder: <0>{projectDir}</0>"
+msgstr "प्रोजेक्ट फ़ोल्डर: <0>{projectDir}</0>"
+
 #: src/components/settings/AgentConnectionDialogs.tsx
 msgid "Project MCP server"
 msgstr "परियोजना MCP सर्वर"
@@ -11315,6 +11555,10 @@ msgstr "प्रॉपर्टी का मान"
 #: src/components/SyncStatusBadge.tsx
 msgid "Protected branch — cannot push"
 msgstr "सुरक्षित ब्रांच — भेजा नहीं जा सकता"
+
+#: src/components/settings/AccountSection.tsx
+msgid "Provided by the GitHub CLI (<0>gh</0>) on this computer. To switch accounts or sign out, run <1>gh auth</1> in a terminal."
+msgstr "इस कंप्यूटर पर GitHub CLI (<0>gh</0>) द्वारा दिया गया। खाता बदलने या साइन आउट करने के लिए टर्मिनल में <1>gh auth</1> चलाएँ।"
 
 #: src/components/TemplateForm.tsx
 msgid "provisional"
@@ -11624,6 +11868,14 @@ msgstr "फिर से जुड़ना ज़रूरी"
 msgid "Reconnect required to keep syncing."
 msgstr "सिंक जारी रखने के लिए फिर से कनेक्ट करना ज़रूरी है।"
 
+#: src/components/SyncStatusBadge.tsx
+msgid "Reconnect required to keep syncing. Add a token for this host in Settings, or replace the one stored."
+msgstr "सिंक जारी रखने के लिए फिर से कनेक्ट करना ज़रूरी है। सेटिंग में इस होस्ट के लिए एक टोकन जोड़ें, या सहेजे गए टोकन को बदलें।"
+
+#: src/components/SyncStatusBadge.tsx
+msgid "Reconnect required to keep syncing. Check the SSH key or saved credentials git uses for this host."
+msgstr "सिंक जारी रखने के लिए फिर से कनेक्ट करना ज़रूरी है। इस होस्ट के लिए git जो SSH कुंजी या सहेजे गए क्रेडेंशियल उपयोग करता है, उन्हें जाँचें।"
+
 #: src/presence/use-sync-toasts.ts
 msgid "Reconnected"
 msgstr "फिर से जुड़ गया"
@@ -11702,6 +11954,7 @@ msgstr "सापेक्ष पथ"
 msgid "Relaunching to install the update…"
 msgstr "अपडेट इंस्टॉल करने के लिए फिर से शुरू किया जा रहा है…"
 
+#: src/components/settings/AboutSection.tsx
 #: src/components/settings/SettingsDialogShell.tsx
 #: src/components/SubscribeCard.tsx
 msgid "Release notes"
@@ -11721,10 +11974,15 @@ msgstr "प्रासंगिकता"
 #: src/components/settings/SettingsDialogErrorBoundary.tsx
 #: src/components/TerminalGate.tsx
 #: src/components/TerminalStartingNotice.tsx
+#: src/lib/install-stale-tab-reload-prompt.ts
 #: src/lib/locale-load-failure-notice.ts
 #: src/lib/native-menu-catalog.ts
 msgid "Reload"
 msgstr "फिर से लोड करें"
+
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "Reload this tab to bring it up to date. Your edits are saved before it reloads."
+msgstr "इसे अद्यतन करने के लिए यह टैब फिर से लोड करें। फिर से लोड होने से पहले आपके संपादन सहेजे जाते हैं।"
 
 #: src/components/NewWorktreeDialog.tsx
 msgid "remote"
@@ -11971,6 +12229,7 @@ msgid "Renaming changes the file on disk and the id agents use to pick this temp
 msgstr "नाम बदलने पर डिस्क की फ़ाइल और वह id दोनों बदल जाते हैं जिससे एजेंट यह टेम्पलेट चुनते हैं।"
 
 #: src/editor/utils/severity.ts
+#: src/lib/rendered-diff/diff-jsx-block.tsx
 msgid "render error"
 msgstr "रेंडर त्रुटि"
 
@@ -12567,6 +12826,10 @@ msgstr "सहेजा जा रहा है"
 msgid "Saving changes…"
 msgstr "बदलाव सहेजे जा रहे हैं…"
 
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "Saving your edits before reloading…"
+msgstr "फिर से लोड करने से पहले आपके संपादन सहेजे जा रहे हैं…"
+
 #: src/components/settings/LintingSection.tsx
 msgid "schema {deleteTarget}"
 msgstr "स्कीमा {deleteTarget}"
@@ -13085,10 +13348,6 @@ msgstr "पहचान सेट करें"
 #: src/components/settings/plugin-enabled-notice.ts
 msgid "Set it up on its own page under Plugins."
 msgstr "इसे Plugins के अंतर्गत इसके अपने पेज पर सेट करें।"
-
-#: src/components/settings/SyncSection.tsx
-msgid "Set the sync default for users opening this project for the first time. This setting is committed to your repository."
-msgstr "इस प्रोजेक्ट को पहली बार खोलने वाले उपयोगकर्ताओं के लिए सिंक का डिफ़ॉल्ट तय करें। यह सेटिंग आपकी रिपॉज़िटरी में कमिट होती है।"
 
 #: src/components/command-palette-commands.ts
 msgid "Set up OpenKnowledge integrations"
@@ -13659,6 +13918,14 @@ msgstr "कुछ जाँचें विफल रहीं, लेकिन 
 msgid "Some dropped files could not be inserted safely."
 msgstr "छोड़ी गई कुछ फ़ाइलों को सुरक्षित रूप से सम्मिलित नहीं किया जा सका।"
 
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "Some edits haven't reached the server yet, so the tab didn't reload. Open {docs} to save them, then reload."
+msgstr "कुछ संपादन अभी तक सर्वर तक नहीं पहुँचे हैं, इसलिए टैब फिर से लोड नहीं हुआ। उन्हें सहेजने के लिए {docs} खोलें, फिर टैब को फिर से लोड करें।"
+
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "Some edits haven't reached the server yet, so the tab didn't reload. Your edits are still here."
+msgstr "कुछ संपादन अभी तक सर्वर तक नहीं पहुँचे हैं, इसलिए टैब फिर से लोड नहीं हुआ। आपके संपादन अभी भी यहीं हैं।"
+
 #: src/components/SyncStatusBadge.tsx
 msgid "Some files are not listed — the working tree has too many changes."
 msgstr "कुछ फ़ाइलें सूचीबद्ध नहीं हैं: वर्किंग ट्री में बहुत अधिक बदलाव हैं।"
@@ -13674,6 +13941,10 @@ msgstr "कुछ सहेजी गई थीम नहीं दिखाई 
 #: src/components/SkillBulkDeleteDialog.tsx
 msgid "Some skills were deleted with a warning"
 msgstr "कुछ स्किलें चेतावनी के साथ हटाई गईं"
+
+#: src/components/empty-state/CreateView.tsx
+msgid "Some templates may not be listed because this knowledge base has too many folders to scan. To see a folder's templates, open its menu in the file tree and choose New from template."
+msgstr "कुछ टेम्पलेट सूची में शायद न दिखें, क्योंकि इस ज्ञान आधार में स्कैन करने के लिए बहुत अधिक फ़ोल्डर हैं। किसी फ़ोल्डर के टेम्पलेट देखने के लिए, फ़ाइल ट्री में उसका मेनू खोलें और \"टेम्पलेट से नया\" चुनें।"
 
 #: src/components/DiffViewBoundary.tsx
 msgid "Someone may have already resolved {filePath} — check the document's current content before redoing your edit."
@@ -14150,6 +14421,10 @@ msgstr "इस वर्कट्री के लिए सिंक “मै�
 msgid "Sync is taking longer than usual — your changes are safe on this device."
 msgstr "सिंक होने में सामान्य से ज़्यादा समय लग रहा है — आपके बदलाव इस डिवाइस पर सुरक्षित हैं।"
 
+#: src/components/settings/SettingsDialogBody.tsx
+msgid "Sync keeps this computer's copy up to date with your Git remote. The shared settings below decide what teammates get when they open the project."
+msgstr "सिंक इस कंप्यूटर की कॉपी को आपके Git रिमोट के साथ अद्यतन रखता है। नीचे दी गई साझा सेटिंग तय करती हैं कि प्रोजेक्ट खोलने पर सहकर्मियों को क्या मिलेगा।"
+
 #: src/components/SyncStatusBadge.tsx
 msgid "Sync mode"
 msgstr "सिंक मोड"
@@ -14439,6 +14714,15 @@ msgstr "यह पूरा नहीं हुआ। सर्वर लॉग 
 msgid "That document didn't open in time. Try again once it has synced."
 msgstr "वह दस्तावेज़ समय पर नहीं खुला। सिंक होने के बाद फिर से कोशिश करें।"
 
+#. placeholder {0}: error.line
+#: src/components/settings/CustomThemeEditor.tsx
+msgid "That doesn’t parse as YAML or JSON — check line {0}."
+msgstr "यह YAML या JSON के रूप में पार्स नहीं हो रहा है — पंक्ति {0} जाँचें।"
+
+#: src/components/settings/CustomThemeEditor.tsx
+msgid "That doesn’t parse as YAML or JSON."
+msgstr "यह YAML या JSON के रूप में पार्स नहीं हो रहा है।"
+
 #: src/components/settings/SearchSection.tsx
 msgid "That endpoint can't be used. Enter an https:// URL — http:// is only allowed for loopback endpoints."
 msgstr "वह एंडपॉइंट उपयोग नहीं किया जा सकता। कोई https:// URL डालें — http:// केवल लूपबैक एंडपॉइंट के लिए अनुमत है।"
@@ -14467,6 +14751,10 @@ msgstr "वह भाषा वर्तनी जाँच के लिए उ
 #: src/components/acp/ThreadView.tsx
 msgid "That message already went out — your edit wasn't applied."
 msgstr "वह संदेश पहले ही भेजा जा चुका है — आपका संपादन लागू नहीं हुआ।"
+
+#: src/components/settings/CustomThemeEditor.tsx
+msgid "That parsed, but it isn’t a base16 theme."
+msgstr "यह पार्स हो गया, लेकिन यह base16 थीम नहीं है।"
 
 #. placeholder {0}: item.displayName
 #: src/components/acp/ThreadView.tsx
@@ -14594,6 +14882,10 @@ msgstr "बातचीत को इस रिपोर्ट में नह�
 #: src/lib/skills-api.ts
 msgid "The copy of \"{name}\" kept in {scopeLabel} is a redundant duplicate: the original was verified unchanged. Remove that copy, then retry the move."
 msgstr "{scopeLabel} में रखी गई “{name}” की कॉपी एक ग़ैरज़रूरी नक़ल है: जाँच में मूल अपरिवर्तित मिला। उस कॉपी को हटाएँ, फिर मूव दोबारा आज़माएँ।"
+
+#: src/components/ReportBugDialogBody.tsx
+msgid "The crash dump couldn't be added to this report."
+msgstr "क्रैश डंप को इस रिपोर्ट में नहीं जोड़ा जा सका।"
 
 #: src/components/SyncStatusBadge.tsx
 msgid "The default branch is protected — pushes need a pull request."
@@ -14774,6 +15066,10 @@ msgstr "Open Knowledge टूल सक्षम करने के अनु�
 msgid "The schema file does not exist or failed to load — adding a field creates it."
 msgstr "स्कीमा फ़ाइल मौजूद नहीं है या लोड नहीं हो सकी — कोई फ़ील्ड जोड़ने पर वह बन जाती है।"
 
+#: src/components/settings/SyncSection.tsx
+msgid "The server couldn't read this project's sync status, so sync options are hidden. They appear here as soon as the sync status loads; closing and reopening Settings also retries."
+msgstr "सर्वर इस प्रोजेक्ट की सिंक स्थिति नहीं पढ़ सका, इसलिए सिंक विकल्प छिपा दिए गए हैं। सिंक स्थिति लोड होते ही वे यहाँ दिखेंगे; सेटिंग बंद करके दोबारा खोलने से भी फिर से कोशिश होती है।"
+
 #: src/components/ConnectingBanner.tsx
 msgid "the server responded but server.lock has no port yet"
 msgstr "सर्वर ने जवाब दिया लेकिन server.lock में अभी कोई पोर्ट नहीं है"
@@ -14814,6 +15110,14 @@ msgstr "स्किल सूची अपने स्कीमा से म�
 #: src/components/SkillInstallMenu.tsx
 msgid "The source folder itself does not move."
 msgstr "स्रोत फ़ोल्डर ख़ुद नहीं हिलता।"
+
+#: src/components/SyncStatusBadge.tsx
+msgid "The stored token is missing the permissions this host needs to push."
+msgstr "सहेजे गए टोकन में वे अनुमतियाँ नहीं हैं जो इस होस्ट को पुश करने के लिए चाहिए।"
+
+#: src/components/settings/SyncSection.tsx
+msgid "The sync mode teammates start with the first time they open this project. It's saved in the project's OpenKnowledge settings, so it only reaches them when Config sharing below is set to Shared."
+msgstr "वह सिंक मोड जिससे सहकर्मी इस प्रोजेक्ट को पहली बार खोलने पर शुरुआत करते हैं। यह प्रोजेक्ट की OpenKnowledge सेटिंग में सहेजा जाता है, इसलिए यह उन तक तभी पहुँचता है जब नीचे कॉन्फ़िग साझाकरण साझा पर सेट हो।"
 
 #: src/components/TemplateProperties.tsx
 msgid "The template's filename (without `.md`)."
@@ -14872,6 +15176,10 @@ msgstr ".ok/local/config.yml में terminal.shell एक्ज़ीक्�
 #: src/components/AuthModal.tsx
 msgid "The token needs the repo and read:user scopes."
 msgstr "टोकन को repo और read:user स्कोप चाहिए।"
+
+#: src/components/settings/AccountSection.tsx
+msgid "The username git sends with the token. Some hosts expect a fixed value: type <0>x-bitbucket-api-token-auth</0> for a Bitbucket API token, <1>x-token-auth</1> for a Bitbucket repository or workspace access token, or <2>oauth2</2> for GitLab. For Gitea, use your Gitea username. Azure DevOps accepts any value."
+msgstr "वह उपयोगकर्ता नाम जो git टोकन के साथ भेजता है। कुछ होस्ट एक तय मान की अपेक्षा करते हैं: Bitbucket API टोकन के लिए <0>x-bitbucket-api-token-auth</0>, Bitbucket रिपॉज़िटरी या वर्कस्पेस पहुँच टोकन के लिए <1>x-token-auth</1>, या GitLab के लिए <2>oauth2</2> लिखें। Gitea के लिए अपना Gitea उपयोगकर्ता नाम दें। Azure DevOps कोई भी मान स्वीकार करता है।"
 
 #: src/lib/tab-session-restore-recovery-notice.ts
 msgid "The workspace opened without it so the app could start."
@@ -15063,9 +15371,10 @@ msgstr "यह ब्रांच यहाँ चेक आउट है:"
 msgid "This branch redirects an OpenKnowledge setup path outside the worktree. The worktree was created but not opened."
 msgstr "यह ब्रांच OpenKnowledge सेटअप पथ को वर्कट्री से बाहर भेजती है। वर्कट्री बनाई गई, लेकिन खोली नहीं गई।"
 
+#. Toast after first-launch setup ends without connecting AI tools; agentConnectionsLabel is the Settings sidebar pane name
 #: src/components/McpConsentDialogBody.tsx
-msgid "This can be configured in Settings > AI tools & CLI"
-msgstr "इसे Settings > AI tools & CLI में कॉन्फ़िगर किया जा सकता है"
+msgid "This can be configured in Settings > {agentConnectionsLabel}"
+msgstr "इसे सेटिंग > {agentConnectionsLabel} में कॉन्फ़िगर किया जा सकता है"
 
 #: src/components/RecentProjectsMenu.tsx
 msgid "This checkout path cannot be read."
@@ -15273,10 +15582,6 @@ msgstr "यह सूची पुरानी हो सकती है — �
 msgid "This list may be out of date."
 msgstr "यह सूची पुरानी हो सकती है।"
 
-#: src/components/ConsentDialogBody.tsx
-msgid "This looks like a drive root (e.g., C:\\). Scaffolding here will scan an entire drive."
-msgstr "यह किसी ड्राइव का रूट लगता है (जैसे C:\\)। यहाँ ढाँचा बनाने पर पूरी ड्राइव स्कैन होगी।"
-
 #: src/components/settings/AgentConnectionDialogs.tsx
 #: src/components/settings/ScopeBadge.tsx
 #: src/components/SkillScopeSegment.tsx
@@ -15286,6 +15591,10 @@ msgstr "यह मशीन"
 #: src/uninstall/UninstallProgressScreen.tsx
 msgid "This may take a moment. Your markdown content is kept."
 msgstr "इसमें कुछ समय लग सकता है। आपकी markdown सामग्री सुरक्षित रहती है।"
+
+#: src/components/settings/SyncSection.tsx
+msgid "This mode comes from the project's Shared default below. Pick a mode to choose your own for this computer."
+msgstr "यह मोड नीचे दिए प्रोजेक्ट के साझा डिफ़ॉल्ट से आता है। इस कंप्यूटर के लिए अपना मोड चुनने हेतु कोई मोड चुनें।"
 
 #. placeholder {0}: scopeLabels[scope]
 #. placeholder {1}: scopeLabels[toScope]
@@ -15401,10 +15710,6 @@ msgstr "यह प्रोजेक्ट एक git रिपॉज़िट�
 msgid "This project lives only on this computer. Connect it to GitHub to back it up and share it with other people."
 msgstr "यह प्रोजेक्ट केवल इसी कंप्यूटर पर है। इसका बैकअप लेने और दूसरों के साथ साझा करने के लिए इसे GitHub से जोड़ें।"
 
-#: src/components/settings/AccountSection.tsx
-msgid "This project's git remote is on {host}, which OpenKnowledge doesn't recognize as a GitHub host. If {host} runs GitHub Enterprise Server, add it to GitHub Enterprise Server hosts below, then restart OpenKnowledge."
-msgstr "इस प्रोजेक्ट का git रिमोट {host} पर है, जिसे OpenKnowledge GitHub होस्ट के रूप में नहीं पहचानता। यदि {host} पर GitHub Enterprise Server चलता है, तो उसे नीचे GitHub Enterprise Server होस्ट में जोड़ें, फिर OpenKnowledge को फिर से शुरू करें।"
-
 #: src/components/DocumentErrorBoundary.tsx
 msgid "This project's running server doesn't support live editing. Restart OpenKnowledge to fix."
 msgstr "इस प्रोजेक्ट का चल रहा सर्वर जीवंत संपादन का समर्थन नहीं करता। ठीक करने के लिए OpenKnowledge पुनः आरंभ करें।"
@@ -15476,6 +15781,14 @@ msgstr "इस स्रोत में कई स्किल हैं — �
 msgid "This source bundles several skills — choose the one to import."
 msgstr "इस स्रोत में कई स्किल हैं — आयात करने के लिए एक चुनें।"
 
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "This tab couldn't confirm that your edits are saved, so it didn't reload. Your edits are still here."
+msgstr "यह टैब पुष्टि नहीं कर सका कि आपके संपादन सहेजे गए हैं, इसलिए फिर से लोड नहीं हुआ। आपके संपादन अभी भी यहीं हैं।"
+
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "This tab is still reconnecting to OpenKnowledge, so it didn't reload. Try again in a moment."
+msgstr "यह टैब अभी भी OpenKnowledge से दोबारा कनेक्ट हो रहा है, इसलिए फिर से लोड नहीं हुआ। थोड़ी देर में फिर से कोशिश करें।"
+
 #: src/components/TemplateDeleteDialog.tsx
 msgid "This template lives in a parent folder — deleting it affects every folder beneath it that doesn't define its own version."
 msgstr "यह टेम्पलेट किसी मूल फ़ोल्डर में रहता है — इसे हटाने पर उसके नीचे का हर वह फ़ोल्डर प्रभावित होता है जो अपना संस्करण तय नहीं करता।"
@@ -15496,11 +15809,16 @@ msgstr "यह थीम फ़ाइल पढ़ी नहीं जा सक
 msgid "This theme file is too large"
 msgstr "यह थीम फ़ाइल बहुत बड़ी है"
 
+#: src/components/UpdateNotices.shared.ts
+msgid "This update is no longer ready to install."
+msgstr "यह अपडेट अब इंस्टॉल करने के लिए तैयार नहीं है।"
+
 #: src/components/ShareReceiveDialog.tsx
 msgid "This usually means one of:"
 msgstr "इसका आमतौर पर मतलब इनमें से एक होता है:"
 
 #: src/components/AuthModal.tsx
+#: src/components/settings/AccountSection.tsx
 msgid "This window can't store a token — open Settings from the main app window."
 msgstr "यह विंडो कोई टोकन नहीं सहेज सकती — मुख्य ऐप विंडो से Settings खोलें।"
 
@@ -15534,6 +15852,10 @@ msgstr "शीर्षक"
 #: src/editor/extensions/CodeBlockView.tsx
 msgid "Title"
 msgstr "शीर्षक"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "To connect AI tools without a project, use File > Set up OpenKnowledge integrations…"
+msgstr "किसी प्रोजेक्ट के बिना AI टूल कनेक्ट करने के लिए, फ़ाइल > OpenKnowledge एकीकरण सेट अप करें… का उपयोग करें।"
 
 #: src/editor/slash-command/items.tsx
 msgid "To do"
@@ -15654,6 +15976,15 @@ msgstr "रेखांकित फ़ॉर्मैटिंग चालू 
 msgid "Toggles the pattern {0}/**"
 msgstr "पैटर्न {0}/** टॉगल करें"
 
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "token"
+msgstr "टोकन"
+
+#: src/components/settings/AccountSection.tsx
+msgid "Token stored for {login} on {host}. To remove it, run <0>ok auth signout --host {host}</0>."
+msgstr "{host} पर {login} के लिए टोकन सहेजा गया। इसे हटाने के लिए <0>ok auth signout --host {host}</0> चलाएँ।"
+
 #: src/components/SkillBundlePreview.tsx
 #: src/components/SkillProperties.tsx
 msgid "tokens"
@@ -15739,6 +16070,10 @@ msgstr "{display} को फिर से एक असली निर्दे
 msgid "Turn it off any time in Settings."
 msgstr "किसी भी समय सेटिंग में जाकर इसे बंद कर दें."
 
+#: src/components/settings/SyncSection.tsx
+msgid "Turn off auto-sync"
+msgstr "स्वत: सिंक बंद करें"
+
 #: src/components/NotInSidebarIndicator.tsx
 msgid "Turn off Only markdown files"
 msgstr "केवल markdown फ़ाइलें बंद करें"
@@ -15771,6 +16106,22 @@ msgstr "इसे बंद कर रहा हूँ"
 #: src/components/acp/working-status.ts
 msgid "Turning it over…"
 msgstr "सोचा जा रहा है…"
+
+#: src/components/settings/LintingSection.tsx
+msgid "Turning off index maintenance failed because Open Knowledge could not reach the project server. Try again when the project reconnects."
+msgstr "सूचकांक रखरखाव बंद नहीं हो सका क्योंकि Open Knowledge प्रोजेक्ट सर्वर तक नहीं पहुँच सका। प्रोजेक्ट के पुनः कनेक्ट होने पर पुनः प्रयास करें।"
+
+#: src/components/settings/LintingSection.tsx
+msgid "Turning off index maintenance failed because Open Knowledge could not update the Git merge rule. Check Git and .gitattributes, then try again."
+msgstr "सूचकांक रखरखाव बंद नहीं हो सका क्योंकि Open Knowledge Git मर्ज नियम को अपडेट नहीं कर सका। Git और .gitattributes को जाँचें, फिर पुनः प्रयास करें।"
+
+#: src/components/settings/LintingSection.tsx
+msgid "Turning off index maintenance failed because the Open Knowledge section of .gitattributes was edited or is incomplete. Remove that section, then try again."
+msgstr "सूचकांक रखरखाव बंद नहीं हो सका क्योंकि .gitattributes में Open Knowledge वाला अनुभाग संपादित किया गया है या अधूरा है। उस अनुभाग को हटाएँ, फिर पुनः प्रयास करें।"
+
+#: src/components/settings/LintingSection.tsx
+msgid "Turning off index maintenance failed because the project setting could not be saved. Check the project file permissions, then try again."
+msgstr "सूचकांक रखरखाव बंद नहीं हो सका क्योंकि प्रोजेक्ट सेटिंग सहेजी नहीं जा सकी। प्रोजेक्ट फ़ाइल अनुमतियाँ जाँचें, फिर पुनः प्रयास करें।"
 
 #. placeholder {0}: skill.name
 #: src/components/SkillForkDialog.tsx
@@ -15916,6 +16267,7 @@ msgid "Unknown component: {componentName} — source editable below"
 msgstr "अज्ञात कंपोनेंट: {componentName} — स्रोत नीचे संपादन योग्य"
 
 #: src/editor/extensions/RawMdxFallbackCMView.tsx
+#: src/lib/rendered-diff/diff-jsx-block.tsx
 msgid "Unknown component: {unregisteredComponentName}"
 msgstr "अज्ञात कंपोनेंट: {unregisteredComponentName}"
 
@@ -16000,6 +16352,11 @@ msgstr "ट्रैक नहीं किया गया"
 #: src/components/SyncStatusBadge.tsx
 msgid "Up to date"
 msgstr "अद्यतित"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "update"
+msgstr "अपडेट"
 
 #: src/components/SkillOriginInline.tsx
 #: src/components/SkillPreviewTab.tsx
@@ -16240,6 +16597,10 @@ msgstr "उपयोगकर्ता"
 msgid "User plugins are personal to this device — turn them on or off here. Each enabled plugin gets its own page under Plugins in the settings sidebar."
 msgstr "उपयोगकर्ता प्लगइन इस डिवाइस तक सीमित हैं — उन्हें यहाँ चालू या बंद करें। हर सक्षम प्लगइन को सेटिंग साइडबार में Plugins के अंतर्गत अपना पेज मिलता है।"
 
+#: src/components/settings/AccountSection.tsx
+msgid "Username"
+msgstr "उपयोगकर्ता नाम"
+
 #: src/components/settings/SearchSection.tsx
 msgid "Using the <0>OK_EMBEDDINGS_API_KEY</0> environment variable (managed outside OpenKnowledge)."
 msgstr "<0>OK_EMBEDDINGS_API_KEY</0> पर्यावरण चर का उपयोग किया जा रहा है (OpenKnowledge के बाहर प्रबंधित)।"
@@ -16264,6 +16625,11 @@ msgstr "मान आवश्यक है"
 #: src/components/FrontmatterRow.tsx
 msgid "Values for {keyName}"
 msgstr "{keyName} के मान"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "version"
+msgstr "संस्करण"
 
 #: src/components/CommandPalette.tsx
 msgid "via {viaTags}"
@@ -16757,14 +17123,6 @@ msgstr "आपने ~/Documents चुना। OpenKnowledge उसके न�
 msgid "You picked ~/Downloads. Files there are usually transient — consider a stable folder instead."
 msgstr "आपने ~/Downloads चुना। वहाँ की फ़ाइलें आमतौर पर अस्थायी होती हैं — इसके बजाय किसी स्थिर फ़ोल्डर पर विचार करें।"
 
-#: src/components/ConsentDialogBody.tsx
-msgid "You picked the filesystem root (/). Scaffolding here will scan every file on this machine — make sure that's what you want."
-msgstr "आपने फ़ाइल सिस्टम का रूट (/) चुना। यहाँ ढाँचा बनाने पर इस मशीन की हर फ़ाइल स्कैन होगी — पक्का कर लें कि आप यही चाहते हैं।"
-
-#: src/components/ConsentDialogBody.tsx
-msgid "You picked your home directory. OpenKnowledge will index everything in your home tree — large and may surface personal files."
-msgstr "आपने अपनी होम निर्देशिका चुनी। OpenKnowledge आपके पूरे होम वृक्ष की हर चीज़ अनुक्रमित करेगा — यह बड़ा है और इससे निजी फ़ाइलें सामने आ सकती हैं।"
-
 #: src/components/OnboardingCard.tsx
 msgid "You're all set up!"
 msgstr "आपका सब कुछ तैयार है!"
@@ -16885,6 +17243,10 @@ msgstr "आपकी खोज क्वेरी और मेल खाते 
 #: src/components/PublishToGitHubDialog.tsx
 msgid "Your share link is ready below."
 msgstr "आपका साझा लिंक नीचे तैयार है।"
+
+#: src/components/settings/SettingsDialogBody.tsx
+msgid "Your user settings could not be read"
+msgstr "आपकी उपयोगकर्ता सेटिंग पढ़ी नहीं जा सकीं"
 
 #: src/components/ImportSkillForm.tsx
 msgid "Zip file"

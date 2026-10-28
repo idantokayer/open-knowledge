@@ -2,7 +2,7 @@ import {
   type ClassifiedLinkTarget,
   classifyMarkdownHref,
   isExternalHref,
-} from '@inkeep/open-knowledge-core';
+} from '@inkeep/open-knowledge-core/utils/link-targets';
 import { Trans, useLingui } from '@lingui/react/macro';
 import type { Editor } from '@tiptap/core';
 import { posToDOMRect } from '@tiptap/core';
@@ -77,8 +77,8 @@ interface EditMarkdownLinkDialogProps {
   open: boolean;
   href: string;
   text: string;
-  pages: Set<string>;
-  folderPaths: Set<string>;
+  pages: ReadonlySet<string>;
+  folderPaths: ReadonlySet<string>;
   loading: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (href: string, text: string, labelChanged: boolean) => void;

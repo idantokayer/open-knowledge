@@ -3,7 +3,16 @@ import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  HORIZON_DAYS,
+  horizonProblem,
+  reviewState,
+  todayUtc,
+  trackingProblems,
+} from './deviations/contract.mjs';
 import { gitCleanEnv } from './git-clean-env.mjs';
+
+export { todayUtc };
 
 const ts = createRequire(import.meta.url)('typescript');
 
@@ -11,11 +20,11 @@ export const OK_ROOT = fileURLToPath(new URL('..', import.meta.url));
 export const ALLOWLIST_PATH = fileURLToPath(
   new URL('./known-reds-allowlist.json', import.meta.url),
 );
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 4;
 export const KNOWN_BUG_TAG = 'known-bug';
 export const QUARANTINE_TAG = 'quarantine';
 export const OWNERS = Object.freeze(['get-main-green', 'known-reds']);
-export const MAX_HORIZON_DAYS = 90;
+export const MAX_HORIZON_DAYS = HORIZON_DAYS;
 export const EXCLUDED_PREFIXES = Object.freeze(['reports/', 'specs/']);
 export const CONVENTION_DOC = 'test-support/KNOWN-REDS.md';
 export const MIN_SIGNATURE_LITERAL = 4;
@@ -23,10 +32,6 @@ export const EXPIRY_WARNING_DAYS = 14;
 
 const TEST_FILE = /\.test\.[cm]?[jt]sx?$|\.e2e\.tsx?$|\.test-helper\.[cm]?[jt]sx?$/;
 const PLAYWRIGHT_FILE = /\.e2e\.tsx?$/;
-const ISSUE_URL =
-  /^https:\/\/(?:github\.com\/inkeep\/[\w.-]+\/issues\/\d+|linear\.app\/inkeep\/issue\/[A-Z]+-\d+(?:\/[\w-]*)?)$/;
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-const DAY_MS = 86_400_000;
 const RUNNER_KINDS = new Map([
   ['test', 'test'],
   ['it', 'test'],
@@ -55,7 +60,10 @@ const CI_ENV_NAMES = new Set([
   'RUNNER_OS',
 ]);
 const CI_IDENTIFIERS = new Set(['CI', 'IS_CI', 'isCI', 'isCi', 'ON_CI', 'onCI', 'IN_CI', 'inCI']);
+const CI_INFO_MODULE = 'ci-info';
+const CI_INFO_FLAG = 'isCI';
 const FIELDS = ['issue', 'owner', 'until'];
+export const ALLOWANCE_FIELDS = Object.freeze(['issue', 'owner', 'until', 'reason', 'exit']);
 
 function scriptKind(path) {
   if (path.endsWith('.tsx')) return ts.ScriptKind.TSX;
@@ -248,10 +256,64 @@ function isExpressionIdentifier(node) {
   return true;
 }
 
-function isEnvObject(node) {
+function isProcessObject(node) {
   const value = unwrap(node);
-  if (ts.isIdentifier(value)) return value.text === 'env';
-  return ts.isPropertyAccessExpression(value) && value.name.text === 'env';
+  if (ts.isIdentifier(value)) return value.text === 'process';
+  return ts.isPropertyAccessExpression(value) && value.name.text === 'process';
+}
+
+function isEnvObject(node, seen = new Set()) {
+  const value = unwrap(node);
+  if (!value) return false;
+  if (ts.isPropertyAccessExpression(value)) return value.name.text === 'env';
+  if (!ts.isIdentifier(value)) return false;
+  if (value.text === 'env') return true;
+  const binding = visibleBinding(value, value.text);
+  if (binding?.destructured)
+    return binding.destructured.key === 'env' && isProcessObject(binding.destructured.from);
+  const initializer = binding?.initializer;
+  if (!initializer || seen.has(initializer)) return false;
+  seen.add(initializer);
+  return isEnvObject(initializer, seen);
+}
+
+function constantString(node, seen = new Set()) {
+  const direct = stringValue(node);
+  if (direct !== null) return direct;
+  const value = unwrap(node);
+  if (!value || !ts.isIdentifier(value)) return null;
+  const initializer = visibleBinding(value, value.text)?.initializer;
+  if (!initializer || seen.has(initializer)) return null;
+  seen.add(initializer);
+  return constantString(initializer, seen);
+}
+
+function localHelperResult(call) {
+  if (!ts.isCallExpression(call) || call.arguments.length > 0) return null;
+  const callee = unwrap(call.expression);
+  if (!ts.isIdentifier(callee)) return null;
+  const binding = visibleBinding(callee, callee.text);
+  const initializer = binding?.initializer ? unwrap(binding.initializer) : null;
+  const fn = binding?.declaration ?? (isFunction(initializer) ? initializer : null);
+  if (!fn?.body || fn.parameters.length > 0) return null;
+  if (!ts.isBlock(fn.body)) return fn.body;
+  const [only] = fn.body.statements;
+  return fn.body.statements.length === 1 && ts.isReturnStatement(only)
+    ? (only.expression ?? null)
+    : null;
+}
+
+function isCiInfoNamespace(node) {
+  const value = unwrap(node);
+  if (!value || !ts.isIdentifier(value)) return false;
+  const imported = visibleBinding(value, value.text)?.imported;
+  return Boolean(imported?.namespace) && imported.module === CI_INFO_MODULE;
+}
+
+function isCiInfoFlag(imported) {
+  return (
+    imported?.module === CI_INFO_MODULE && !imported.namespace && imported.name === CI_INFO_FLAG
+  );
 }
 
 function ciAtom(node, aliases) {
@@ -259,18 +321,25 @@ function ciAtom(node, aliases) {
     if (!isExpressionIdentifier(node)) return null;
     return aliases(node);
   }
-  if (
-    ts.isPropertyAccessExpression(node) &&
-    CI_ENV_NAMES.has(node.name.text) &&
-    isEnvObject(node.expression)
-  ) {
-    return 'positive';
+  if (ts.isPropertyAccessExpression(node)) {
+    if (CI_ENV_NAMES.has(node.name.text) && isEnvObject(node.expression)) return 'positive';
+    if (node.name.text === CI_INFO_FLAG && isCiInfoNamespace(node.expression)) return 'positive';
+    return null;
   }
   if (ts.isElementAccessExpression(node) && isEnvObject(node.expression)) {
-    const key = stringValue(node.argumentExpression);
+    const key = constantString(node.argumentExpression);
     return key !== null && CI_ENV_NAMES.has(key) ? 'positive' : null;
   }
-  return null;
+  if (
+    ts.isBinaryExpression(node) &&
+    node.operatorToken.kind === ts.SyntaxKind.InKeyword &&
+    isEnvObject(node.right)
+  ) {
+    const key = constantString(node.left);
+    return key !== null && CI_ENV_NAMES.has(key) ? 'positive' : null;
+  }
+  const result = ts.isCallExpression(node) ? localHelperResult(node) : null;
+  return result ? aliases(result) : null;
 }
 
 function containsCi(node, aliases) {
@@ -358,17 +427,14 @@ function ciValue(node, aliases, onCi) {
 function ciAliases() {
   const aliases = new Map();
   const following = new Set();
-  const resolve = (identifier) => {
-    const binding = visibleBinding(identifier, identifier.text);
-    if (!binding) return CI_IDENTIFIERS.has(identifier.text) ? 'positive' : null;
-    const { initializer } = binding;
-    if (!initializer || following.has(initializer)) return null;
-    if (aliases.has(initializer)) return aliases.get(initializer);
-    following.add(initializer);
+  const polarityOf = (expression) => {
+    if (following.has(expression)) return null;
+    if (aliases.has(expression)) return aliases.get(expression);
+    following.add(expression);
     let polarity = null;
-    if (containsCi(initializer, resolve)) {
-      const onCi = ciValue(initializer, resolve, true);
-      const offCi = ciValue(initializer, resolve, false);
+    if (containsCi(expression, resolve)) {
+      const onCi = ciValue(expression, resolve, true);
+      const offCi = ciValue(expression, resolve, false);
       polarity =
         onCi === true && offCi === false
           ? 'positive'
@@ -376,9 +442,20 @@ function ciAliases() {
             ? 'negative'
             : 'unknown';
     }
-    following.delete(initializer);
-    aliases.set(initializer, polarity);
+    following.delete(expression);
+    aliases.set(expression, polarity);
     return polarity;
+  };
+  const resolve = (node) => {
+    if (!ts.isIdentifier(node)) return polarityOf(node);
+    const binding = visibleBinding(node, node.text);
+    if (!binding) return CI_IDENTIFIERS.has(node.text) ? 'positive' : null;
+    if (binding.destructured) {
+      const { key, from } = binding.destructured;
+      return CI_ENV_NAMES.has(key) && isEnvObject(from) ? 'positive' : null;
+    }
+    if (binding.imported) return isCiInfoFlag(binding.imported) ? 'positive' : null;
+    return binding.initializer ? polarityOf(binding.initializer) : null;
   };
   return resolve;
 }
@@ -388,6 +465,8 @@ const PROCESS_ATOMS = new Map([
   ['arch', 'arch'],
   ['getuid', 'uid'],
   ['getgid', 'uid'],
+  ['geteuid', 'uid'],
+  ['getegid', 'uid'],
   ['versions', 'runtime'],
   ['release', 'runtime'],
 ]);
@@ -450,7 +529,12 @@ function environmentBindings(ciAliasMap) {
   const environment = {
     ciAliases: ciAliasMap,
     aliases: (identifier) => {
-      const initializer = visibleBinding(identifier, identifier.text)?.initializer;
+      const binding = visibleBinding(identifier, identifier.text);
+      if (binding?.destructured) {
+        const { key, from } = binding.destructured;
+        return isEnvObject(from) || (isProcessObject(from) && PROCESS_ENVIRONMENT.has(key));
+      }
+      const initializer = binding?.initializer;
       if (!initializer || following.has(initializer)) return false;
       if (aliases.has(initializer)) return aliases.get(initializer);
       following.add(initializer);
@@ -517,7 +601,7 @@ function envKey(node) {
   const value = unwrap(node);
   if (ts.isPropertyAccessExpression(value) && isEnvObject(value.expression)) return value.name.text;
   if (ts.isElementAccessExpression(value) && isEnvObject(value.expression))
-    return stringValue(value.argumentExpression);
+    return constantString(value.argumentExpression);
   return undefined;
 }
 
@@ -571,18 +655,31 @@ function bindsName(name, target) {
 
 function variableBinding(list, target) {
   const declaration = list.declarations.find((entry) => bindsName(entry.name, target));
-  return declaration
-    ? {
-        initializer: ts.isIdentifier(declaration.name) ? (declaration.initializer ?? null) : null,
-      }
-    : null;
+  if (!declaration) return null;
+  if (ts.isIdentifier(declaration.name)) return { initializer: declaration.initializer ?? null };
+  const element = ts.isObjectBindingPattern(declaration.name)
+    ? declaration.name.elements.find(
+        (entry) => ts.isIdentifier(entry.name) && entry.name.text === target,
+      )
+    : undefined;
+  const key =
+    element && !element.dotDotDotToken
+      ? propertyName({ name: element.propertyName ?? element.name })
+      : null;
+  return {
+    initializer: null,
+    destructured:
+      key !== null && declaration.initializer ? { from: declaration.initializer, key } : null,
+  };
 }
 
 function statementBinding(statement, target) {
   if (ts.isVariableStatement(statement)) return variableBinding(statement.declarationList, target);
+  if (ts.isFunctionDeclaration(statement) && statement.name && bindsName(statement.name, target)) {
+    return { initializer: null, declaration: statement };
+  }
   if (
-    (ts.isFunctionDeclaration(statement) ||
-      ts.isClassDeclaration(statement) ||
+    (ts.isClassDeclaration(statement) ||
       ts.isEnumDeclaration(statement) ||
       ts.isModuleDeclaration(statement) ||
       (ts.isImportEqualsDeclaration(statement) && !statement.isTypeOnly)) &&
@@ -721,6 +818,21 @@ function conditionAtoms(condition, context) {
         add('fs', first ? oneLine(first, sourceFile) : name, textNode);
         return;
       }
+      const result = localHelperResult(node);
+      if (result && !following.has(result)) {
+        following.add(result);
+        visit(result, null);
+        following.delete(result);
+        return;
+      }
+    }
+    if (
+      ts.isPropertyAccessExpression(node) &&
+      node.name.text === CI_INFO_FLAG &&
+      isCiInfoNamespace(node.expression)
+    ) {
+      add('ci', CI_INFO_MODULE, textNode);
+      return;
     }
     const { root, members } = memberPath(node);
     if (root?.text === 'process' && PROCESS_ATOMS.has(members[0])) {
@@ -745,8 +857,19 @@ function conditionAtoms(condition, context) {
     if (ts.isIdentifier(node)) {
       const binding = visibleBinding(node, node.text);
       if (binding?.imported) {
-        add('import', binding.imported.module, textNode);
+        add(isCiInfoFlag(binding.imported) ? 'ci' : 'import', binding.imported.module, textNode);
         return;
+      }
+      if (binding?.destructured) {
+        const { key, from } = binding.destructured;
+        if (isEnvObject(from)) {
+          envAtom(key, textNode);
+          return;
+        }
+        if (isProcessObject(from) && PROCESS_ATOMS.has(key)) {
+          add(PROCESS_ATOMS.get(key), `process.${key}`, textNode);
+          return;
+        }
       }
       const initializer = binding?.initializer ?? null;
       if (initializer && !following.has(initializer)) {
@@ -765,7 +888,24 @@ function conditionAtoms(condition, context) {
         return;
       }
     }
-    add(probesFilesystem(node) ? 'fs' : 'runtime', oneLine(node, sourceFile), textNode);
+    if (probesFilesystem(node)) {
+      add('fs', oneLine(node, sourceFile), textNode);
+      return;
+    }
+    add('unknown', oneLine(node, sourceFile), textNode);
+    if (ts.isCallExpression(node)) {
+      const callee = unwrap(node.expression);
+      if (ts.isPropertyAccessExpression(callee)) visit(callee.expression, null);
+      for (const argument of node.arguments) {
+        const value = unwrap(argument);
+        if (
+          !isFunction(value) &&
+          !ts.isArrayLiteralExpression(value) &&
+          !ts.isObjectLiteralExpression(value)
+        )
+          visit(argument, null);
+      }
+    }
   };
   const visit = (raw, textNode) => {
     const node = unwrap(raw);
@@ -795,7 +935,7 @@ function conditionAtoms(condition, context) {
         return;
       }
       if (operator === ts.SyntaxKind.InKeyword && isEnvObject(node.right)) {
-        envAtom(stringValue(node.left), textNode ?? node);
+        envAtom(constantString(node.left), textNode ?? node);
         return;
       }
     }
@@ -1418,37 +1558,10 @@ export function scanTree(root) {
   return report;
 }
 
-export function todayUtc(now = new Date()) {
-  return now.toISOString().slice(0, 10);
-}
-
-function addDays(day, days) {
-  return new Date(Date.parse(`${day}T00:00:00Z`) + days * DAY_MS).toISOString().slice(0, 10);
-}
-
-function dateProblem(until, today) {
-  if (!until) return 'has no until date';
-  if (!ISO_DATE.test(until)) return `has until "${until}", which is not YYYY-MM-DD`;
-  const time = Date.parse(`${until}T00:00:00Z`);
-  if (Number.isNaN(time) || new Date(time).toISOString().slice(0, 10) !== until)
-    return `has until "${until}", which is not a date`;
-  if (until < today) return `expired on ${until}`;
-  const horizon = addDays(today, MAX_HORIZON_DAYS);
-  if (until > horizon)
-    return `has until ${until}, beyond the ${MAX_HORIZON_DAYS}-day horizon (${horizon})`;
-  return null;
-}
-
-function trackedProblems(entry, today, { needsIssue }) {
-  const problems = [];
-  if (needsIssue && !entry.issue) problems.push('has no issue link');
-  if (entry.issue && !ISSUE_URL.test(entry.issue))
-    problems.push(`has issue "${entry.issue}", which is not a GitHub or Linear issue URL`);
-  if (!entry.owner) problems.push('has no owner');
-  else if (!OWNERS.includes(entry.owner))
-    problems.push(`has owner "${entry.owner}", which is not one of ${OWNERS.join(', ')}`);
-  const date = dateProblem(entry.until, today);
-  if (date) problems.push(date);
+function trackedProblems(entry, today, required) {
+  const problems = trackingProblems(entry, { required, owners: OWNERS });
+  const beyond = horizonProblem(entry.until, today);
+  if (beyond) problems.push(beyond);
   return problems;
 }
 
@@ -1463,7 +1576,7 @@ export function loadAllowlist(path = ALLOWLIST_PATH) {
 export function validate(report, { today, allowlist }) {
   const violations = [...report.problems];
   for (const pin of report.pins) {
-    for (const message of trackedProblems(pin, today, { needsIssue: true })) {
+    for (const message of trackedProblems(pin, today, FIELDS)) {
       violations.push({
         path: pin.path,
         line: pin.line,
@@ -1473,7 +1586,7 @@ export function validate(report, { today, allowlist }) {
     }
   }
   for (const quarantine of report.quarantines) {
-    for (const message of trackedProblems(quarantine, today, { needsIssue: true })) {
+    for (const message of trackedProblems(quarantine, today, FIELDS)) {
       violations.push({
         path: quarantine.path,
         line: quarantine.line,
@@ -1517,13 +1630,7 @@ export function validate(report, { today, allowlist }) {
         message: `entry ${entry.path} (${entry.condition}) matches no CI-keyed skip; remove it`,
       });
     }
-    if (!entry.reason)
-      violations.push({
-        ...where,
-        rule: 'allowlist-fields',
-        message: `entry ${entry.path} has no reason`,
-      });
-    for (const message of trackedProblems(entry, today, { needsIssue: false })) {
+    for (const message of trackedProblems(entry, today, ALLOWANCE_FIELDS)) {
       violations.push({
         ...where,
         rule: 'allowlist-fields',
@@ -1534,25 +1641,32 @@ export function validate(report, { today, allowlist }) {
   return violations;
 }
 
-export function expiringSoon(report, { today, allowlist }) {
-  const limit = addDays(today, EXPIRY_WARNING_DAYS);
-  const due = (entry) =>
-    typeof entry.until === 'string' &&
-    ISO_DATE.test(entry.until) &&
-    entry.until >= today &&
-    entry.until <= limit;
+function trackedRows(report, allowlist, keep) {
   const row = (kind) => (entry) => ({
     kind,
     path: entry.path,
     line: entry.line ?? null,
     owner: entry.owner ?? null,
+    issue: entry.issue ?? null,
     until: entry.until,
   });
   return [
-    ...report.pins.filter(due).map(row('pin')),
-    ...report.quarantines.filter(due).map(row('quarantine')),
-    ...allowlist.ciSkips.filter(due).map(row('ci-skip-entry')),
+    ...report.pins.filter(keep).map(row('pin')),
+    ...report.quarantines.filter(keep).map(row('quarantine')),
+    ...allowlist.ciSkips.filter(keep).map(row('ci-skip-entry')),
   ];
+}
+
+export function expiringSoon(report, { today, allowlist }) {
+  return trackedRows(
+    report,
+    allowlist,
+    (entry) => reviewState(entry.until, today, { soonDays: EXPIRY_WARNING_DAYS }) === 'due-soon',
+  );
+}
+
+export function expired(report, { today, allowlist }) {
+  return trackedRows(report, allowlist, (entry) => reviewState(entry.until, today) === 'expired');
 }
 
 const EXPIRING_KIND_LABELS = {
@@ -1561,7 +1675,7 @@ const EXPIRING_KIND_LABELS = {
   'ci-skip-entry': 'allowlisted CI skip',
 };
 
-export function render(report, violations, upcoming, today, { all }) {
+export function render(report, violations, upcoming, today, { all, lapsed = [] }) {
   const lines = [
     `Known reds in open-knowledge on ${today}: ${report.files} test files scanned.`,
     '',
@@ -1602,10 +1716,28 @@ export function render(report, violations, upcoming, today, { all }) {
     all,
   );
   section(
+    'Gates with a condition the scanner cannot read',
+    [...report.ciSkips, ...report.envGates].filter((row) =>
+      row.atoms.some((atom) => atom.kind === 'unknown'),
+    ),
+    (row) =>
+      `${row.path}:${row.line}  ${row.form}  cannot read: ${row.atoms
+        .filter((atom) => atom.kind === 'unknown')
+        .map((atom) => atom.name)
+        .join(', ')}`,
+    all,
+  );
+  section(
     `Expiring within ${EXPIRY_WARNING_DAYS} days`,
     upcoming,
     (row) =>
       `${EXPIRING_KIND_LABELS[row.kind] ?? row.kind}  ${row.path}${row.line === null ? '' : `:${row.line}`}  owner ${row.owner ?? '?'}, until ${row.until}`,
+  );
+  section(
+    'Expired, reported and not failed',
+    lapsed,
+    (row) =>
+      `${EXPIRING_KIND_LABELS[row.kind] ?? row.kind}  ${row.path}${row.line === null ? '' : `:${row.line}`}  owner ${row.owner ?? '?'}, until ${row.until}, issue ${row.issue ?? 'none'}`,
   );
   section(
     'Violations',
@@ -1614,7 +1746,7 @@ export function render(report, violations, upcoming, today, { all }) {
   );
   if (!all)
     lines.push(
-      'Pass --all to list every not-run test and environment gate, or --json for the full feed.',
+      'Pass --all to list every not-run test, environment gate and gate the scanner cannot read, or --json for the full feed.',
     );
   lines.push(`The convention: ${CONVENTION_DOC}.`);
   return `${lines.join('\n')}\n`;
@@ -1629,13 +1761,14 @@ function main(argv) {
     const allowlist = loadAllowlist();
     const violations = validate(report, { today, allowlist });
     const upcoming = expiringSoon(report, { today, allowlist });
+    const lapsed = expired(report, { today, allowlist });
     if (argv.includes('--json')) {
       process.stdout.write(
-        `${JSON.stringify({ ...report, today, expiringSoon: upcoming, violations }, null, 2)}\n`,
+        `${JSON.stringify({ ...report, today, expiringSoon: upcoming, expired: lapsed, violations }, null, 2)}\n`,
       );
     } else {
       process.stdout.write(
-        render(report, violations, upcoming, today, { all: argv.includes('--all') }),
+        render(report, violations, upcoming, today, { all: argv.includes('--all'), lapsed }),
       );
     }
     process.exitCode = violations.length > 0 ? 1 : 0;

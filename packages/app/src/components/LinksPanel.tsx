@@ -8,7 +8,7 @@ import {
   type ForwardLinksSuccess,
   ForwardLinksSuccessSchema,
   ProblemDetailsSchema,
-} from '@inkeep/open-knowledge-core';
+} from '@inkeep/open-knowledge-core/schemas/api';
 import { t } from '@lingui/core/macro';
 import { Trans, useLingui } from '@lingui/react/macro';
 import { useQuery } from '@tanstack/react-query';
@@ -567,18 +567,27 @@ function LocalFilesSection({ docName }: { docName: string }) {
     const isImage = target.role === 'image';
     const resolved = target.status === 'exact' || target.status === 'fallback';
     const identity = target.resolvedTarget ?? target.href;
-    const statusWord = target.status === 'missing' ? t`Missing` : t`Unresolvable`;
+    const excluded = target.reason === 'excluded';
+    const statusWord = excluded
+      ? t`Excluded`
+      : target.status === 'missing'
+        ? t`Missing`
+        : t`Unresolvable`;
     const ariaLabel = resolved
       ? isImage
         ? t`Image ${identity}. Go to reference.`
         : t`File ${identity}. Go to reference.`
-      : target.status === 'missing'
+      : excluded
         ? isImage
-          ? t`Missing image ${identity}. Go to reference.`
-          : t`Missing file ${identity}. Go to reference.`
-        : isImage
-          ? t`Unresolvable image ${identity}. Go to reference.`
-          : t`Unresolvable file ${identity}. Go to reference.`;
+          ? t`Excluded image ${identity}. Go to reference.`
+          : t`Excluded file ${identity}. Go to reference.`
+        : target.status === 'missing'
+          ? isImage
+            ? t`Missing image ${identity}. Go to reference.`
+            : t`Missing file ${identity}. Go to reference.`
+          : isImage
+            ? t`Unresolvable image ${identity}. Go to reference.`
+            : t`Unresolvable file ${identity}. Go to reference.`;
     return (
       <LinkRow
         key={`lt:${target.range.start}-${target.range.end}`}

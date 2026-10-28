@@ -7,7 +7,8 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
+import type { ProcessTerminationLookup, ProcessTerminationQuery } from '@inkeep/open-knowledge';
 import {
   MINIDUMP_FILE_EXTENSION,
   type OkBugReportCrashDetectedEvent,
@@ -59,7 +60,9 @@ export const STALE_CRASH_AFTER_MS = 7 * 24 * 60 * 60_000;
 
 const MAX_ACKED_EVENT_IDS = 50;
 
-const DECLINED_DEATH_DUMP_MATCH_MS = 30_000;
+const MAX_BOUND_INVITATIONS = 16;
+
+const DEATH_DUMP_MATCH_MS = 30_000;
 
 export const MAX_DECLINED_DEATHS = 600;
 
@@ -68,6 +71,28 @@ const MINIDUMP_SCAN_DEPTH = 3;
 const OS_SHUTDOWN_MARKER_TTL_MS = 120_000;
 
 export const SENTINEL_HEARTBEAT_INTERVAL_MS = 60_000;
+
+export const REINSTALL_KILL_WINDOW_MS = 5 * 60_000;
+
+export type InstalledAppChange =
+  | { kind: 'read'; changedAtMs: number }
+  | { kind: 'unreadable'; error: string };
+
+export function readInstalledAppChangeSync(
+  exePath: string,
+  stat: (path: string) => { birthtimeMs: number; ctimeMs: number } = statSync,
+): InstalledAppChange {
+  try {
+    const { birthtimeMs, ctimeMs } = stat(exePath);
+    const changedAtMs = Math.max(birthtimeMs, ctimeMs);
+    return Number.isFinite(changedAtMs) && changedAtMs > 0
+      ? { kind: 'read', changedAtMs }
+      : { kind: 'unreadable', error: 'invalid-time' };
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException | null)?.code;
+    return { kind: 'unreadable', error: typeof code === 'string' ? code : 'unknown' };
+  }
+}
 
 interface CrashLogger {
   info(payload: Record<string, unknown>, msg: string): void;
@@ -109,6 +134,7 @@ interface SentinelState {
   osShutdownReasons?: string[];
   suspendedAt?: string;
   appVersion?: string;
+  pid?: number;
 }
 
 export interface MainExitRecord {
@@ -162,11 +188,15 @@ export interface CrashDetectionDeps {
   crashDumpsDir: string;
   appBundleRoot: string;
   appVersion: string;
+  processId: number;
   platform?: NodeJS.Platform;
   emit(event: OkBugReportCrashDetectedEvent): boolean;
   now(): Date;
   currentBootSessionUuid(): string | null;
+  currentBootStartedAtMs?(): number | null;
   installInFlight?(span: { deathFromMs: number; deathToMs: number }): InstallInFlight | null;
+  processTermination?(query: ProcessTerminationQuery): ProcessTerminationLookup;
+  installedAppChange?(): InstalledAppChange;
   mainThreadWatchdog: Pick<MainThreadWatchdog, 'readPrevious' | 'readPreviousStall' | 'start'>;
   logger: CrashLogger;
 }
@@ -201,12 +231,77 @@ export interface CrashDetection {
   notifyRendererReady(): void;
   ack(eventId: string): void;
   newestMinidumpForReport(): MinidumpReportLookup;
+  minidumpForCrashEvent(eventId: string): CrashEventMinidumpLookup;
 }
 
 export interface MinidumpReportLookup {
   path: string | null;
   foreignSkipped: number;
   unknownSkipped: number;
+}
+
+export type BoundMinidumpOmission =
+  | 'invitation-unbound'
+  | 'bound-dump-missing'
+  | 'bound-dump-changed'
+  | 'bound-dump-ambiguous'
+  | 'bound-dump-not-owned'
+  | 'bound-dump-unreadable'
+  | 'bound-dump-non-crash';
+
+export type CrashEventMinidumpLookup =
+  | { status: 'bound'; path: string }
+  | { status: 'none-bound' }
+  | { status: 'omitted'; reason: BoundMinidumpOmission };
+
+interface BoundMinidump {
+  fileName: string;
+  sizeBytes: number;
+  mtimeMs: number;
+}
+
+type WithoutMinidumpAvailable<E> = E extends unknown ? Omit<E, 'minidumpAvailable'> : never;
+
+type RuntimeCrashEventDraft = WithoutMinidumpAvailable<
+  Exclude<OkBugReportCrashDetectedEvent, { kind: 'boot' }>
+>;
+
+type SettledFrom = 'scan' | 'held' | 'held-missing' | 'none';
+
+type InvitationBinding =
+  | { state: 'settled'; dump: BoundMinidump | null }
+  | { state: 'settling'; deathMs: number; dump: BoundMinidump | null };
+
+interface DeathWindowScan {
+  entry: MinidumpEntry | null;
+  dumpsNearDeath: number;
+  acknowledgedSkipped: number;
+  foreignSkipped: number;
+  unknownSkipped: number;
+  nonCrashSkipped: number;
+  declinedSkipped: number;
+}
+
+function deathWindowFacts(scan: DeathWindowScan): Record<string, string | number | null> {
+  return {
+    deathWindowOutcome:
+      scan.entry !== null
+        ? 'bound'
+        : scan.dumpsNearDeath === 0
+          ? 'no-dump-near-death'
+          : 'none-attachable',
+    deathWindowDump: scan.entry === null ? null : basename(scan.entry.path),
+    deathWindowDumpCount: scan.dumpsNearDeath,
+    deathWindowAcknowledgedSkipped: scan.acknowledgedSkipped,
+    deathWindowForeignSkipped: scan.foreignSkipped,
+    deathWindowUnreadableSkipped: scan.unknownSkipped,
+    deathWindowSnapshotSkipped: scan.nonCrashSkipped,
+    deathWindowDeclinedSkipped: scan.declinedSkipped,
+  };
+}
+
+function toBoundMinidump(entry: MinidumpEntry): BoundMinidump {
+  return { fileName: basename(entry.path), sizeBytes: entry.sizeBytes, mtimeMs: entry.mtimeMs };
 }
 
 export function startLocalCrashReporter(reporter: {
@@ -256,6 +351,7 @@ function parseAckStore(raw: string): CrashAckStore | null {
 interface MinidumpEntry {
   path: string;
   mtimeMs: number;
+  sizeBytes: number;
 }
 
 function collectMinidumpEntries(dir: string, depth: number, out: MinidumpEntry[]): void {
@@ -273,7 +369,8 @@ function collectMinidumpEntries(dir: string, depth: number, out: MinidumpEntry[]
     }
     if (!entry.name.endsWith(MINIDUMP_FILE_EXTENSION)) continue;
     try {
-      out.push({ path: entryPath, mtimeMs: statSync(entryPath).mtimeMs });
+      const stats = statSync(entryPath);
+      out.push({ path: entryPath, mtimeMs: stats.mtimeMs, sizeBytes: stats.size });
     } catch {}
   }
 }
@@ -285,6 +382,7 @@ export function createCrashDetection(deps: CrashDetectionDeps): CrashDetection {
     armedAtMs: number;
   } | null = null;
   let runtimeSeq = 0;
+  const boundDumps = new Map<string, InvitationBinding>();
 
   let recentGpuCrashes: number[] = [];
 
@@ -375,7 +473,7 @@ export function createCrashDetection(deps: CrashDetectionDeps): CrashDetection {
   function declinedDeathForDump(entry: MinidumpEntry): DeclinedDeathMatch {
     const near = store.declinedDeaths.filter((declined) => {
       const at = epochMsOrNull(declined.at);
-      return at !== null && Math.abs(entry.mtimeMs - at) <= DECLINED_DEATH_DUMP_MATCH_MS;
+      return at !== null && Math.abs(entry.mtimeMs - at) <= DEATH_DUMP_MATCH_MS;
     });
     if (near.length === 0) return { matched: null, read: 'not-asked' };
     const { processType, parseFailed } = readMinidumpProcessType(entry.path);
@@ -390,7 +488,8 @@ export function createCrashDetection(deps: CrashDetectionDeps): CrashDetection {
 
   function tryDeliver(): void {
     if (active === null || active.delivered) return;
-    const pendingAgeMs = deps.now().getTime() - active.armedAtMs;
+    const nowMs = deps.now().getTime();
+    const pendingAgeMs = nowMs - active.armedAtMs;
     if (pendingAgeMs >= INVITE_EXPIRE_AFTER_MS) {
       deps.logger.info(
         {
@@ -404,12 +503,174 @@ export function createCrashDetection(deps: CrashDetectionDeps): CrashDetection {
       active = null;
       return;
     }
+    if (boundDumps.get(active.event.eventId)?.state === 'settling') {
+      const minidumpAvailable =
+        (settleInvitation(active.event.eventId, nowMs)?.dump ?? null) !== null;
+      if (active.event.minidumpAvailable !== minidumpAvailable) {
+        deps.logger.info(
+          {
+            event: 'crash-detection.invitation-dump-availability-changed',
+            eventId: active.event.eventId,
+            minidumpAvailable,
+          },
+          'the dump of this death changed before the invitation was delivered',
+        );
+        active.event = { ...active.event, minidumpAvailable };
+      }
+    }
     if (deps.emit(active.event)) {
       active.delivered = true;
     }
   }
 
-  function armInvite(event: OkBugReportCrashDetectedEvent): boolean {
+  function bindInvitation(eventId: string, binding: InvitationBinding): void {
+    boundDumps.delete(eventId);
+    boundDumps.set(eventId, binding);
+    while (boundDumps.size > MAX_BOUND_INVITATIONS) {
+      const oldest = boundDumps.keys().next();
+      if (oldest.done === true) break;
+      boundDumps.delete(oldest.value);
+    }
+  }
+
+  function listMinidumpEntries(): MinidumpEntry[] {
+    const entries: MinidumpEntry[] = [];
+    collectMinidumpEntries(deps.crashDumpsDir, MINIDUMP_SCAN_DEPTH, entries);
+    return entries;
+  }
+
+  function scanDeathWindow(
+    deathMs: number,
+    entries: readonly MinidumpEntry[] = listMinidumpEntries(),
+  ): DeathWindowScan {
+    const near = entries
+      .map((entry) => ({ entry, distanceMs: Math.abs(entry.mtimeMs - deathMs) }))
+      .filter(({ distanceMs }) => distanceMs <= DEATH_DUMP_MATCH_MS)
+      .sort((a, b) => a.distanceMs - b.distanceMs || a.entry.mtimeMs - b.entry.mtimeMs);
+    const baselineMs = Date.parse(store.minidumpBaselineAt);
+    const scan: DeathWindowScan = {
+      entry: null,
+      dumpsNearDeath: near.length,
+      acknowledgedSkipped: 0,
+      foreignSkipped: 0,
+      unknownSkipped: 0,
+      nonCrashSkipped: 0,
+      declinedSkipped: 0,
+    };
+    for (const { entry } of near) {
+      if (!(entry.mtimeMs > baselineMs)) {
+        scan.acknowledgedSkipped += 1;
+        continue;
+      }
+      const ownership = classifyDump(entry.path);
+      if (ownership !== 'ours') {
+        if (ownership === 'foreign') scan.foreignSkipped += 1;
+        else scan.unknownSkipped += 1;
+        continue;
+      }
+      if (crashKindOf(entry.path) === 'non-crash') {
+        scan.nonCrashSkipped += 1;
+        continue;
+      }
+      if (declinedDeathForDump(entry).matched !== null) {
+        scan.declinedSkipped += 1;
+        continue;
+      }
+      scan.entry = entry;
+      break;
+    }
+    return scan;
+  }
+
+  function findHeldDump(
+    dump: BoundMinidump,
+    entries: readonly MinidumpEntry[],
+  ): BoundMinidump | null {
+    const matches = entries.filter((entry) => basename(entry.path) === dump.fileName);
+    const match = matches[0];
+    if (match === undefined) return null;
+    return matches.length === 1 ? toBoundMinidump(match) : dump;
+  }
+
+  function settleBinding(
+    eventId: string,
+    binding: InvitationBinding,
+    nowMs: number,
+  ): InvitationBinding {
+    if (binding.state === 'settled') return binding;
+    const windowOpen = nowMs < binding.deathMs + DEATH_DUMP_MATCH_MS;
+    const entries = listMinidumpEntries();
+    const scan = scanDeathWindow(binding.deathMs, entries);
+    const held = binding.dump === null ? null : findHeldDump(binding.dump, entries);
+    const heldDumpVanished = binding.dump !== null && held === null;
+    let settledFrom: SettledFrom = heldDumpVanished ? 'held-missing' : 'none';
+    if (!heldDumpVanished) {
+      if (scan.entry !== null) {
+        const next = toBoundMinidump(scan.entry);
+        if (binding.dump === null) {
+          deps.logger.info(
+            { event: 'crash-detection.invitation-dump-bound', eventId, ...deathWindowFacts(scan) },
+            'a dump of this death appeared after the invitation armed and is now bound to it',
+          );
+        } else if (binding.dump.fileName !== next.fileName) {
+          deps.logger.info(
+            {
+              event: 'crash-detection.invitation-dump-rebound',
+              eventId,
+              previousDump: binding.dump.fileName,
+              ...deathWindowFacts(scan),
+            },
+            'a dump closer to this death replaced the one bound to its invitation',
+          );
+        }
+        binding.dump = next;
+        settledFrom = 'scan';
+      } else if (held !== null) {
+        binding.dump = held;
+        settledFrom = 'held';
+      }
+    }
+    if (windowOpen) return binding;
+    deps.logger.info(
+      {
+        event: 'crash-detection.invitation-dump-settled',
+        eventId,
+        settledDump: binding.dump?.fileName ?? null,
+        settledFrom,
+        heldDumpVanished,
+        ...deathWindowFacts(scan),
+      },
+      heldDumpVanished
+        ? 'the dump bound to this death is gone, so its binding settles on the missing file'
+        : 'the dump bound to this death is now fixed',
+    );
+    return { state: 'settled', dump: binding.dump };
+  }
+
+  function settleInvitation(eventId: string, nowMs: number): InvitationBinding | undefined {
+    const binding = boundDumps.get(eventId);
+    if (binding === undefined) return undefined;
+    const settled = settleBinding(eventId, binding, nowMs);
+    if (settled !== binding) boundDumps.set(eventId, settled);
+    return settled;
+  }
+
+  function armRuntimeInvite(
+    event: RuntimeCrashEventDraft,
+    deathMs: number,
+    entry: MinidumpEntry | null,
+  ): boolean {
+    return armInvite(
+      { ...event, minidumpAvailable: entry !== null },
+      {
+        state: 'settling',
+        deathMs,
+        dump: entry === null ? null : toBoundMinidump(entry),
+      },
+    );
+  }
+
+  function armInvite(event: OkBugReportCrashDetectedEvent, binding: InvitationBinding): boolean {
     const nowMs = deps.now().getTime();
     if (active !== null) {
       const pendingAgeMs = nowMs - active.armedAtMs;
@@ -436,6 +697,7 @@ export function createCrashDetection(deps: CrashDetectionDeps): CrashDetection {
       );
     }
     active = { event, delivered: false, armedAtMs: nowMs };
+    bindInvitation(event.eventId, binding);
     return true;
   }
 
@@ -458,8 +720,7 @@ export function createCrashDetection(deps: CrashDetectionDeps): CrashDetection {
   }
 
   function freshMinidumpEntries(): MinidumpEntry[] {
-    const entries: MinidumpEntry[] = [];
-    collectMinidumpEntries(deps.crashDumpsDir, MINIDUMP_SCAN_DEPTH, entries);
+    const entries = listMinidumpEntries();
     const baselineMs = Date.parse(store.minidumpBaselineAt);
     return entries.filter((e) => e.mtimeMs > baselineMs).sort((a, b) => b.mtimeMs - a.mtimeMs);
   }
@@ -498,7 +759,7 @@ export function createCrashDetection(deps: CrashDetectionDeps): CrashDetection {
       ) {
         deps.logger.warn(
           { event: 'crash-detection.boot-session-unavailable', platform: process.platform },
-          'kernel boot-session identity unavailable — reboot suppression is disabled this launch',
+          'kernel boot-session identity unavailable — reboot detection falls back to the OS boot instant this launch',
         );
       }
 
@@ -523,6 +784,7 @@ export function createCrashDetection(deps: CrashDetectionDeps): CrashDetection {
       let prevOsShutdownReasons: string[] | null = null;
       let prevSuspendedAt: string | null = null;
       let prevAppVersion: string | null = null;
+      let prevPid: number | null = null;
       if (sentinelRaw !== null) {
         let parsed: Record<string, unknown> | null = null;
         try {
@@ -550,6 +812,9 @@ export function createCrashDetection(deps: CrashDetectionDeps): CrashDetection {
         }
         prevSuspendedAt = field('suspendedAt');
         prevAppVersion = asReportableAppVersion(field('appVersion'));
+        const rawPid = parsed?.pid;
+        prevPid =
+          typeof rawPid === 'number' && Number.isInteger(rawPid) && rawPid > 0 ? rawPid : null;
       }
 
       const detectedAtMs = detectedAt.getTime();
@@ -666,17 +931,71 @@ export function createCrashDetection(deps: CrashDetectionDeps): CrashDetection {
         d.declined.matched === null &&
         !d.handoffShadowed;
       const newDumps = freshDumps.filter(arming).map((d) => d.entry.mtimeMs);
-      const ownedDumpCount = freshDumps.filter(
+      const attachableDumps = freshDumps.filter(
         (d) => d.ownership === 'ours' && d.crashKind !== 'non-crash',
-      ).length;
+      );
+      const boundDump = (attachableDumps.find(arming) ?? attachableDumps[0])?.entry ?? null;
 
-      const rebootedBetweenSessions =
-        prevBootSessionUuid !== null &&
-        bootSessionUuid !== null &&
-        prevBootSessionUuid !== bootSessionUuid;
-      const machineLevelDeath =
+      const bootSessionsComparable = prevBootSessionUuid !== null && bootSessionUuid !== null;
+      const bootStartedAtMs = bootSessionsComparable
+        ? null
+        : (deps.currentBootStartedAtMs?.() ?? null);
+      const rebootedBetweenSessions = bootSessionsComparable
+        ? prevBootSessionUuid !== bootSessionUuid
+        : bootStartedAtMs !== null && lastAliveMs !== null && bootStartedAtMs > lastAliveMs;
+      const sentinelUnflushed = sentinelRaw?.includes('\u0000') ?? false;
+      const announcedMachineCause = rebootedBetweenSessions
+        ? 'system-reboot'
+        : prevPendingOsShutdownAt !== null
+          ? 'os-shutdown'
+          : prevSuspendedAt !== null
+            ? 'suspended'
+            : sentinelUnflushed
+              ? 'unflushed-sentinel'
+              : null;
+      const unexplainedDirtyEnd =
         sentinelPresent &&
-        (rebootedBetweenSessions || prevPendingOsShutdownAt !== null || prevSuspendedAt !== null);
+        announcedMachineCause === null &&
+        installInFlight === null &&
+        newDumps.length === 0 &&
+        lastAliveMs !== null;
+      const processTermination =
+        unexplainedDirtyEnd && prevPid !== null && deps.processTermination !== undefined
+          ? deps.processTermination({ pid: prevPid, fromMs: lastAliveMs, toMs: detectedAtMs })
+          : null;
+      const killedByPriorityUnderOthersMemory =
+        processTermination?.outcome === 'killed' &&
+        processTermination.victimChosenByPriority &&
+        processTermination.largestProcessOwned === false;
+      const installedAppChange =
+        unexplainedDirtyEnd && deps.installedAppChange !== undefined
+          ? deps.installedAppChange()
+          : null;
+      const installedAppChangedAtMs =
+        installedAppChange?.kind === 'read' ? installedAppChange.changedAtMs : null;
+      const reinstalledOverSession =
+        liveness.kind !== 'blocked' &&
+        installedAppChangedAtMs !== null &&
+        lastAliveMs !== null &&
+        installedAppChangedAtMs > lastAliveMs &&
+        installedAppChangedAtMs <= detectedAtMs &&
+        installedAppChangedAtMs - lastAliveMs <= REINSTALL_KILL_WINDOW_MS;
+      const machineCause =
+        announcedMachineCause ??
+        (killedByPriorityUnderOthersMemory
+          ? 'os-memory-pressure'
+          : reinstalledOverSession
+            ? 'app-reinstalled'
+            : null);
+      const machineLevelDeath = sentinelPresent && machineCause !== null;
+      const terminationFields = {
+        previousPid: prevPid,
+        processTermination,
+        installedAppChangedAt:
+          installedAppChangedAtMs === null ? null : new Date(installedAppChangedAtMs).toISOString(),
+        installedAppChangeError:
+          installedAppChange?.kind === 'unreadable' ? installedAppChange.error : null,
+      };
 
       const updateInstallDeath = sentinelPresent && installInFlight !== null;
       const suppressibleDeath = machineLevelDeath || updateInstallDeath;
@@ -700,15 +1019,7 @@ export function createCrashDetection(deps: CrashDetectionDeps): CrashDetection {
 
       let armed: OkBugReportCrashDetectedEvent | null = null;
       if (machineSuppressed || crashTooOld) {
-        const reason = !machineSuppressed
-          ? 'stale-crash'
-          : rebootedBetweenSessions
-            ? 'system-reboot'
-            : prevPendingOsShutdownAt !== null
-              ? 'os-shutdown'
-              : prevSuspendedAt !== null
-                ? 'suspended'
-                : 'update-install';
+        const reason = machineSuppressed ? (machineCause ?? 'update-install') : 'stale-crash';
         const breadcrumb = {
           event: 'crash-detection.machine-level-death',
           reason,
@@ -723,6 +1034,8 @@ export function createCrashDetection(deps: CrashDetectionDeps): CrashDetection {
           prevBootId,
           prevBootSessionUuid,
           currentBootSessionUuid: bootSessionUuid,
+          currentBootStartedAt:
+            bootStartedAtMs === null ? null : new Date(bootStartedAtMs).toISOString(),
           lastAliveAt: prevLastAliveAt,
           sentinelAgeMs,
           deathAgeMs,
@@ -730,16 +1043,11 @@ export function createCrashDetection(deps: CrashDetectionDeps): CrashDetection {
           deathAtSource,
           staleAfterMs: STALE_CRASH_AFTER_MS,
           class: machineSuppressed ? 'external' : 'stale',
-          machineCause: rebootedBetweenSessions
-            ? 'system-reboot'
-            : prevPendingOsShutdownAt !== null
-              ? 'os-shutdown'
-              : prevSuspendedAt !== null
-                ? 'suspended'
-                : null,
+          machineCause,
           suspendedAt: prevSuspendedAt,
           pendingOsShutdownAt: prevPendingOsShutdownAt,
           osShutdownReasons: prevOsShutdownReasons,
+          ...terminationFields,
           ...previousSessionFields,
         };
         if (reason === 'os-shutdown') {
@@ -754,9 +1062,15 @@ export function createCrashDetection(deps: CrashDetectionDeps): CrashDetection {
               ? 'previous session was killed by a system reboot — suppressing the report prompt'
               : reason === 'suspended'
                 ? 'previous session died asleep without resuming — suppressing the report prompt'
-                : reason === 'stale-crash'
-                  ? 'previous session died too long ago to report usefully — suppressing the report prompt'
-                  : 'previous session was killed by an update install — suppressing the report prompt',
+                : reason === 'os-memory-pressure'
+                  ? 'previous session was ended by the OS to relieve memory pressure another process caused — suppressing the report prompt'
+                  : reason === 'app-reinstalled'
+                    ? 'previous session was closed by an installer replacing the app — suppressing the report prompt'
+                    : reason === 'unflushed-sentinel'
+                      ? 'previous session left a sentinel the OS never flushed, so the machine stopped under it — suppressing the report prompt'
+                      : reason === 'stale-crash'
+                        ? 'previous session died too long ago to report usefully — suppressing the report prompt'
+                        : 'previous session was killed by an update install — suppressing the report prompt',
           );
         }
       } else if (somethingToReport) {
@@ -778,11 +1092,16 @@ export function createCrashDetection(deps: CrashDetectionDeps): CrashDetection {
             eventId,
             kind: 'boot',
             context: { dirtyShutdown: !dumpDriven, newMinidumps: newDumps.length },
-            minidumpAvailable: ownedDumpCount > 0,
+            minidumpAvailable: boundDump !== null,
             ...(crashedAppVersion !== null ? { crashedAppVersion } : {}),
             ...(crashedAtMs !== null ? { crashedAt: new Date(crashedAtMs).toISOString() } : {}),
           };
-          if (armInvite(event)) {
+          if (
+            armInvite(event, {
+              state: 'settled',
+              dump: boundDump === null ? null : toBoundMinidump(boundDump),
+            })
+          ) {
             armed = event;
             deps.logger.info(
               {
@@ -794,6 +1113,10 @@ export function createCrashDetection(deps: CrashDetectionDeps): CrashDetection {
                 lastAliveAt: prevLastAliveAt,
                 suspendedAt: prevSuspendedAt,
                 pendingOsShutdownAt: prevPendingOsShutdownAt,
+                bootSessionsComparable,
+                currentBootStartedAt:
+                  bootStartedAtMs === null ? null : new Date(bootStartedAtMs).toISOString(),
+                sentinelUnflushed,
                 attemptedInstall: installInFlight?.attemptedVersion ?? null,
                 crashedAppVersion,
                 crashedAppVersionParseFailed: dumpVersion?.parseFailed ?? false,
@@ -804,6 +1127,7 @@ export function createCrashDetection(deps: CrashDetectionDeps): CrashDetection {
                     }
                   : {}),
                 detectingAppVersion: deps.appVersion,
+                ...terminationFields,
                 ...previousSessionFields,
               },
               'previous session ended uncleanly — arming report invitation',
@@ -822,6 +1146,7 @@ export function createCrashDetection(deps: CrashDetectionDeps): CrashDetection {
         startedAt: detectedAt.toISOString(),
         lastAliveAt: detectedAt.toISOString(),
         appVersion: deps.appVersion,
+        pid: deps.processId,
         ...(bootSessionUuid !== null ? { bootSessionUuid } : {}),
       };
       writeSentinel('arm');
@@ -912,15 +1237,16 @@ export function createCrashDetection(deps: CrashDetectionDeps): CrashDetection {
 
     handleRenderProcessGone(details): void {
       if (!isProcessCrashReason(details.reason)) return;
-      const owned = newestOwnedMinidump();
+      const deathMs = deps.now().getTime();
+      const eventId = `crash:render:${deathMs}:${runtimeSeq++}`;
+      const scan = scanDeathWindow(deathMs);
       deps.logger.warn(
         {
           event: 'crash-detection.render-process-gone',
+          eventId,
           reason: details.reason,
           exitCode: details.exitCode,
-          foreignDumpsIgnored: owned.foreignSkipped,
-          unreadableDumpsSkipped: owned.unknownSkipped,
-          nonCrashDumpsSkipped: owned.nonCrashSkipped,
+          ...deathWindowFacts(scan),
           ...(details.processSnapshot === undefined
             ? {}
             : { processSnapshot: details.processSnapshot }),
@@ -928,15 +1254,18 @@ export function createCrashDetection(deps: CrashDetectionDeps): CrashDetection {
         'renderer process died abnormally',
       );
       if (
-        armInvite({
-          eventId: `crash:render:${deps.now().getTime()}:${runtimeSeq++}`,
-          kind: 'render-process-gone',
-          context: {
-            reason: details.reason,
-            ...(details.exitCode !== undefined ? { exitCode: details.exitCode } : {}),
+        armRuntimeInvite(
+          {
+            eventId,
+            kind: 'render-process-gone',
+            context: {
+              reason: details.reason,
+              ...(details.exitCode !== undefined ? { exitCode: details.exitCode } : {}),
+            },
           },
-          minidumpAvailable: owned.entry !== null,
-        })
+          deathMs,
+          scan.entry,
+        )
       ) {
         tryDeliver();
       }
@@ -944,43 +1273,48 @@ export function createCrashDetection(deps: CrashDetectionDeps): CrashDetection {
 
     handleChildProcessGone(details): void {
       if (!isProcessCrashReason(details.reason)) return;
-      const owned = newestOwnedMinidump();
       const gpu = details.type === GPU_PROCESS_TYPE ? noteGpuCrash() : null;
+      const suppressInvite = gpu?.suppressInvite === true;
+      if (!suppressInvite && gpu !== null) clearDeclinedDeaths(GPU_DUMP_PROCESS_TYPE);
+      const deathMs = suppressInvite ? null : deps.now().getTime();
+      const eventId = deathMs === null ? null : `crash:child:${deathMs}:${runtimeSeq++}`;
+      const scan = deathMs === null ? null : scanDeathWindow(deathMs);
       deps.logger.warn(
         {
           event: 'crash-detection.child-process-gone',
+          ...(eventId === null ? {} : { eventId }),
           processType: details.type,
           reason: details.reason,
           exitCode: details.exitCode,
           ...(details.name === undefined ? {} : { name: details.name }),
-          foreignDumpsIgnored: owned.foreignSkipped,
-          unreadableDumpsSkipped: owned.unknownSkipped,
-          nonCrashDumpsSkipped: owned.nonCrashSkipped,
+          ...(scan === null ? {} : deathWindowFacts(scan)),
           ...(details.processSnapshot === undefined
             ? {}
             : { processSnapshot: details.processSnapshot }),
           ...(gpu === null ? {} : { gpuCrashesInWindow: gpu.countInWindow }),
-          ...(gpu?.suppressInvite === true ? { invitationSuppressed: 'gpu-recoverable' } : {}),
+          ...(suppressInvite ? { invitationSuppressed: 'gpu-recoverable' } : {}),
         },
         'child process died abnormally',
       );
-      if (gpu?.suppressInvite === true) {
+      if (deathMs === null || eventId === null || scan === null) {
         recordDeclinedDeath(GPU_DUMP_PROCESS_TYPE);
         return;
       }
-      if (gpu !== null) clearDeclinedDeaths(GPU_DUMP_PROCESS_TYPE);
       if (
-        armInvite({
-          eventId: `crash:child:${deps.now().getTime()}:${runtimeSeq++}`,
-          kind: 'child-process-gone',
-          context: {
-            reason: details.reason,
-            processType: details.type,
-            ...(details.name !== undefined ? { name: details.name } : {}),
-            ...(details.exitCode !== undefined ? { exitCode: details.exitCode } : {}),
+        armRuntimeInvite(
+          {
+            eventId,
+            kind: 'child-process-gone',
+            context: {
+              reason: details.reason,
+              processType: details.type,
+              ...(details.name !== undefined ? { name: details.name } : {}),
+              ...(details.exitCode !== undefined ? { exitCode: details.exitCode } : {}),
+            },
           },
-          minidumpAvailable: owned.entry !== null,
-        })
+          deathMs,
+          scan.entry,
+        )
       ) {
         tryDeliver();
       }
@@ -1001,7 +1335,7 @@ export function createCrashDetection(deps: CrashDetectionDeps): CrashDetection {
       const baselineMs = Date.parse(store.minidumpBaselineAt);
       store.declinedDeaths = store.declinedDeaths.filter((declined) => {
         const at = epochMsOrNull(declined.at);
-        return at !== null && at + DECLINED_DEATH_DUMP_MATCH_MS > baselineMs;
+        return at !== null && at + DEATH_DUMP_MATCH_MS > baselineMs;
       });
       persistStore('ack');
       if (active?.event.eventId === eventId) {
@@ -1016,6 +1350,29 @@ export function createCrashDetection(deps: CrashDetectionDeps): CrashDetection {
         foreignSkipped: owned.foreignSkipped,
         unknownSkipped: owned.unknownSkipped,
       };
+    },
+
+    minidumpForCrashEvent(eventId: string): CrashEventMinidumpLookup {
+      const binding = settleInvitation(eventId, deps.now().getTime());
+      if (binding === undefined) return { status: 'omitted', reason: 'invitation-unbound' };
+      const bound = binding.dump;
+      if (bound === null) return { status: 'none-bound' };
+      const matches = listMinidumpEntries().filter(
+        (entry) => basename(entry.path) === bound.fileName,
+      );
+      const match = matches[0];
+      if (match === undefined) return { status: 'omitted', reason: 'bound-dump-missing' };
+      if (matches.length > 1) return { status: 'omitted', reason: 'bound-dump-ambiguous' };
+      if (match.sizeBytes !== bound.sizeBytes || match.mtimeMs !== bound.mtimeMs) {
+        return { status: 'omitted', reason: 'bound-dump-changed' };
+      }
+      const ownership = classifyDump(match.path);
+      if (ownership === 'unknown') return { status: 'omitted', reason: 'bound-dump-unreadable' };
+      if (ownership === 'foreign') return { status: 'omitted', reason: 'bound-dump-not-owned' };
+      if (crashKindOf(match.path) === 'non-crash') {
+        return { status: 'omitted', reason: 'bound-dump-non-crash' };
+      }
+      return { status: 'bound', path: match.path };
     },
   };
 }

@@ -20,6 +20,14 @@ vi.mock('electron', () => ({
 
 type BridgeProbe = {
   mcpServerName: string | null;
+  state: { query(): Promise<unknown> };
+  update: {
+    relaunchNow(): Promise<void>;
+    checkNow(): Promise<void>;
+    dismissWhatsNew(version: string): Promise<void>;
+    dismissDownloaded(version: string): Promise<void>;
+    setMode(mode: 'auto' | 'off'): Promise<void>;
+  };
   config: {
     languagePreference?: string;
     themePreference?: string;
@@ -47,6 +55,9 @@ type BridgeProbe = {
       activeKey: string | null;
       terminalSnapshot: { tabs: []; activeOrdinal: null };
     }): Promise<{ ok: true } | { ok: false; reason: string }>;
+  };
+  userConfig: {
+    onChanged(cb: (snapshot: { text: string }) => void): () => void;
   };
   editor: {
     notifyViewMenuStateChanged(state: {
@@ -113,6 +124,26 @@ describe('preload argv config', () => {
     const bridge = await loadBridge();
 
     expect(bridge.mcpServerName).toBe('open-knowledge-beta');
+  });
+});
+
+describe('preload state query marshalling', () => {
+  it('state.query forwards to ok:state:query and passes the snapshot through', async () => {
+    const about = {
+      productName: 'OpenKnowledge',
+      version: '0.82.3',
+      releasesUrl: 'https://example.test/releases',
+      releaseNotesUrl: 'https://example.test/releases/tag/v0.82.3',
+      updateChecks: 'available',
+    };
+    const bridge = await loadBridge();
+    const snapshot = { channel: 'latest', schemaIncompatibility: null, about };
+    invokeMock.mockResolvedValueOnce(snapshot as never);
+
+    const result = await bridge.state.query();
+
+    expect(invokeMock.mock.calls.map((c) => c[0])).toEqual(['ok:state:query']);
+    expect(result).toEqual(snapshot);
   });
 });
 
@@ -197,6 +228,7 @@ describe('preload bugReport.create marshalling', () => {
       includeCrashDump: true,
       includeScreenshot: true,
       attachments: [{ contentType: 'image/png', bytes: new Uint8Array([1, 2, 3]) }],
+      crashEventId: 'boot:dump:1751871600000',
     };
 
     await bridge.bugReport.create(request);
@@ -289,5 +321,81 @@ describe('preload terminal dock-state marshalling', () => {
         terminalSnapshot: { tabs: [], activeOrdinal: null },
       }),
     ).resolves.toEqual({ ok: false, reason: 'ipc-unavailable' });
+  });
+});
+
+describe('preload userConfig subscription', () => {
+  function userConfigRequests(): unknown[] {
+    return invokeMock.mock.calls
+      .filter((c) => c[0] === 'ok:user-config:dispatch')
+      .map((c) => c[1] as unknown);
+  }
+
+  it('subscribes on listen and unsubscribes when the listener is disposed', async () => {
+    const bridge = await loadBridge();
+
+    const dispose = bridge.userConfig.onChanged(() => {});
+    expect(userConfigRequests()).toEqual([{ kind: 'subscribe' }]);
+
+    dispose();
+    expect(userConfigRequests()).toEqual([{ kind: 'subscribe' }, { kind: 'unsubscribe' }]);
+  });
+
+  it('does not hand the subscribe reply to the listener as a change', async () => {
+    invokeMock.mockResolvedValueOnce({ text: 'appearance:\n  theme: dark\n' } as never);
+    const bridge = await loadBridge();
+    const cb = vi.fn();
+
+    bridge.userConfig.onChanged(cb);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(cb).not.toHaveBeenCalled();
+  });
+});
+
+describe('preload update dispatch marshalling', () => {
+  const echoKind = (_channel: unknown, request: unknown) =>
+    Promise.resolve({ kind: (request as { kind: string }).kind, ok: true, mode: 'off' });
+
+  it('sends each update method as its own dispatch kind', async () => {
+    const bridge = await loadBridge();
+    for (let i = 0; i < 5; i++) invokeMock.mockImplementationOnce(echoKind as never);
+
+    await bridge.update.relaunchNow();
+    await bridge.update.checkNow();
+    await bridge.update.dismissWhatsNew('0.3.1');
+    await bridge.update.dismissDownloaded('0.3.2');
+    await bridge.update.setMode('off');
+
+    expect(invokeMock.mock.calls).toEqual([
+      ['ok:update:dispatch', { kind: 'relaunch-now' }],
+      ['ok:update:dispatch', { kind: 'check-now' }],
+      ['ok:update:dispatch', { kind: 'whats-new-dismiss', version: '0.3.1' }],
+      ['ok:update:dispatch', { kind: 'downloaded-dismiss', version: '0.3.2' }],
+      ['ok:update:dispatch', { kind: 'set-mode', mode: 'off' }],
+    ]);
+  });
+
+  it('rejects a reply whose kind does not match the request', async () => {
+    const bridge = await loadBridge();
+    invokeMock.mockResolvedValueOnce({ kind: 'check-now' } as never);
+
+    await expect(bridge.update.relaunchNow()).rejects.toThrow(
+      'ok:update:dispatch: expected relaunch-now, got check-now',
+    );
+  });
+
+  it('turns a refused set-mode into a rejection that names the reason', async () => {
+    const bridge = await loadBridge();
+    invokeMock.mockResolvedValueOnce({
+      kind: 'set-mode',
+      ok: false,
+      reason: 'persist-failed',
+    } as never);
+
+    await expect(bridge.update.setMode('off')).rejects.toThrow(
+      'ok:update:dispatch: set-mode refused (persist-failed)',
+    );
   });
 });

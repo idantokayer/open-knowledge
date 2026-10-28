@@ -394,6 +394,7 @@ function createDescendantProjectGate(
   projectDir: string,
   contentDir: string,
   singleDocRelPath: string | undefined,
+  isContentScopeExcluded?: (absolutePath: string) => boolean,
 ): {
   isInside: (relativePath: string, syncScope?: { pathBase: 'content' | 'project' }) => boolean;
   reset: () => void;
@@ -418,6 +419,7 @@ function createDescendantProjectGate(
     isInside(relativePath: string, syncScope?: { pathBase: 'content' | 'project' }): boolean {
       if (!enabled || relativePath === '') return false;
       const base = syncScope?.pathBase === 'project' ? projectDir : contentDir;
+      if (isContentScopeExcluded?.(resolve(base, relativePath))) return true;
       let prefix = base;
       for (const segment of relativePath.split('/')) {
         prefix = join(prefix, segment);
@@ -583,11 +585,12 @@ async function appendExcludeFileIfExistsAsync(
 export interface ContentFilterOptions {
   projectDir: string;
   contentDir: string;
+  isContentScopeExcluded?: (absolutePath: string) => boolean;
   singleDocRelPath?: string;
   attachmentFolderPath?: string;
   inPlaceSkillDirs?: ReadonlySet<string>;
   skillRootPaths?: ReadonlySet<string>;
-  rescanInPlaceSkillDirs?: () => ReadonlySet<string>;
+  rescanInPlaceSkillDirs?: (priorAdmission: ReadonlySet<string>) => ReadonlySet<string>;
   onAfterRebuild?: () => void;
 }
 
@@ -632,6 +635,7 @@ export interface ContentFilter {
   isExcluded(relativePath: string, opts?: ContentFilterReadOpts): boolean;
   isDirExcluded(relativePath: string, opts?: ContentFilterReadOpts): boolean;
   isPathIgnored(relativePath: string, opts?: ContentFilterPathReadOpts): boolean;
+  isExcludedByIgnoreFiles(relativePath: string): boolean;
   getWatcherIgnoreGlobs(): string[];
   incrementMdDir(dir: string): void;
   decrementMdDir(dir: string): void;
@@ -651,7 +655,12 @@ export function createContentFilter(opts: ContentFilterOptions): ContentFilter {
     opts.attachmentFolderPath ?? DEFAULT_ATTACHMENT_FOLDER_PATH,
   );
   const skillRootPaths: ReadonlySet<string> = opts.skillRootPaths ?? new Set();
-  const descendantProjects = createDescendantProjectGate(projectDir, contentDir, singleDocRelPath);
+  const descendantProjects = createDescendantProjectGate(
+    projectDir,
+    contentDir,
+    singleDocRelPath,
+    opts.isContentScopeExcluded,
+  );
 
   const contentRelPrefix = toPosix(relative(projectDir, contentDir));
   const contentOutsideProject = contentRelPrefix.startsWith('..');
@@ -924,6 +933,12 @@ export function createContentFilter(opts: ContentFilterOptions): ContentFilter {
       return isRejectedByConfigurableRules(relativePath);
     },
 
+    isExcludedByIgnoreFiles(relativePath: string): boolean {
+      if (relativePath.split('/').some(isBuiltinSkipDirName)) return false;
+      if (contentOutsideProject) return false;
+      return isIgnored(relativePath);
+    },
+
     getWatcherIgnoreGlobs(): string[] {
       return watcherIgnoreGlobs;
     },
@@ -964,7 +979,7 @@ export function createContentFilter(opts: ContentFilterOptions): ContentFilter {
     refreshInPlaceSkillDirs(): void {
       if (!opts.rescanInPlaceSkillDirs) return;
       try {
-        inPlaceSkillDirs = opts.rescanInPlaceSkillDirs();
+        inPlaceSkillDirs = opts.rescanInPlaceSkillDirs(inPlaceSkillDirs);
       } catch (err) {
         log.warn({ err }, 'in-place skill re-scan failed — keeping previous allow-list');
       }
@@ -977,7 +992,7 @@ export function createContentFilter(opts: ContentFilterOptions): ContentFilter {
     peekFreshInPlaceSkillDirsFingerprint(): string {
       if (!opts.rescanInPlaceSkillDirs) return [...inPlaceSkillDirs].sort().join('\n');
       try {
-        return [...opts.rescanInPlaceSkillDirs()].sort().join('\n');
+        return [...opts.rescanInPlaceSkillDirs(inPlaceSkillDirs)].sort().join('\n');
       } catch {
         return [...inPlaceSkillDirs].sort().join('\n');
       }
@@ -994,7 +1009,7 @@ export function createContentFilter(opts: ContentFilterOptions): ContentFilter {
         descendantProjects.reset();
         if (opts.rescanInPlaceSkillDirs) {
           try {
-            inPlaceSkillDirs = opts.rescanInPlaceSkillDirs();
+            inPlaceSkillDirs = opts.rescanInPlaceSkillDirs(inPlaceSkillDirs);
           } catch (err) {
             log.warn({ err }, 'in-place skill re-scan failed — keeping previous allow-list');
           }
@@ -1302,7 +1317,12 @@ export async function createContentFilterAsync(opts: ContentFilterOptions): Prom
     opts.attachmentFolderPath ?? DEFAULT_ATTACHMENT_FOLDER_PATH,
   );
   const skillRootPaths: ReadonlySet<string> = opts.skillRootPaths ?? new Set();
-  const descendantProjects = createDescendantProjectGate(projectDir, contentDir, singleDocRelPath);
+  const descendantProjects = createDescendantProjectGate(
+    projectDir,
+    contentDir,
+    singleDocRelPath,
+    opts.isContentScopeExcluded,
+  );
 
   const contentRelPrefix = toPosix(relative(projectDir, contentDir));
   const contentOutsideProject = contentRelPrefix.startsWith('..');
@@ -1537,6 +1557,12 @@ export async function createContentFilterAsync(opts: ContentFilterOptions): Prom
       return isRejectedByConfigurableRules(relativePath);
     },
 
+    isExcludedByIgnoreFiles(relativePath: string): boolean {
+      if (relativePath.split('/').some(isBuiltinSkipDirName)) return false;
+      if (contentOutsideProject) return false;
+      return isIgnored(relativePath);
+    },
+
     getWatcherIgnoreGlobs(): string[] {
       return watcherIgnoreGlobs;
     },
@@ -1577,7 +1603,7 @@ export async function createContentFilterAsync(opts: ContentFilterOptions): Prom
     refreshInPlaceSkillDirs(): void {
       if (!opts.rescanInPlaceSkillDirs) return;
       try {
-        inPlaceSkillDirs = opts.rescanInPlaceSkillDirs();
+        inPlaceSkillDirs = opts.rescanInPlaceSkillDirs(inPlaceSkillDirs);
       } catch (err) {
         log.warn({ err }, 'in-place skill re-scan failed — keeping previous allow-list');
       }
@@ -1590,7 +1616,7 @@ export async function createContentFilterAsync(opts: ContentFilterOptions): Prom
     peekFreshInPlaceSkillDirsFingerprint(): string {
       if (!opts.rescanInPlaceSkillDirs) return [...inPlaceSkillDirs].sort().join('\n');
       try {
-        return [...opts.rescanInPlaceSkillDirs()].sort().join('\n');
+        return [...opts.rescanInPlaceSkillDirs(inPlaceSkillDirs)].sort().join('\n');
       } catch {
         return [...inPlaceSkillDirs].sort().join('\n');
       }
@@ -1607,7 +1633,7 @@ export async function createContentFilterAsync(opts: ContentFilterOptions): Prom
         descendantProjects.reset();
         if (opts.rescanInPlaceSkillDirs) {
           try {
-            inPlaceSkillDirs = opts.rescanInPlaceSkillDirs();
+            inPlaceSkillDirs = opts.rescanInPlaceSkillDirs(inPlaceSkillDirs);
           } catch (err) {
             log.warn({ err }, 'in-place skill re-scan failed — keeping previous allow-list');
           }

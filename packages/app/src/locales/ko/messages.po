@@ -88,6 +88,10 @@ msgstr "\"{docName}\" 문서가 존재하지 않습니다."
 msgid "\"{docName}\" took too long. Check your connection."
 msgstr "\"{docName}\" 문서를 여는 데 너무 오래 걸렸습니다. 연결을 확인하세요."
 
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "\"{name}\""
+msgstr "\"{name}\""
+
 #: src/hooks/use-skill-origin.ts
 msgid "\"{name}\" is already up to date"
 msgstr "\"{name}\"은 이미 최신 상태입니다"
@@ -216,6 +220,11 @@ msgstr "{0, plural, other {미리보기 보안 정책으로 요청 #개가 차�
 msgid "{0, plural, one {# result} other {# results}}"
 msgstr "{0, plural, other {#개 결과}}"
 
+#. placeholder {0}: templates.length
+#: src/components/empty-state/CreateView.tsx
+msgid "{0, plural, one {# template available} other {# templates available}}"
+msgstr "{0, plural, other {템플릿 #개 사용 가능}}"
+
 #. placeholder {0}: folder.templateCount
 #: src/components/CreatedItemsList.tsx
 msgid "{0, plural, one {# template} other {# templates}}"
@@ -230,6 +239,11 @@ msgstr "{0, plural, other {#회 사용}}"
 #: src/components/ProblemsPanel.tsx
 msgid "{0, plural, one {# warning} other {# warnings}}"
 msgstr "{0, plural, other {경고 #개}}"
+
+#. placeholder {0}: templates.length
+#: src/components/empty-state/CreateView.tsx
+msgid "{0, plural, one {At least # template found} other {At least # templates found}}"
+msgstr "{0, plural, other {템플릿 최소 #개 찾음}}"
 
 #. placeholder {0}: deleteTargets.length
 #: src/components/FileTree.tsx
@@ -453,11 +467,6 @@ msgstr "{0}이(가) 이 폴더를 공유합니다."
 #: src/components/SkillsTree.tsx
 msgid "{0} skills selected"
 msgstr "스킬 {0}개 선택됨"
-
-#. placeholder {0}: templates.length
-#: src/components/empty-state/CreateView.tsx
-msgid "{0} templates available"
-msgstr "템플릿 {0}개 사용 가능"
 
 #. placeholder {0}: formatBundleSize(operation.zipSizeBytes)
 #: src/components/BugReportSendToast.tsx
@@ -750,6 +759,10 @@ msgstr "{count, plural, other {다음 파일 #개를 삭제하시겠습니까?}}
 msgid "{count, plural, one {Are you sure you want to delete the following # file/directory and its contents?} other {Are you sure you want to delete the following # files/directories and their contents?}}"
 msgstr "{count, plural, other {다음 파일 또는 폴더 #개와 그 내용을 삭제하시겠습니까?}}"
 
+#: src/components/ConsentDialogBody.tsx
+msgid "{count, plural, one {Found {formattedCount} markdown file} other {Found {formattedCount} markdown files}}"
+msgstr "{count, plural, other {{formattedCount}개의 markdown 파일을 찾았습니다}}"
+
 #: src/components/ProblemsPanel.tsx
 msgid "{count, plural, one {Hands the # problem to your AI agent, including what has no automatic fix.} other {Hands all # problems to your AI agent, including what has no automatic fix.}}"
 msgstr "{count, plural, other {AI 에이전트에 문제 #개를 전달합니다. 자동 수정이 없는 문제도 포함됩니다.}}"
@@ -964,6 +977,14 @@ msgstr "{label} ({0})"
 msgid "{label} already loads \"{0}\" from the {1} plugin. Installing here puts a copy at {2} that {label} uses instead of the plugin's — it stops tracking plugin updates."
 msgstr "{label}은(는) 이미 {1} 플러그인에서 \"{0}\"을(를) 불러옵니다. 여기에 설치하면 {2}에 복사본이 만들어지고 {label}이(가) 플러그인 대신 그 복사본을 사용합니다. 복사본은 플러그인 업데이트를 더 이상 따르지 않습니다."
 
+#: src/components/InstanceBadge.tsx
+msgid "{label} build, v{version}. Its settings and data are kept separate from other OpenKnowledge apps."
+msgstr "{label} 빌드, v{version}. 설정과 데이터는 다른 OpenKnowledge 앱과 분리되어 보관됩니다."
+
+#: src/components/InstanceBadge.tsx
+msgid "{label} build. Its settings and data are kept separate from other OpenKnowledge apps."
+msgstr "{label} 빌드. 설정과 데이터는 다른 OpenKnowledge 앱과 분리되어 보관됩니다."
+
 #: src/components/settings/plugin-enabled-notice.ts
 msgid "{label} enabled"
 msgstr "{label} 활성화됨"
@@ -971,10 +992,6 @@ msgstr "{label} 활성화됨"
 #: src/components/file-tree-problem-indicators.ts
 msgid "{label} problems"
 msgstr "문제 {label}개"
-
-#: src/components/InstanceBadge.tsx
-msgid "{label} uses isolated app data"
-msgstr "{label}에서는 격리된 앱 데이터를 사용합니다"
 
 #: src/components/ActivityPanelBurstRow.tsx
 msgid "{laterEdits, plural, one {Removes # newer edit on this file.} other {Removes # newer edits on this file.}}"
@@ -1034,6 +1051,7 @@ msgid "{openedWorktreeCount, plural, one {worktree} other {worktrees}}"
 msgstr "{openedWorktreeCount, plural, one {워크트리} other {워크트리}}"
 
 #: src/lib/acp/image-attachment.ts
+#: src/lib/install-stale-tab-reload-prompt.ts
 msgid "{others, plural, one {# other} other {# others}}"
 msgstr "{others, plural, other {다른 파일 #개}}"
 
@@ -1548,6 +1566,10 @@ msgstr "<0>{trimmedSlug}</0>이라는 템플릿이 이미 있습니다. 저장�
 msgid "A title, description, tags — anything that describes this folder."
 msgstr "이 폴더를 설명하는 제목, 설명, 태그 등입니다."
 
+#: src/components/settings/AccountSection.tsx
+msgid "A token added here only applies to HTTPS remotes, and this project's remote doesn't use HTTPS."
+msgstr "여기에 추가한 토큰은 HTTPS 원격 저장소에만 적용되며, 이 프로젝트의 원격 저장소는 HTTPS를 사용하지 않습니다."
+
 #: src/components/ShareBranchSwitchDialog.tsx
 msgid "A worktree folder for {shareBranch} already exists."
 msgstr "{shareBranch}용 워크트리 폴더가 이미 있습니다."
@@ -1556,13 +1578,26 @@ msgstr "{shareBranch}용 워크트리 폴더가 이미 있습니다."
 msgid "A worktree folder for that branch already exists."
 msgstr "해당 브랜치용 워크트리 폴더가 이미 있습니다."
 
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "about"
+msgstr "정보"
+
 #: src/lib/native-menu-catalog.ts
+#: src/lib/platform-labels.ts
 msgid "About"
 msgstr "정보"
 
 #: src/lib/native-menu-catalog.ts
+#: src/lib/platform-labels.ts
 msgid "About {appName}"
 msgstr "{appName} 정보"
+
+#: src/components/HelpPopover.tsx
+#: src/components/settings/AboutSection.tsx
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "About & updates"
+msgstr "정보 및 업데이트"
 
 #: src/editor/slash-command/items.tsx
 msgid "Above"
@@ -1600,9 +1635,8 @@ msgid "Accept their deletion"
 msgstr "삭제를 수락"
 
 #: src/components/settings/AccountSection.tsx
-#: src/components/settings/SettingsDialogShell.tsx
-msgid "Account"
-msgstr "계정"
+msgid "Access token"
+msgstr "액세스 토큰"
 
 #: src/components/TemplateRow.tsx
 msgid "Actions for {label}"
@@ -1680,6 +1714,10 @@ msgstr "속성 추가"
 #: src/components/empty-state/CreateView.tsx
 msgid "Add a starter pack"
 msgstr "스타터 팩 추가"
+
+#: src/components/settings/AccountSection.tsx
+msgid "Add an access token for a GitLab, Gitea, Bitbucket, Azure DevOps or self-hosted git server. Without one, git uses the credentials it already has saved for that host; with one, OpenKnowledge uses the token instead."
+msgstr "GitLab, Gitea, Bitbucket, Azure DevOps 또는 자체 호스팅 git 서버용 액세스 토큰을 추가합니다. 토큰이 없으면 git은 해당 호스트에 이미 저장된 자격 증명을 사용하고, 토큰이 있으면 OpenKnowledge가 대신 토큰을 사용합니다."
 
 #: src/components/settings/OkignoreSection.tsx
 msgid "Add another pattern"
@@ -1810,6 +1848,12 @@ msgstr "사전에 추가"
 msgid "Add to prompt"
 msgstr "프롬프트에 추가"
 
+#: src/components/settings/AccountSection.tsx
+#: src/components/SyncStatusBadge.tsx
+#: src/hooks/use-sync-auth-prompt.ts
+msgid "Add token"
+msgstr "토큰 추가"
+
 #: src/components/settings/frontmatter-schema-field-editor.tsx
 msgid "Add value"
 msgstr "값 추가"
@@ -1819,6 +1863,10 @@ msgstr "값 추가"
 #: src/components/SyncStatusBadge.tsx
 msgid "Added"
 msgstr "추가됨"
+
+#: src/components/settings/AccountSection.tsx
+msgid "Adding"
+msgstr "추가 중"
 
 #: src/components/settings/AgentConnectionDialogs.tsx
 msgid "Adds a global OpenKnowledge MCP entry for this agent."
@@ -1909,8 +1957,7 @@ msgstr "에이전트 채팅"
 msgid "Agent configuration file"
 msgstr "에이전트 설정 파일"
 
-#: src/components/settings/AgentConnectionsSection.tsx
-#: src/components/settings/SettingsDialogShell.tsx
+#: src/components/settings/settings-section-labels.ts
 msgid "Agent connections"
 msgstr "에이전트 연결"
 
@@ -2016,6 +2063,11 @@ msgstr "거의 완료되었습니다. 완료된 작업과 남은 작업을 확�
 msgid "Already at {assetContentPath} — reusing."
 msgstr "이미 {assetContentPath}에 있으므로 재사용합니다."
 
+#. Status under the unticked AI-tools checkbox; replacingToolList names the tools that already have an OpenKnowledge MCP entry, which stay as they are while the box is unticked
+#: src/components/McpConsentDialogBody.tsx
+msgid "Already connected to {replacingToolList}"
+msgstr "이미 연결됨: {replacingToolList}"
+
 #: src/components/settings/applies-to-folder-picker.tsx
 msgid "Already covered by a picked parent folder"
 msgstr "선택한 상위 폴더에 이미 포함됨"
@@ -2115,9 +2167,17 @@ msgstr "추가할 내용이 있나요? (선택 사항)"
 msgid "API key set"
 msgstr "API 키 설정됨"
 
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "App"
+msgstr "앱"
+
 #: src/components/InstanceBadge.tsx
 msgid "App instance: {label}"
 msgstr "앱 인스턴스: {label}"
+
+#: src/components/InstanceBadge.tsx
+msgid "App instance: {label}, v{version}"
+msgstr "앱 인스턴스: {label}, v{version}"
 
 #: src/components/CreatedItemsList.tsx
 msgid "Append-only log of what changed."
@@ -2335,6 +2395,10 @@ msgstr "첨부 파일 총 용량은 3MB 미만이어야 합니다."
 msgid "Authenticated as {login}."
 msgstr "{login}(으)로 인증되었습니다."
 
+#: src/components/SyncStatusBadge.tsx
+msgid "Authentication failed for this git host. Add a token for it in Settings, or replace the one stored."
+msgstr "이 git 호스트에 대한 인증에 실패했습니다. 설정에서 이 호스트의 토큰을 추가하거나 저장된 토큰을 교체하세요."
+
 #: src/editor/slash-command/component-items.tsx
 msgid "Authoritative content; mirrored verbatim everywhere it's referenced."
 msgstr "기준 콘텐츠이며, 참조되는 모든 곳에 그대로 미러링됩니다."
@@ -2399,6 +2463,10 @@ msgid "Auto-save"
 msgstr "자동 저장"
 
 #: src/components/settings/SyncSection.tsx
+msgid "Auto-sync is on, but there's no remote to sync with yet. It starts as soon as a remote is connected."
+msgstr "자동 동기화가 켜져 있지만 아직 동기화할 원격이 없습니다. 원격이 연결되면 바로 시작됩니다."
+
+#: src/components/settings/SyncSection.tsx
 msgid "Auto-sync is paused — sign in to resume."
 msgstr "자동 동기화가 일시 중지되었습니다. 계속하려면 로그인합니다."
 
@@ -2439,6 +2507,14 @@ msgstr "자동"
 #: src/components/settings/NetworkAccessSection.tsx
 msgid "Automatic picks a free port each start. Choose a fixed port to keep the same address across restarts."
 msgstr "자동을 선택하면 시작할 때마다 사용 가능한 포트를 고릅니다. 재시작해도 같은 주소를 유지하려면 고정 포트를 선택하세요."
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "Automatic updates"
+msgstr "자동 업데이트"
+
+#: src/components/settings/AboutSection.tsx
+msgid "Automatic updates are not available right now."
+msgstr "지금은 자동 업데이트를 사용할 수 없습니다."
 
 #: src/components/PublishToGitHubDialog.tsx
 msgid "Available"
@@ -2535,6 +2611,11 @@ msgstr "큰 섹션 제목입니다."
 #: src/components/empty-state/use-create-suggestions.ts
 msgid "Bird wiki"
 msgstr "조류 위키"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "Bitbucket"
+msgstr "Bitbucket"
 
 #: src/components/NewItemDialog.tsx
 msgid "Blank note"
@@ -2883,6 +2964,10 @@ msgid "Chat name"
 msgstr "채팅 이름"
 
 #: src/components/command-palette-commands.ts
+#: src/components/HelpPopover.tsx
+#: src/components/settings/AboutSection.tsx
+#: src/components/settings/SettingsDialogShell.tsx
+#: src/components/UpdateNotices.shared.ts
 msgid "Check for updates"
 msgstr "업데이트 확인"
 
@@ -2934,6 +3019,7 @@ msgstr "에이전트 확인 중"
 msgid "Checking for Slidev"
 msgstr "Slidev 확인 중"
 
+#: src/components/settings/AboutSection.tsx
 #: src/components/SyncStatusBadge.tsx
 msgid "Checking for updates"
 msgstr "업데이트 확인 중"
@@ -2943,6 +3029,7 @@ msgstr "업데이트 확인 중"
 msgid "Checking for updates on GitHub"
 msgstr "GitHub에서 업데이트 확인 중"
 
+#: src/components/settings/SettingsDialogShell.tsx
 #: src/components/UpdateNotices.shared.ts
 msgid "Checking for updates…"
 msgstr "업데이트 확인 중…"
@@ -3062,8 +3149,8 @@ msgid "Choose where to send this message"
 msgstr "이 메시지를 보낼 곳 선택"
 
 #: src/components/settings/SharingSection.tsx
-msgid "Choose whether this project's OpenKnowledge setup, including its AI-tool connections, is saved with the project so teammates get it too, or kept only on your computer."
-msgstr "이 프로젝트의 OpenKnowledge 설정과 AI 도구 연결을 프로젝트와 함께 저장해 팀원도 사용하게 할지, 아니면 이 컴퓨터에만 보관할지 선택합니다."
+msgid "Choose whether this project's OpenKnowledge setup, including its AI-tool connections and the Shared default sync mode, is saved with the project so teammates get it too, or kept only on your computer."
+msgstr "이 프로젝트의 OpenKnowledge 설정과 AI 도구 연결, 공유 기본값 동기화 모드를 프로젝트와 함께 저장해 팀원도 사용하게 할지, 아니면 이 컴퓨터에만 보관할지 선택합니다."
 
 #: src/components/settings/AgentConnectionsSection.tsx
 msgid "Choose which agents appear in agent menus across the app, and set them up to read and update your documents."
@@ -3301,6 +3388,10 @@ msgstr "터미널 닫기"
 #: src/components/acp/ThreadHistoryPanel.tsx
 msgid "Close this chat's tab to delete it"
 msgstr "삭제할 채팅 탭 닫기"
+
+#: src/editor/image-upload/upload-admission.ts
+msgid "Close this preview, then open the folder to upload files"
+msgstr "이 미리보기를 닫고 폴더를 열어 파일을 업로드하세요"
 
 #: src/components/NoteWindowDeletedState.tsx
 msgid "Close window"
@@ -3605,8 +3696,8 @@ msgid "Connect"
 msgstr "연결"
 
 #: src/components/settings/AccountSection.tsx
-msgid "Connect a GitHub account to browse and sync your repositories."
-msgstr "GitHub 계정을 연결하면 저장소를 찾아보고 동기화할 수 있습니다."
+msgid "Connect a GitHub account to browse and publish GitHub repositories."
+msgstr "GitHub 저장소를 찾아보고 게시하려면 GitHub 계정을 연결하세요."
 
 #: src/components/settings/SyncSection.tsx
 msgid "Connect an existing repository"
@@ -3664,7 +3755,6 @@ msgid "Connected — this endpoint returns {0}-dimension vectors."
 msgstr "연결됨. 이 엔드포인트가 {0}차원 벡터를 반환합니다."
 
 #: src/components/AuthModal.tsx
-#: src/components/settings/AccountSection.tsx
 msgid "Connected as @{login}"
 msgstr "계정 @{login}으로 연결됨"
 
@@ -3675,6 +3765,10 @@ msgstr "계정 <0>@{signedInLogin}</0>으로 연결됨"
 #: src/components/settings/SyncSection.tsx
 msgid "Connected to"
 msgstr "연결 대상"
+
+#: src/components/settings/AccountSection.tsx
+msgid "Connected to {host} as @{login}"
+msgstr "{host}에 계정 @{login}(으)로 연결됨"
 
 #: src/components/AuthModal.tsx
 msgid "Connected to GitHub"
@@ -3698,6 +3792,7 @@ msgid "Connection dropped"
 msgstr "연결 끊김"
 
 #: src/components/AuthModal.tsx
+#: src/components/settings/AccountSection.tsx
 #: src/lib/transports/auth-transport.ts
 msgid "Connection error — try again"
 msgstr "연결 오류. 다시 시도하세요."
@@ -4413,6 +4508,10 @@ msgstr "엔드포인트에 연결하지 못했습니다. URL과 서버 실행 �
 msgid "Couldn't reach the Open Knowledge server to upload {fileName}."
 msgstr "{fileName} 파일을 업로드하려고 Open Knowledge 서버에 연결할 수 없습니다."
 
+#: src/components/settings/SyncSection.tsx
+msgid "Couldn't reach the OpenKnowledge server, so sync options are hidden. They appear here as soon as the sync status loads; closing and reopening Settings also retries."
+msgstr "OpenKnowledge 서버에 연결할 수 없어 동기화 옵션을 숨겼습니다. 동기화 상태를 불러오는 즉시 여기에 표시되며, 설정을 닫았다가 다시 열어도 다시 시도합니다."
+
 #: src/components/acp/ThreadView.tsx
 #: src/editor/use-composer-attachments.ts
 msgid "Couldn't read {fileName}."
@@ -4561,6 +4660,10 @@ msgstr "키를 저장하지 못했습니다. 다시 시도합니다."
 #: src/components/DiffViewBoundary.tsx
 msgid "Couldn't save the resolution for {filePath}."
 msgstr "{filePath}의 해결 결과를 저장하지 못했습니다."
+
+#: src/components/settings/AboutSection.tsx
+msgid "Couldn't save this setting. Try again."
+msgstr "이 설정을 저장하지 못했습니다. 다시 시도하세요."
 
 #: src/components/McpConsentDialogBody.tsx
 msgid "Couldn't save your theme preference."
@@ -5323,6 +5426,8 @@ msgstr "문서 구조"
 msgid "Document the architecture of this repo: create an overview page that links to a page per major module describing its responsibilities and entry points."
 msgstr "이 리포지토리의 아키텍처를 문서화합니다. 개요 페이지를 만들고 각 주요 모듈의 책임과 진입점을 설명하는 페이지로 연결합니다."
 
+#: src/components/AppMenubar.tsx
+#: src/components/command-palette-commands.ts
 #: src/components/settings/markdownlint-rule-browser.tsx
 msgid "Documentation"
 msgstr "문서"
@@ -5382,6 +5487,10 @@ msgstr "편집하려면 두 번 클릭"
 #: src/components/acp/ThreadView.tsx
 msgid "Download {0}"
 msgstr "{0} 다운로드"
+
+#: src/components/settings/AboutSection.tsx
+msgid "Download and install updates automatically"
+msgstr "업데이트를 자동으로 다운로드하고 설치"
 
 #: src/components/HelpPopover.tsx
 msgid "Download app"
@@ -5937,6 +6046,10 @@ msgstr "{minimum}에서 {maximum} 사이의 정수를 입력하세요."
 msgid "Enter at least 3 characters to search by meaning."
 msgstr "의미로 검색하려면 3자 이상 입력하세요."
 
+#: src/components/settings/AccountSection.tsx
+msgid "Enter the host name git connects to, with an optional :port and no scheme or path, for example git.example.com."
+msgstr "git이 연결하는 호스트 이름을 입력하세요. :port는 선택 사항이며 스킴이나 경로는 넣지 마세요. 예: git.example.com."
+
 #: src/components/settings/NetworkAccessSection.tsx
 msgid "Enter the public origin your tunnel serves, for example https://notes.example.com"
 msgstr "터널이 제공하는 공개 오리진을 입력하세요. 예: https://notes.example.com"
@@ -6001,6 +6114,18 @@ msgstr "Excalidraw 보드를 불러오지 못했습니다."
 #: src/components/ExcalidrawDocEditor.tsx
 msgid "Excalidraw canvas"
 msgstr "Excalidraw 캔버스"
+
+#: src/components/LinksPanel.tsx
+msgid "Excluded"
+msgstr "제외됨"
+
+#: src/components/LinksPanel.tsx
+msgid "Excluded file {identity}. Go to reference."
+msgstr "제외된 파일 {identity}. 참조로 이동합니다."
+
+#: src/components/LinksPanel.tsx
+msgid "Excluded image {identity}. Go to reference."
+msgstr "제외된 이미지 {identity}. 참조로 이동합니다."
 
 #: src/components/NewWorktreeDialog.tsx
 msgid "Existing branch <0>{trimmed}</0> will be checked out into its own window, under <1>.ok/worktrees/</1>."
@@ -6412,6 +6537,7 @@ msgid "Failed to start sign-in — try again"
 msgstr "로그인을 시작하지 못했습니다. 다시 시도하세요"
 
 #: src/components/AuthModal.tsx
+#: src/components/settings/AccountSection.tsx
 #: src/lib/transports/auth-transport.ts
 msgid "Failed to store the token — try again"
 msgstr "토큰 저장 실패. 다시 시도하세요."
@@ -6882,8 +7008,18 @@ msgstr "이 프로젝트나 문서를 앱에서 여는 링크를 가져옵니다
 
 #: src/components/settings/SettingsDialogShell.tsx
 msgctxt "settings search keyword"
+msgid "gh"
+msgstr "gh"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
 msgid "GHES"
 msgstr "GHES"
+
+#: src/components/settings/AccountSection.tsx
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "Git"
+msgstr "Git"
 
 #: src/components/ExploreSkills.tsx
 msgid "Git & PRs"
@@ -6892,6 +7028,10 @@ msgstr "Git 및 PR"
 #: src/components/ShareFreshnessWarning.tsx
 msgid "Git can't track this folder — it's empty or contains only ignored files. The link won't work until you add a tracked document."
 msgstr "Git이 이 폴더를 추적할 수 없습니다. 비어 있거나 무시된 파일만 포함되어 있습니다. 추적할 문서를 추가해야 링크가 작동합니다."
+
+#: src/hooks/use-sync-auth-prompt.ts
+msgid "Git couldn't authenticate with this host. Check the SSH key or saved credentials git uses for it."
+msgstr "git이 이 호스트에 인증하지 못했습니다. git이 이 호스트에 사용하는 SSH 키나 저장된 자격 증명을 확인하세요."
 
 #: src/components/RecentProjectsMenu.tsx
 msgid "Git has locked this worktree, but it can still be opened."
@@ -6931,9 +7071,19 @@ msgstr "Git 동기화"
 msgid "Git syncing is paused because a Git operation or unresolved conflicts need attention. Your edits still save locally. Finish the operation or resolve the conflicts in your terminal, then retry sync."
 msgstr "Git 작업이나 해결되지 않은 충돌을 처리해야 하므로 Git 동기화가 일시 중지되었습니다. 편집 내용은 계속 로컬에 저장됩니다. 터미널에서 작업을 완료하거나 충돌을 해결한 후 동기화를 다시 시도하세요."
 
+#: src/components/settings/AccountSection.tsx
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "GitHub"
+msgstr "GitHub"
+
 #: src/components/SyncStatusBadge.tsx
 msgid "GitHub authentication failed. Try signing in again."
 msgstr "GitHub 인증에 실패했습니다. 다시 로그인하세요."
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "GitHub CLI"
+msgstr "GitHub CLI"
 
 #: src/lib/share/publish-wizard.ts
 msgid "GitHub connection expired. Connect again to continue."
@@ -6952,10 +7102,6 @@ msgstr "GitHub Enterprise Server 호스트"
 msgid "GitHub sign-in is missing or expired. Reconnect to resume syncing."
 msgstr "GitHub 로그인이 없거나 만료되었습니다. 동기화를 계속하려면 다시 연결하세요."
 
-#: src/components/settings/AccountSection.tsx
-msgid "GitHub sign-in isn't available for this project"
-msgstr "이 프로젝트에서는 GitHub 로그인을 사용할 수 없습니다"
-
 #: src/components/ImportSkillForm.tsx
 msgid "GitHub, a git URL, or a local path."
 msgstr "GitHub, git URL 또는 로컬 경로입니다."
@@ -6963,6 +7109,11 @@ msgstr "GitHub, git URL 또는 로컬 경로입니다."
 #: src/components/settings/EnterpriseHostsSection.tsx
 msgid "github.com is always recognized, so it doesn't need to be added."
 msgstr "github.com은 항상 인식되므로 추가할 필요가 없습니다."
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "GitLab"
+msgstr "GitLab"
 
 #: src/components/settings/SavedThemesTiles.tsx
 msgid "Give it a name before editing its colors."
@@ -7318,6 +7469,10 @@ msgstr "가로 필 스트립과 아래의 활성 패널입니다. 필을 클릭�
 msgid "Horizontal rule that divides sections."
 msgstr "섹션을 나누는 가로줄입니다."
 
+#: src/components/settings/AccountSection.tsx
+msgid "Host"
+msgstr "호스트"
+
 #: src/components/settings/NetworkAccessSection.tsx
 msgid "Hosting is on. The server is running on port {boundPort}. Reach it through your tunnel."
 msgstr "호스팅이 켜져 있습니다. 서버가 포트 {boundPort}에서 실행 중입니다. 터널을 통해 접속하세요."
@@ -7488,6 +7643,10 @@ msgstr "이미지 대상 \"{shown}\"을 프로젝트 로컬 파일로 확인할 
 #: src/editor/localized-validation-message.ts
 msgid "Image target \"{shown}\" does not resolve to an existing file."
 msgstr "이미지 대상 \"{shown}\"이 존재하는 파일로 확인되지 않습니다."
+
+#: src/editor/localized-validation-message.ts
+msgid "Image target \"{shown}\" exists but is excluded by .gitignore or .okignore. Re-include it, or its folder, with a \"!\" rule in .okignore."
+msgstr "이미지 대상 \"{shown}\"은 존재하지만 .gitignore 또는 .okignore에 의해 제외되어 있습니다. .okignore에 \"!\" 규칙을 추가해 해당 파일 또는 폴더를 다시 포함하세요."
 
 #: src/components/ReportBugDialogBody.tsx
 msgid "Images aren't redacted."
@@ -7975,8 +8134,24 @@ msgid "Invalid YAML"
 msgstr "잘못된 YAML"
 
 #: src/components/ReportBugDialogBody.tsx
+msgid "It also adds any display-connection errors OpenKnowledge wrote to your user journal in the past week, each message cut to 200 characters."
+msgstr "또한 지난 한 주 동안 OpenKnowledge가 사용자 저널에 기록한 디스플레이 연결 오류를 각 메시지를 200자로 줄여 추가합니다."
+
+#: src/components/ReportBugDialogBody.tsx
+msgid "It also adds the crash and hang records Windows logged for OpenKnowledge in the past week, without file paths, and the times of every shutdown, restart, power loss, and low-memory warning on this computer in that week, whatever caused them."
+msgstr "또한 지난 한 주 동안 Windows가 OpenKnowledge에 대해 기록한 충돌 및 응답 없음 기록을 파일 경로 없이 추가하고, 그 주에 이 컴퓨터에서 발생한 모든 종료, 다시 시작, 전원 손실, 메모리 부족 경고의 시각을 원인과 관계없이 추가합니다."
+
+#: src/components/ReportBugDialogBody.tsx
 msgid "It also adds the crash reports macOS recorded for OpenKnowledge and its helper processes, never another app's report, though ours do name the processes they were running alongside. Each one carries machine details macOS puts in every report: your account uid, the Mac model, and the name of the process that launched the app. On a managed machine, that launching process can be internal tooling. The identifiers that would link the bug reports you file to each other are replaced first, so a collected report is not byte-identical to the one macOS wrote."
 msgstr "macOS가 OpenKnowledge와 그 보조 프로세스에 대해 기록한 충돌 보고서도 추가합니다. 다른 앱의 보고서는 절대 포함하지 않지만, 우리 보고서에는 함께 실행 중이던 프로세스의 이름이 담깁니다. 각 보고서에는 macOS가 모든 보고서에 기록하는 머신 정보가 담깁니다: 계정 uid, Mac 모델, 앱을 실행한 프로세스 이름입니다. 관리되는 기기에서는 그 실행 프로세스가 내부 도구일 수 있습니다. 사용자가 보내는 버그 신고들을 서로 연결할 수 있는 식별자는 먼저 대체되므로, 수집된 보고서는 macOS가 작성한 것과 바이트 단위로 동일하지 않습니다."
+
+#: src/components/ReportBugDialogBody.tsx
+msgid "It also adds the low-memory reports macOS wrote in the past week that list OpenKnowledge's processes, with each one's memory use and whether macOS ended it."
+msgstr "또한 지난 한 주 동안 macOS가 작성한 메모리 부족 보고서 중 OpenKnowledge 프로세스가 포함된 보고서를 각 프로세스의 메모리 사용량 및 macOS가 종료했는지 여부와 함께 추가합니다."
+
+#: src/components/ReportBugDialogBody.tsx
+msgid "It also adds the out-of-memory kills of OpenKnowledge that the system journal recorded in the past week, without the machine name, account id, or folder paths."
+msgstr "또한 지난 한 주 동안 시스템 저널에 기록된 메모리 부족으로 인한 OpenKnowledge 강제 종료를 컴퓨터 이름, 계정 ID, 폴더 경로 없이 추가합니다."
 
 #. placeholder {0}: prompt.cwd
 #. placeholder {1}: prompt.agentName
@@ -8009,6 +8184,8 @@ msgstr "기울임꼴"
 msgid "Item {0}"
 msgstr "항목 {0}"
 
+#: src/components/AppMenubar.tsx
+#: src/components/command-palette-commands.ts
 #: src/components/SubscribeCard.tsx
 msgid "Join us on Discord"
 msgstr "Discord에서 함께하기"
@@ -8269,6 +8446,10 @@ msgstr "링크 대상 \"{shown}\"이 존재하는 문서로 확인되지 않습�
 msgid "Link target \"{shown}\" does not resolve to an existing file."
 msgstr "링크 대상 \"{shown}\"이 존재하는 파일로 확인되지 않습니다."
 
+#: src/editor/localized-validation-message.ts
+msgid "Link target \"{shown}\" exists but is excluded by .gitignore or .okignore. Re-include it, or its folder, with a \"!\" rule in .okignore."
+msgstr "링크 대상 \"{shown}\"은 존재하지만 .gitignore 또는 .okignore에 의해 제외되어 있습니다. .okignore에 \"!\" 규칙을 추가해 해당 파일 또는 폴더를 다시 포함하세요."
+
 #: src/lib/keyboard-shortcuts.ts
 msgid "Link the selected text, or edit the link under the caret."
 msgstr "선택한 텍스트에 링크를 추가하거나 커서 아래의 링크를 편집합니다."
@@ -8456,6 +8637,10 @@ msgstr "스킬 불러오는 중"
 msgid "Loading starter packs"
 msgstr "스타터 팩 불러오는 중"
 
+#: src/components/settings/SyncSection.tsx
+msgid "Loading sync status"
+msgstr "동기화 상태 로드 중"
+
 #: src/components/CommandPalette.tsx
 #: src/editor/tag-suggestion/TagSuggestionMenu.tsx
 msgid "Loading tags"
@@ -8611,8 +8796,8 @@ msgid "Manage skill folders"
 msgstr "스킬 폴더 관리"
 
 #: src/components/settings/AccountSection.tsx
-msgid "Manage the GitHub account OpenKnowledge uses to browse and sync your repositories."
-msgstr "OpenKnowledge가 저장소를 탐색하고 동기화할 때 사용하는 GitHub 계정을 관리합니다."
+msgid "Manage the accounts and access tokens OpenKnowledge uses to connect to your git hosts."
+msgstr "OpenKnowledge가 git 호스트에 연결할 때 사용하는 계정과 액세스 토큰을 관리합니다."
 
 #: src/components/settings/AgentConnectionDialogs.tsx
 #: src/components/settings/AgentConnectionsSection.tsx
@@ -8756,6 +8941,12 @@ msgstr "미러 소스 <0>api-spec</0>"
 #: src/components/LinksPanel.tsx
 msgid "Missing"
 msgstr "누락됨"
+
+#. placeholder {0}: error.slots.length
+#. placeholder {1}: error.slots.join(', ')
+#: src/components/settings/CustomThemeEditor.tsx
+msgid "Missing {0} slot(s): {1}"
+msgstr "누락된 색상 슬롯 ({0}개): {1}"
 
 #: src/components/FeedbackForm.tsx
 msgid "Missing a feature"
@@ -9343,10 +9534,12 @@ msgstr "아직 설정된 에이전트 없음. 전송 메뉴에서 선택하세�
 msgid "no agents — saved, not installed anywhere"
 msgstr "에이전트 없음 — 저장만 되고 어디에도 설치되지 않음"
 
+#. Composer hint when no agent is set up; agentConnectionsLabel is the Settings sidebar pane name
+#. Composer hint when no agent is set up; agentConnectionsLabel is the Settings sidebar pane name
 #: src/components/BottomComposer.tsx
 #: src/components/empty-state/CreatePromptComposer.tsx
-msgid "No agents are set up yet — add an in-app agent in Agent connections to attach files."
-msgstr "아직 설정된 에이전트가 없습니다. 파일을 첨부하려면 에이전트 연결에서 앱 내 에이전트를 추가하세요."
+msgid "No agents are set up yet — add an in-app agent in {agentConnectionsLabel} to attach files."
+msgstr "아직 설정된 에이전트가 없습니다. 파일을 첨부하려면 {agentConnectionsLabel}에서 앱 내 에이전트를 추가하세요."
 
 #: src/components/settings/AgentConnectionsSection.tsx
 msgid "No agents available."
@@ -9369,10 +9562,10 @@ msgstr "검색과 일치하는 에이전트 없음."
 msgid "No AI agents installed"
 msgstr "설치된 AI 에이전트 없음"
 
-#. Shown in place of the AI-tools checkbox when no AI tool was detected
+#. Shown in place of the AI-tools checkbox when no AI tool was detected; agentConnectionsLabel is the Settings sidebar pane name
 #: src/components/McpConsentDialogBody.tsx
-msgid "No AI tools detected yet. Once you install one, connect it from Settings > AI tools & CLI."
-msgstr "아직 감지된 AI 도구가 없습니다. 설치한 후 Settings > AI tools & CLI에서 연결하세요."
+msgid "No AI tools detected yet. Once you install one, connect it from Settings > {agentConnectionsLabel}."
+msgstr "아직 감지된 AI 도구가 없습니다. 설치한 후 설정 > {agentConnectionsLabel}에서 연결하세요."
 
 #: src/components/ProjectAiToolsField.tsx
 msgid "No AI tools detected yet. Once you install one, connect it from Settings > This project."
@@ -9441,6 +9634,10 @@ msgstr "이 버전에서 내용 변경 없음."
 #: src/components/TimelineDiffPane.tsx
 msgid "No content changes in this version"
 msgstr "이 버전에는 콘텐츠 변경 없음"
+
+#: src/components/SyncStatusBadge.tsx
+msgid "No credential is stored for this git host. Add a token in Settings, or let git use the credentials it already has."
+msgstr "이 git 호스트에 저장된 자격 증명이 없습니다. 설정에서 토큰을 추가하거나, git이 이미 가지고 있는 자격 증명을 사용하도록 두세요."
 
 #: src/components/GraphPanel.tsx
 msgid "No disconnected pages. Pages appear here only when they have no incoming and no outgoing graph edges."
@@ -9748,6 +9945,15 @@ msgstr "이 문제들에는 자동 수정이 없습니다. AI로 모두 수정�
 msgid "Not a base16 theme"
 msgstr "base16 테마가 아님"
 
+#. placeholder {0}: error.slots.join(', ')
+#: src/components/settings/CustomThemeEditor.tsx
+msgid "Not a hex color: {0}"
+msgstr "16진수 색상이 아닙니다: {0}"
+
+#: src/components/SkillConsentRow.tsx
+msgid "Not added to any AI tool yet."
+msgstr "아직 어떤 AI 도구에도 추가되지 않았습니다."
+
 #: src/components/acp/ThreadView.tsx
 msgid "Not answered"
 msgstr "응답하지 않음"
@@ -9805,6 +10011,7 @@ msgstr "아직 이 프로젝트에 설치되지 않았습니다."
 #: src/components/ReportBugDialogBody.tsx
 #: src/components/settings/SkillsStudioIntroDialog.tsx
 #: src/lib/install-server-drift-listener.ts
+#: src/lib/install-stale-tab-reload-prompt.ts
 msgid "Not now"
 msgstr "나중에"
 
@@ -10197,6 +10404,10 @@ msgid "Open it there"
 msgstr "그곳에서 열기"
 
 #: src/components/settings/LintingSection.tsx
+msgid "Open Knowledge could not reach the project server to check index maintenance. The status updates when the project reconnects."
+msgstr "Open Knowledge가 프로젝트 서버에 연결할 수 없어 인덱스 유지 관리 상태를 확인하지 못했습니다. 프로젝트가 다시 연결되면 상태가 업데이트됩니다."
+
+#: src/components/settings/LintingSection.tsx
 msgid "Open Knowledge creates and maintains a navigation file named index.md in every folder that contains Markdown."
 msgstr "Open Knowledge는 Markdown이 있는 모든 폴더에 index.md라는 탐색 파일을 만들고 유지합니다."
 
@@ -10394,6 +10605,10 @@ msgstr "여는 중…"
 msgid "OpenKnowledge"
 msgstr "OpenKnowledge"
 
+#: src/components/AuthModal.tsx
+msgid "OpenKnowledge can't sign in to GitHub for this project."
+msgstr "OpenKnowledge는 이 프로젝트에서 GitHub에 로그인할 수 없습니다."
+
 #: src/lib/acp/tool-call-display.ts
 msgid "OpenKnowledge checked {subject}"
 msgstr "OpenKnowledge에서 {subject} 확인"
@@ -10402,13 +10617,13 @@ msgstr "OpenKnowledge에서 {subject} 확인"
 msgid "OpenKnowledge checked the project"
 msgstr "OpenKnowledge에서 프로젝트 확인"
 
+#: src/components/settings/AboutSection.tsx
+msgid "OpenKnowledge checks for and downloads updates in the background."
+msgstr "OpenKnowledge가 백그라운드에서 업데이트를 확인하고 다운로드합니다."
+
 #: src/components/settings/AgentConnectionDialogs.tsx
 msgid "OpenKnowledge could not find this agent on this machine."
 msgstr "OpenKnowledge가 이 컴퓨터에서 이 에이전트를 찾지 못했습니다."
-
-#: src/components/settings/AccountSection.tsx
-msgid "OpenKnowledge couldn't find a host name in this project's git remote, so it can't tell which GitHub server to sign in to."
-msgstr "OpenKnowledge가 이 프로젝트의 git 원격 주소에서 호스트 이름을 찾지 못해 어느 GitHub 서버에 로그인해야 할지 알 수 없습니다."
 
 #: src/lib/worktree-create-error.ts
 msgid "OpenKnowledge couldn't finish setting up this project. The worktree was created but not opened."
@@ -10454,6 +10669,10 @@ msgstr "OpenKnowledge가 이 항목을 인식하지 못하며, 이 파일 형식
 msgid "OpenKnowledge does not recognize this entry. Turning it on replaces it."
 msgstr "OpenKnowledge가 이 항목을 인식하지 못합니다. 켜면 이 항목을 대체합니다."
 
+#: src/components/settings/AboutSection.tsx
+msgid "OpenKnowledge doesn't check for or download updates on its own. Check for updates still works when you want a newer version."
+msgstr "OpenKnowledge가 스스로 업데이트를 확인하거나 다운로드하지 않습니다. 새 버전이 필요하면 업데이트 확인을 계속 사용할 수 있습니다."
+
 #: src/lib/acp/tool-call-display.ts
 msgid "OpenKnowledge edited {subject}"
 msgstr "OpenKnowledge에서 {subject} 편집"
@@ -10465,6 +10684,10 @@ msgstr "OpenKnowledge에서 문서 편집"
 #: src/uninstall/UninstallResultScreen.tsx
 msgid "OpenKnowledge files were removed"
 msgstr "OpenKnowledge 파일을 제거했습니다"
+
+#: src/hooks/use-sync-auth-prompt.ts
+msgid "OpenKnowledge has no credential stored for this host. Add a token in Settings, or let git use the credentials it already has."
+msgstr "OpenKnowledge에 이 호스트용으로 저장된 자격 증명이 없습니다. 설정에서 토큰을 추가하거나, git이 이미 가지고 있는 자격 증명을 사용하도록 두세요."
 
 #: src/lib/acp/tool-call-display.ts
 msgid "OpenKnowledge imported {source}"
@@ -10495,12 +10718,12 @@ msgid "OpenKnowledge is set up at the repository root here, so the pack goes ins
 msgstr "OpenKnowledge는 여기 리포지토리 루트에 설정되어 있으므로 팩은 리포지토리 최상위가 아니라 <0>{sanitized}</0> 안에 들어갑니다."
 
 #: src/components/settings/AccountSection.tsx
-msgid "OpenKnowledge is using a GitHub account provided by the gh CLI. There's no separate OpenKnowledge credential to disconnect."
-msgstr "OpenKnowledge는 gh CLI가 제공하는 GitHub 계정을 사용 중입니다. 연결을 해제할 별도 OpenKnowledge 자격 증명은 없습니다."
-
-#: src/components/settings/AccountSection.tsx
 msgid "OpenKnowledge is using this GitHub account."
 msgstr "OpenKnowledge가 이 GitHub 계정을 사용 중입니다."
+
+#: src/components/settings/SettingsDialogBody.tsx
+msgid "OpenKnowledge keeps retrying and shows them as soon as the file can be read."
+msgstr "OpenKnowledge가 계속 다시 시도하며, 파일을 읽을 수 있게 되면 바로 표시합니다."
 
 #: src/components/settings/AgentConnectionDialogs.tsx
 msgid "OpenKnowledge left this file alone because it could not parse it safely. Fix the file by hand, then try again."
@@ -10542,6 +10765,14 @@ msgstr "OpenKnowledge에서 문서 이동"
 #: src/components/command-palette-commands.ts
 msgid "OpenKnowledge on GitHub"
 msgstr "GitHub에서 OpenKnowledge 열기"
+
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "OpenKnowledge on this computer changed to a different build, but this tab is still running the old one."
+msgstr "이 컴퓨터의 OpenKnowledge가 다른 빌드로 바뀌었지만 이 탭은 아직 이전 빌드를 실행하고 있습니다."
+
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "OpenKnowledge on this computer is now v{serverVersion}, but this tab is still running v{tabVersion}."
+msgstr "이 컴퓨터의 OpenKnowledge는 이제 v{serverVersion}이지만 이 탭은 아직 v{tabVersion}을 실행하고 있습니다."
 
 #: src/lib/acp/tool-call-display.ts
 msgid "OpenKnowledge opened the live preview"
@@ -10693,6 +10924,11 @@ msgstr "기타"
 #: src/components/FeedbackForm.tsx
 msgid "Other"
 msgstr "기타"
+
+#: src/components/settings/AccountSection.tsx
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "Other Git hosts"
+msgstr "기타 Git 호스트"
 
 #: src/components/settings/SharingSection.tsx
 msgid "Other OK paths are tracked upstream:"
@@ -11246,6 +11482,10 @@ msgstr "프로젝트 세부 정보"
 msgid "Project folder created, but git init failed. Try again."
 msgstr "프로젝트 폴더는 생성되었지만 git init에 실패했습니다. 다시 시도하세요."
 
+#: src/components/ConsentDialogBody.tsx
+msgid "Project folder: <0>{projectDir}</0>"
+msgstr "프로젝트 폴더: <0>{projectDir}</0>"
+
 #: src/components/settings/AgentConnectionDialogs.tsx
 msgid "Project MCP server"
 msgstr "프로젝트 MCP 서버"
@@ -11319,6 +11559,10 @@ msgstr "속성 값"
 #: src/components/SyncStatusBadge.tsx
 msgid "Protected branch — cannot push"
 msgstr "보호된 브랜치. 푸시할 수 없음"
+
+#: src/components/settings/AccountSection.tsx
+msgid "Provided by the GitHub CLI (<0>gh</0>) on this computer. To switch accounts or sign out, run <1>gh auth</1> in a terminal."
+msgstr "이 컴퓨터의 GitHub CLI(<0>gh</0>)가 제공합니다. 계정을 전환하거나 로그아웃하려면 터미널에서 <1>gh auth</1>를 실행하세요."
 
 #: src/components/TemplateForm.tsx
 msgid "provisional"
@@ -11628,6 +11872,14 @@ msgstr "다시 연결 필요"
 msgid "Reconnect required to keep syncing."
 msgstr "계속 동기화하려면 다시 연결해야 합니다."
 
+#: src/components/SyncStatusBadge.tsx
+msgid "Reconnect required to keep syncing. Add a token for this host in Settings, or replace the one stored."
+msgstr "계속 동기화하려면 다시 연결해야 합니다. 설정에서 이 호스트의 토큰을 추가하거나 저장된 토큰을 교체하세요."
+
+#: src/components/SyncStatusBadge.tsx
+msgid "Reconnect required to keep syncing. Check the SSH key or saved credentials git uses for this host."
+msgstr "계속 동기화하려면 다시 연결해야 합니다. git이 이 호스트에 사용하는 SSH 키나 저장된 자격 증명을 확인하세요."
+
 #: src/presence/use-sync-toasts.ts
 msgid "Reconnected"
 msgstr "다시 연결됨"
@@ -11706,6 +11958,7 @@ msgstr "상대 경로"
 msgid "Relaunching to install the update…"
 msgstr "업데이트를 설치하기 위해 다시 시작하는 중…"
 
+#: src/components/settings/AboutSection.tsx
 #: src/components/settings/SettingsDialogShell.tsx
 #: src/components/SubscribeCard.tsx
 msgid "Release notes"
@@ -11725,10 +11978,15 @@ msgstr "관련성"
 #: src/components/settings/SettingsDialogErrorBoundary.tsx
 #: src/components/TerminalGate.tsx
 #: src/components/TerminalStartingNotice.tsx
+#: src/lib/install-stale-tab-reload-prompt.ts
 #: src/lib/locale-load-failure-notice.ts
 #: src/lib/native-menu-catalog.ts
 msgid "Reload"
 msgstr "새로 고침"
+
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "Reload this tab to bring it up to date. Your edits are saved before it reloads."
+msgstr "이 탭을 새로 고쳐 최신 상태로 맞추세요. 새로 고치기 전에 편집 내용이 저장됩니다."
 
 #: src/components/NewWorktreeDialog.tsx
 msgid "remote"
@@ -11975,6 +12233,7 @@ msgid "Renaming changes the file on disk and the id agents use to pick this temp
 msgstr "이름을 바꾸면 디스크의 파일과 에이전트가 이 템플릿을 선택할 때 사용하는 ID가 변경됩니다."
 
 #: src/editor/utils/severity.ts
+#: src/lib/rendered-diff/diff-jsx-block.tsx
 msgid "render error"
 msgstr "렌더링 오류"
 
@@ -12571,6 +12830,10 @@ msgstr "저장 중"
 msgid "Saving changes…"
 msgstr "변경사항 저장 중…"
 
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "Saving your edits before reloading…"
+msgstr "새로 고치기 전에 편집 내용을 저장하는 중…"
+
 #: src/components/settings/LintingSection.tsx
 msgid "schema {deleteTarget}"
 msgstr "스키마 {deleteTarget}"
@@ -13089,10 +13352,6 @@ msgstr "사용자 정보 설정"
 #: src/components/settings/plugin-enabled-notice.ts
 msgid "Set it up on its own page under Plugins."
 msgstr "플러그인 아래의 자체 페이지에서 설정합니다."
-
-#: src/components/settings/SyncSection.tsx
-msgid "Set the sync default for users opening this project for the first time. This setting is committed to your repository."
-msgstr "이 프로젝트를 처음 여는 사용자의 동기화 기본값을 설정합니다. 이 설정은 저장소에 커밋됩니다."
 
 #: src/components/command-palette-commands.ts
 msgid "Set up OpenKnowledge integrations"
@@ -13663,6 +13922,14 @@ msgstr "일부 검사가 실패했지만 병합할 수 있음"
 msgid "Some dropped files could not be inserted safely."
 msgstr "놓은 파일 중 일부를 안전하게 삽입할 수 없습니다."
 
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "Some edits haven't reached the server yet, so the tab didn't reload. Open {docs} to save them, then reload."
+msgstr "일부 편집 내용이 아직 서버에 도달하지 않아 탭을 새로 고치지 않았습니다. {docs} 문서를 열어 저장한 다음 새로 고치세요."
+
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "Some edits haven't reached the server yet, so the tab didn't reload. Your edits are still here."
+msgstr "일부 편집 내용이 아직 서버에 도달하지 않아 탭을 새로 고치지 않았습니다. 편집 내용은 그대로 있습니다."
+
 #: src/components/SyncStatusBadge.tsx
 msgid "Some files are not listed — the working tree has too many changes."
 msgstr "일부 파일이 표시되지 않았습니다. 작업 트리의 변경 사항이 너무 많습니다."
@@ -13678,6 +13945,10 @@ msgstr "테마 폴더가 스캔 한도를 초과해 일부 저장된 테마가 �
 #: src/components/SkillBulkDeleteDialog.tsx
 msgid "Some skills were deleted with a warning"
 msgstr "일부 스킬이 경고와 함께 삭제되었습니다"
+
+#: src/components/empty-state/CreateView.tsx
+msgid "Some templates may not be listed because this knowledge base has too many folders to scan. To see a folder's templates, open its menu in the file tree and choose New from template."
+msgstr "이 지식 베이스에는 폴더가 너무 많아 모두 스캔할 수 없으므로 일부 템플릿이 목록에 표시되지 않을 수 있습니다. 폴더의 템플릿을 보려면 파일 트리에서 해당 폴더의 메뉴를 열고 \"템플릿에서 새로 만들기\"를 선택하세요."
 
 #: src/components/DiffViewBoundary.tsx
 msgid "Someone may have already resolved {filePath} — check the document's current content before redoing your edit."
@@ -14154,6 +14425,10 @@ msgstr "이 워크트리의 동기화가 수동으로 설정되어 있습니다.
 msgid "Sync is taking longer than usual — your changes are safe on this device."
 msgstr "동기화가 평소보다 오래 걸리고 있습니다. 변경 내용은 이 기기에 안전하게 보관됩니다."
 
+#: src/components/settings/SettingsDialogBody.tsx
+msgid "Sync keeps this computer's copy up to date with your Git remote. The shared settings below decide what teammates get when they open the project."
+msgstr "동기화는 이 컴퓨터의 사본을 Git 원격과 최신 상태로 유지합니다. 아래 공유 설정은 팀원이 프로젝트를 열 때 무엇을 받을지 결정합니다."
+
 #: src/components/SyncStatusBadge.tsx
 msgid "Sync mode"
 msgstr "동기화 모드"
@@ -14443,6 +14718,15 @@ msgstr "처리되지 않았습니다. 서버 로그를 확인한 뒤 다시 시�
 msgid "That document didn't open in time. Try again once it has synced."
 msgstr "문서 열기 시간 초과. 동기화 후 다시 시도합니다."
 
+#. placeholder {0}: error.line
+#: src/components/settings/CustomThemeEditor.tsx
+msgid "That doesn’t parse as YAML or JSON — check line {0}."
+msgstr "YAML 또는 JSON으로 해석할 수 없습니다. {0}번째 줄을 확인하세요."
+
+#: src/components/settings/CustomThemeEditor.tsx
+msgid "That doesn’t parse as YAML or JSON."
+msgstr "YAML 또는 JSON으로 해석할 수 없습니다."
+
 #: src/components/settings/SearchSection.tsx
 msgid "That endpoint can't be used. Enter an https:// URL — http:// is only allowed for loopback endpoints."
 msgstr "이 엔드포인트는 사용할 수 없습니다. https:// URL을 입력합니다. http://는 루프백 엔드포인트에만 사용할 수 있습니다."
@@ -14471,6 +14755,10 @@ msgstr "해당 언어는 맞춤법 검사에서 지원되지 않습니다."
 #: src/components/acp/ThreadView.tsx
 msgid "That message already went out — your edit wasn't applied."
 msgstr "메시지 전송 완료. 편집 내용 미적용."
+
+#: src/components/settings/CustomThemeEditor.tsx
+msgid "That parsed, but it isn’t a base16 theme."
+msgstr "해석했지만 base16 테마가 아닙니다."
 
 #. placeholder {0}: item.displayName
 #: src/components/acp/ThreadView.tsx
@@ -14598,6 +14886,10 @@ msgstr "대화를 이 보고서에 추가하지 못했습니다."
 #: src/lib/skills-api.ts
 msgid "The copy of \"{name}\" kept in {scopeLabel} is a redundant duplicate: the original was verified unchanged. Remove that copy, then retry the move."
 msgstr "{scopeLabel}에 남아 있는 “{name}” 사본은 불필요한 중복입니다. 원본이 변경되지 않았음을 확인했습니다. 그 사본을 삭제한 뒤 이동을 다시 시도하세요."
+
+#: src/components/ReportBugDialogBody.tsx
+msgid "The crash dump couldn't be added to this report."
+msgstr "크래시 덤프를 이 보고서에 추가하지 못했습니다."
 
 #: src/components/SyncStatusBadge.tsx
 msgid "The default branch is protected — pushes need a pull request."
@@ -14778,6 +15070,10 @@ msgstr "Open Knowledge 도구 사용 설정 요청 시간이 초과되었습니�
 msgid "The schema file does not exist or failed to load — adding a field creates it."
 msgstr "스키마 파일이 없거나 불러오지 못했습니다. 필드를 추가하면 파일이 생성됩니다."
 
+#: src/components/settings/SyncSection.tsx
+msgid "The server couldn't read this project's sync status, so sync options are hidden. They appear here as soon as the sync status loads; closing and reopening Settings also retries."
+msgstr "서버가 이 프로젝트의 동기화 상태를 읽을 수 없어 동기화 옵션을 숨겼습니다. 동기화 상태를 불러오는 즉시 여기에 표시되며, 설정을 닫았다가 다시 열어도 다시 시도합니다."
+
 #: src/components/ConnectingBanner.tsx
 msgid "the server responded but server.lock has no port yet"
 msgstr "서버 응답 완료. server.lock에 포트 없음"
@@ -14818,6 +15114,14 @@ msgstr "스킬 목록이 스키마와 일치하지 않습니다."
 #: src/components/SkillInstallMenu.tsx
 msgid "The source folder itself does not move."
 msgstr "소스 폴더 자체는 이동하지 않습니다."
+
+#: src/components/SyncStatusBadge.tsx
+msgid "The stored token is missing the permissions this host needs to push."
+msgstr "저장된 토큰에 이 호스트가 푸시하는 데 필요한 권한이 없습니다."
+
+#: src/components/settings/SyncSection.tsx
+msgid "The sync mode teammates start with the first time they open this project. It's saved in the project's OpenKnowledge settings, so it only reaches them when Config sharing below is set to Shared."
+msgstr "팀원이 이 프로젝트를 처음 열 때 시작하는 동기화 모드입니다. 프로젝트의 OpenKnowledge 설정에 저장되므로 아래 설정 공유가 공유됨으로 설정된 경우에만 팀원에게 전달됩니다."
 
 #: src/components/TemplateProperties.tsx
 msgid "The template's filename (without `.md`)."
@@ -14876,6 +15180,10 @@ msgstr ".ok/local/config.yml의 terminal.shell 실행 파일을 찾을 수 없�
 #: src/components/AuthModal.tsx
 msgid "The token needs the repo and read:user scopes."
 msgstr "토큰에 repo 및 read:user 범위가 필요합니다."
+
+#: src/components/settings/AccountSection.tsx
+msgid "The username git sends with the token. Some hosts expect a fixed value: type <0>x-bitbucket-api-token-auth</0> for a Bitbucket API token, <1>x-token-auth</1> for a Bitbucket repository or workspace access token, or <2>oauth2</2> for GitLab. For Gitea, use your Gitea username. Azure DevOps accepts any value."
+msgstr "git이 토큰과 함께 보내는 사용자 이름입니다. 일부 호스트는 고정된 값을 요구합니다. Bitbucket API 토큰이면 <0>x-bitbucket-api-token-auth</0>, Bitbucket 저장소 또는 워크스페이스 액세스 토큰이면 <1>x-token-auth</1>, GitLab이면 <2>oauth2</2>를 입력하세요. Gitea는 Gitea 사용자 이름을 사용합니다. Azure DevOps는 아무 값이나 허용합니다."
 
 #: src/lib/tab-session-restore-recovery-notice.ts
 msgid "The workspace opened without it so the app could start."
@@ -15067,9 +15375,10 @@ msgstr "이 브랜치의 체크아웃 위치:"
 msgid "This branch redirects an OpenKnowledge setup path outside the worktree. The worktree was created but not opened."
 msgstr "이 브랜치가 OpenKnowledge 설정 경로를 워크트리 밖으로 리디렉션합니다. 워크트리는 생성되었지만 열리지 않았습니다."
 
+#. Toast after first-launch setup ends without connecting AI tools; agentConnectionsLabel is the Settings sidebar pane name
 #: src/components/McpConsentDialogBody.tsx
-msgid "This can be configured in Settings > AI tools & CLI"
-msgstr "Settings > AI tools & CLI에서 설정 가능"
+msgid "This can be configured in Settings > {agentConnectionsLabel}"
+msgstr "설정 > {agentConnectionsLabel}에서 구성할 수 있습니다"
 
 #: src/components/RecentProjectsMenu.tsx
 msgid "This checkout path cannot be read."
@@ -15277,10 +15586,6 @@ msgstr "이 목록은 최신 상태가 아닐 수 있습니다. 마지막으로 
 msgid "This list may be out of date."
 msgstr "이 목록은 최신 상태가 아닐 수 있습니다."
 
-#: src/components/ConsentDialogBody.tsx
-msgid "This looks like a drive root (e.g., C:\\). Scaffolding here will scan an entire drive."
-msgstr "드라이브 루트처럼 보입니다(예: Windows 드라이브 루트). 여기서 뼈대를 만들면 드라이브 전체를 검사합니다."
-
 #: src/components/settings/AgentConnectionDialogs.tsx
 #: src/components/settings/ScopeBadge.tsx
 #: src/components/SkillScopeSegment.tsx
@@ -15290,6 +15595,10 @@ msgstr "이 컴퓨터"
 #: src/uninstall/UninstallProgressScreen.tsx
 msgid "This may take a moment. Your markdown content is kept."
 msgstr "잠시 시간이 걸릴 수 있습니다. markdown 콘텐츠는 유지됩니다."
+
+#: src/components/settings/SyncSection.tsx
+msgid "This mode comes from the project's Shared default below. Pick a mode to choose your own for this computer."
+msgstr "이 모드는 아래 프로젝트의 공유 기본값에서 가져온 것입니다. 이 컴퓨터에서 사용할 모드를 직접 고르려면 모드를 선택하세요."
 
 #. placeholder {0}: scopeLabels[scope]
 #. placeholder {1}: scopeLabels[toScope]
@@ -15405,10 +15714,6 @@ msgstr "이 프로젝트는 git 저장소가 아니므로 워크트리를 사용
 msgid "This project lives only on this computer. Connect it to GitHub to back it up and share it with other people."
 msgstr "이 프로젝트는 이 컴퓨터에만 있습니다. 백업하고 다른 사람과 공유하려면 GitHub에 연결합니다."
 
-#: src/components/settings/AccountSection.tsx
-msgid "This project's git remote is on {host}, which OpenKnowledge doesn't recognize as a GitHub host. If {host} runs GitHub Enterprise Server, add it to GitHub Enterprise Server hosts below, then restart OpenKnowledge."
-msgstr "이 프로젝트의 git 원격은 {host}에 있으며, OpenKnowledge는 이를 GitHub 호스트로 인식하지 않습니다. {host}이(가) GitHub Enterprise Server를 실행한다면 아래의 GitHub Enterprise Server 호스트에 추가한 다음 OpenKnowledge를 다시 시작하세요."
-
 #: src/components/DocumentErrorBoundary.tsx
 msgid "This project's running server doesn't support live editing. Restart OpenKnowledge to fix."
 msgstr "이 프로젝트에서 실행 중인 서버는 실시간 편집을 지원하지 않습니다. OpenKnowledge를 다시 시작하여 수정하세요."
@@ -15480,6 +15785,14 @@ msgstr "이 소스에는 여러 스킬이 들어 있습니다. 하나를 선택�
 msgid "This source bundles several skills — choose the one to import."
 msgstr "이 소스에는 여러 스킬이 들어 있습니다. 가져올 항목을 선택하세요."
 
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "This tab couldn't confirm that your edits are saved, so it didn't reload. Your edits are still here."
+msgstr "이 탭에서 편집 내용이 저장되었는지 확인하지 못해 새로 고치지 않았습니다. 편집 내용은 그대로 있습니다."
+
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "This tab is still reconnecting to OpenKnowledge, so it didn't reload. Try again in a moment."
+msgstr "이 탭이 아직 OpenKnowledge에 다시 연결하는 중이라 새로 고치지 않았습니다. 잠시 후 다시 시도하세요."
+
 #: src/components/TemplateDeleteDialog.tsx
 msgid "This template lives in a parent folder — deleting it affects every folder beneath it that doesn't define its own version."
 msgstr "이 템플릿은 상위 폴더에 있습니다. 삭제하면 자체 버전을 정의하지 않은 하위 폴더 모두에 영향을 줍니다."
@@ -15500,11 +15813,16 @@ msgstr "이 테마 파일을 읽지 못했습니다"
 msgid "This theme file is too large"
 msgstr "이 테마 파일은 너무 큽니다"
 
+#: src/components/UpdateNotices.shared.ts
+msgid "This update is no longer ready to install."
+msgstr "이 업데이트는 더 이상 설치할 준비가 되어 있지 않습니다."
+
 #: src/components/ShareReceiveDialog.tsx
 msgid "This usually means one of:"
 msgstr "일반적으로 다음 중 하나입니다:"
 
 #: src/components/AuthModal.tsx
+#: src/components/settings/AccountSection.tsx
 msgid "This window can't store a token — open Settings from the main app window."
 msgstr "이 창에는 토큰을 저장할 수 없습니다. 기본 앱 창에서 설정을 여세요."
 
@@ -15538,6 +15856,10 @@ msgstr "제목"
 #: src/editor/extensions/CodeBlockView.tsx
 msgid "Title"
 msgstr "제목"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "To connect AI tools without a project, use File > Set up OpenKnowledge integrations…"
+msgstr "프로젝트 없이 AI 도구를 연결하려면 파일 > OpenKnowledge 통합 설정…을 사용하세요."
 
 #: src/editor/slash-command/items.tsx
 msgid "To do"
@@ -15658,6 +15980,15 @@ msgstr "밑줄 서식을 전환합니다."
 msgid "Toggles the pattern {0}/**"
 msgstr "패턴 {0}/** 사용 설정 전환"
 
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "token"
+msgstr "토큰"
+
+#: src/components/settings/AccountSection.tsx
+msgid "Token stored for {login} on {host}. To remove it, run <0>ok auth signout --host {host}</0>."
+msgstr "{host}의 {login}에 대한 토큰이 저장되었습니다. 제거하려면 <0>ok auth signout --host {host}</0>을(를) 실행하세요."
+
 #: src/components/SkillBundlePreview.tsx
 #: src/components/SkillProperties.tsx
 msgid "tokens"
@@ -15743,6 +16074,10 @@ msgstr "{display}을 현재 감지하는 각 스킬의 스킬별 심볼릭 링�
 msgid "Turn it off any time in Settings."
 msgstr "설정에서 언제든지 끌 수 있습니다."
 
+#: src/components/settings/SyncSection.tsx
+msgid "Turn off auto-sync"
+msgstr "자동 동기화 끄기"
+
 #: src/components/NotInSidebarIndicator.tsx
 msgid "Turn off Only markdown files"
 msgstr "Markdown 파일만 끄기"
@@ -15775,6 +16110,22 @@ msgstr "끄는 중"
 #: src/components/acp/working-status.ts
 msgid "Turning it over…"
 msgstr "다시 생각 중…"
+
+#: src/components/settings/LintingSection.tsx
+msgid "Turning off index maintenance failed because Open Knowledge could not reach the project server. Try again when the project reconnects."
+msgstr "Open Knowledge가 프로젝트 서버에 연결할 수 없어 인덱스 유지 관리를 끄지 못했습니다. 프로젝트가 다시 연결되면 다시 시도합니다."
+
+#: src/components/settings/LintingSection.tsx
+msgid "Turning off index maintenance failed because Open Knowledge could not update the Git merge rule. Check Git and .gitattributes, then try again."
+msgstr "Open Knowledge가 Git 병합 규칙을 업데이트하지 못해 인덱스 유지 관리를 끄지 못했습니다. Git과 .gitattributes를 확인한 후 다시 시도합니다."
+
+#: src/components/settings/LintingSection.tsx
+msgid "Turning off index maintenance failed because the Open Knowledge section of .gitattributes was edited or is incomplete. Remove that section, then try again."
+msgstr ".gitattributes의 Open Knowledge 섹션이 편집되었거나 불완전하여 인덱스 유지 관리를 끄지 못했습니다. 해당 섹션을 제거한 후 다시 시도합니다."
+
+#: src/components/settings/LintingSection.tsx
+msgid "Turning off index maintenance failed because the project setting could not be saved. Check the project file permissions, then try again."
+msgstr "프로젝트 설정을 저장하지 못해 인덱스 유지 관리를 끄지 못했습니다. 프로젝트 파일 권한을 확인한 후 다시 시도합니다."
 
 #. placeholder {0}: skill.name
 #: src/components/SkillForkDialog.tsx
@@ -15920,6 +16271,7 @@ msgid "Unknown component: {componentName} — source editable below"
 msgstr "알 수 없는 컴포넌트: {componentName}, 아래에서 소스를 편집할 수 있습니다"
 
 #: src/editor/extensions/RawMdxFallbackCMView.tsx
+#: src/lib/rendered-diff/diff-jsx-block.tsx
 msgid "Unknown component: {unregisteredComponentName}"
 msgstr "알 수 없는 컴포넌트: {unregisteredComponentName}"
 
@@ -16004,6 +16356,11 @@ msgstr "추적 안 됨"
 #: src/components/SyncStatusBadge.tsx
 msgid "Up to date"
 msgstr "최신 상태"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "update"
+msgstr "업데이트"
 
 #: src/components/SkillOriginInline.tsx
 #: src/components/SkillPreviewTab.tsx
@@ -16244,6 +16601,10 @@ msgstr "사용자"
 msgid "User plugins are personal to this device — turn them on or off here. Each enabled plugin gets its own page under Plugins in the settings sidebar."
 msgstr "사용자 플러그인은 이 기기에만 적용됩니다. 여기에서 켜거나 끌 수 있습니다. 활성화된 각 플러그인은 설정 사이드바의 플러그인 아래에 전용 페이지가 생깁니다."
 
+#: src/components/settings/AccountSection.tsx
+msgid "Username"
+msgstr "사용자 이름"
+
 #: src/components/settings/SearchSection.tsx
 msgid "Using the <0>OK_EMBEDDINGS_API_KEY</0> environment variable (managed outside OpenKnowledge)."
 msgstr "OpenKnowledge 외부에서 관리되는 <0>OK_EMBEDDINGS_API_KEY</0> 환경 변수를 사용합니다."
@@ -16268,6 +16629,11 @@ msgstr "값이 필요합니다"
 #: src/components/FrontmatterRow.tsx
 msgid "Values for {keyName}"
 msgstr "{keyName} 값"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "version"
+msgstr "버전"
 
 #: src/components/CommandPalette.tsx
 msgid "via {viaTags}"
@@ -16761,14 +17127,6 @@ msgstr "~/Documents를 선택했습니다. OpenKnowledge가 그 아래의 모든
 msgid "You picked ~/Downloads. Files there are usually transient — consider a stable folder instead."
 msgstr "~/Downloads를 선택했습니다. 여기의 파일은 대개 일시적이므로 안정적인 폴더를 대신 선택하는 것이 좋습니다."
 
-#: src/components/ConsentDialogBody.tsx
-msgid "You picked the filesystem root (/). Scaffolding here will scan every file on this machine — make sure that's what you want."
-msgstr "파일 시스템 루트(/)를 선택했습니다. 여기서 뼈대를 만들면 이 컴퓨터의 모든 파일을 검사합니다. 원하는 동작인지 확인하세요."
-
-#: src/components/ConsentDialogBody.tsx
-msgid "You picked your home directory. OpenKnowledge will index everything in your home tree — large and may surface personal files."
-msgstr "홈 디렉터리를 선택했습니다. OpenKnowledge가 홈 트리의 모든 항목을 색인합니다. 범위가 크고 개인 파일이 표시될 수 있습니다."
-
 #: src/components/OnboardingCard.tsx
 msgid "You're all set up!"
 msgstr "설정이 완료되었습니다!"
@@ -16889,6 +17247,10 @@ msgstr "검색어와 일치하는 페이지의 전체 텍스트가 임베딩 제
 #: src/components/PublishToGitHubDialog.tsx
 msgid "Your share link is ready below."
 msgstr "공유 링크가 아래에 준비되어 있습니다."
+
+#: src/components/settings/SettingsDialogBody.tsx
+msgid "Your user settings could not be read"
+msgstr "사용자 설정을 읽을 수 없습니다"
 
 #: src/components/ImportSkillForm.tsx
 msgid "Zip file"

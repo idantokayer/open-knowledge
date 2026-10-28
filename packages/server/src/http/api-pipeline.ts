@@ -1,5 +1,9 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { CLIENT_VERSION_HEADER } from '@inkeep/open-knowledge-core';
+import {
+  CLIENT_SURFACE_ATTRIBUTE,
+  CLIENT_VERSION_HEADER,
+  readClientSurface,
+} from '@inkeep/open-knowledge-core';
 import { context, propagation, SpanKind, SpanStatusCode } from '@opentelemetry/api';
 import {
   ATTR_HTTP_REQUEST_METHOD,
@@ -29,6 +33,24 @@ interface ApiRouteResolution {
   template: string;
   dispatch?: ((req: IncomingMessage, res: ServerResponse) => Promise<void>) | undefined;
 }
+
+const PREVIEW_DOCUMENT_MUTATIONS = new Set([
+  '/api/agent-write',
+  '/api/agent-write-md',
+  '/api/agent-patch',
+  '/api/agent-undo',
+  '/api/agent-write-batch',
+  '/api/comments',
+  '/api/comment',
+  '/api/client-logs',
+  '/api/frontmatter-patch',
+  '/api/save-version',
+  '/api/rollback',
+  '/api/lint/fix',
+  '/api/folder-config',
+  '/api/template',
+  '/api/agent-integrations/apply',
+]);
 
 export interface ApiRouteTable {
   resolve(pathname: string): ApiRouteResolution | null;
@@ -114,17 +136,7 @@ export interface ApiPipelineOptions {
   policy?: IngressPolicy;
   ephemeral?: boolean;
   table: ApiRouteTable;
-  /**
-   * Resolve the write-policy principal for the current request. A RESOLVER, not
-   * a frozen boolean, so the Phase-4 per-request RBAC swap (read claims off the
-   * request) needs no re-plumbing here. Omitted ⇒ stock read-write (writer).
-   *
-   * NOTE: this is the write-policy {@link WritePolicyPrincipal} (`{ role }`),
-   * NOT the core actor-identity `Principal` (`.id`) threaded elsewhere as
-   * `getPrincipal`. The two are deliberately distinct types and must not be
-   * conflated.
-   */
-  getWritePolicyPrincipal?: () => WritePolicyPrincipal;
+  dispatchMutation?: (operation: () => Promise<void>, pathname: string) => Promise<void>;
 }
 
 export type ApiRequestPipeline = (req: IncomingMessage, res: ServerResponse) => Promise<boolean>;
@@ -192,9 +204,10 @@ export function createApiRequestPipeline(opts: ApiPipelineOptions): ApiRequestPi
 
     const method = request.method ?? 'GET';
     const routeTemplate = resolution.template;
+    const clientSurface = readClientSurface(headerString(CLIENT_VERSION_HEADER.kind));
 
     const requestId = url.startsWith('/api/') ? resolveRequestId(request) : undefined;
-    stampIngressContext(request, { requestId });
+    stampIngressContext(request, { requestId, clientSurface });
     if (requestId !== undefined) {
       rememberRequestId(request, requestId);
       if (typeof response.setHeader === 'function') {
@@ -214,6 +227,7 @@ export function createApiRequestPipeline(opts: ApiPipelineOptions): ApiRequestPi
               route: routeTemplate,
               status: response.statusCode,
               durationMs: Date.now() - accessStarted,
+              ...(clientSurface === undefined ? {} : { clientSurface }),
               ...(response.writableFinished ? {} : { aborted: true }),
             },
             `${method} ${routeTemplate} ${response.statusCode}`,
@@ -225,6 +239,9 @@ export function createApiRequestPipeline(opts: ApiPipelineOptions): ApiRequestPi
     }
 
     if (url.startsWith('/api/')) {
+      if (typeof response.setHeader === 'function') {
+        response.setHeader('Cache-Control', 'no-store');
+      }
       const origin = request.headers.origin;
       const admission = admitRequestOrigin(origin, method, policy);
       if (!admission.admitted) {
@@ -258,16 +275,21 @@ export function createApiRequestPipeline(opts: ApiPipelineOptions): ApiRequestPi
     }
 
     if (table.isMutating(url)) {
-      const decision = canWrite(resolveWritePolicyPrincipal());
-      const githubCredentialRequest =
-        request.method === 'POST' && GITHUB_CREDENTIAL_ROUTES.has(url);
-      if (!decision.allow && !githubCredentialRequest) {
-        errorResponse(response, 403, 'urn:ok:error:read-only', 'Server is read-only.', {
-          handler: 'api-read-only-gate',
-          detail:
-            'This OpenKnowledge instance is in read-only mode; write operations are refused. Reading, searching, and browsing remain available.',
-          logLevel: 'debug',
-        });
+      if (
+        ephemeral &&
+        resolution.dispatch !== undefined &&
+        (method === 'POST' || method === 'PUT' || method === 'DELETE') &&
+        !PREVIEW_DOCUMENT_MUTATIONS.has(url)
+      ) {
+        errorResponse(
+          response,
+          403,
+          'urn:ok:error:single-file-mode',
+          'Single-file previews cannot manage project files.',
+          {
+            handler: 'api-preview-content-scope',
+          },
+        );
         return true;
       }
       const peerAddress = request.socket?.remoteAddress;
@@ -322,13 +344,18 @@ export function createApiRequestPipeline(opts: ApiPipelineOptions): ApiRequestPi
             [ATTR_URL_SCHEME]: 'http',
             [ATTR_USER_AGENT_ORIGINAL]: request.headers['user-agent'] ?? '',
             'ok.request.id': requestId,
+            [CLIENT_SURFACE_ATTRIBUTE]: clientSurface,
           },
         },
         async (span) => {
           try {
             const dispatch = resolution.dispatch;
             if (dispatch !== undefined) {
-              await dispatch(request, response);
+              if (table.isMutating(url) && opts.dispatchMutation !== undefined) {
+                await opts.dispatchMutation(() => dispatch(request, response), url);
+              } else {
+                await dispatch(request, response);
+              }
             } else {
               errorResponse(response, 404, 'urn:ok:error:not-found', 'API endpoint not found.', {
                 handler: 'api-dispatch',

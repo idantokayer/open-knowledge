@@ -24,6 +24,7 @@ import {
   EDITOR_TARGETS,
   editorConfigPathDisplay,
   editorEntryLocator,
+  findJetsamKillSync,
   getOkArtifactPaths,
   isEntryUpToDate,
   isOwnManagedEntry,
@@ -151,13 +152,14 @@ import { type EntryPoint, isEntryPoint } from '../shared/entry-point.ts';
 import type {
   EditorActiveTargetSnapshot,
   MenuDispatchCommand,
-  MenuDispatchRole,
   OnboardingShowPayload,
   RecentProject,
 } from '../shared/ipc-channels.ts';
 import type { EventChannels } from '../shared/ipc-events.ts';
 import { createHandler } from '../shared/ipc-handler.ts';
 import { registerPendingDelivery, sendToRenderer } from '../shared/ipc-send.ts';
+import { createPtyPhaseTrace } from '../shared/pty-phase-trace.ts';
+import { releasesPageUrl } from '../shared/release-links.ts';
 import { UNINSTALL_PRELOAD_ARG } from '../shared/uninstall-preload-arg.ts';
 import { getWindowsEnvValue } from '../shared/windows-env.ts';
 import { resolveShell } from '../utility/pty-host.ts';
@@ -175,13 +177,14 @@ import {
 import { collectDesktopHostSnapshot, withoutProjectScope } from './agent-registry-probes.ts';
 import { appendOkIgnoreSync } from './append-okignore.ts';
 import { registerAppImageDeepLinks } from './appimage-integration.ts';
-import { openAssetSafely, revealAssetSafely } from './asset-allowlist.ts';
+import { openAssetOrReveal, openAssetSafely, revealAssetSafely } from './asset-allowlist.ts';
 import { popAssetMenu, revealMenuLabel } from './asset-menu.ts';
 import { attachAssetSafetyNet } from './asset-safety-net.ts';
 import { resolveEffectiveInstanceName } from './auto-instance.ts';
 import {
   bootAutoUpdater,
   installWasInFlightDuring,
+  STUCK_HINT_DOWNLOAD_URL,
   type StartAutoUpdaterHandle,
 } from './auto-updater.ts';
 import { applyBackgroundThrottle } from './background-throttle.ts';
@@ -194,7 +197,7 @@ import {
   resolveDesktopLocaleForPushed,
 } from './boot-locale.ts';
 import { resolveBootRestoreDecision, resolveRestoreActions } from './boot-restore-decision.ts';
-import { readBootSessionUuid } from './boot-session.ts';
+import { readBootSessionUuid, readBootStartedAtMs } from './boot-session.ts';
 import { runBootstrap } from './bootstrap.ts';
 import {
   type BranchInfoProxyDeps,
@@ -232,6 +235,7 @@ import {
   type CrashDetection,
   createCrashDetection,
   isProcessCrashReason,
+  readInstalledAppChangeSync,
   SENTINEL_HEARTBEAT_INTERVAL_MS,
   startLocalCrashReporter,
 } from './crash-detection.ts';
@@ -242,7 +246,12 @@ import {
   runCreateNew,
 } from './create-new-project.ts';
 import { createDebugIpc, type DebugIpcHandle } from './debug-ipc.ts';
-import { flushDesktopLogger, getLogger, getRootDesktopLogger } from './desktop-logger.ts';
+import {
+  desktopLogDirectory,
+  flushDesktopLogger,
+  getLogger,
+  getRootDesktopLogger,
+} from './desktop-logger.ts';
 import {
   createDesktopProcessObservability,
   type DesktopProcessObservability,
@@ -279,10 +288,12 @@ import {
   runDriverBootSmoke,
 } from './driver-boot-smoke.ts';
 import { EMBED_HOST_PATTERNS, rewriteEmbedRequestHeaders } from './embed-referer.ts';
+import { showErrorDialog, showErrorDialogOnceVisible } from './error-dialog.ts';
 import {
   defaultGitTopLevel,
   discoverProject,
   isExactManagedProject,
+  REJECTION_REASON_COPY,
   validateFolderPick,
 } from './folder-admission.ts';
 import { createBootBudgetDirSizeProbe } from './fs-walk-budget.ts';
@@ -335,7 +346,9 @@ import {
 } from './ipc-handlers.ts';
 import { logIpcError, withIpcErrorLogging } from './ipc-log.ts';
 import { createDesktopKeepaliveFactory, toKeepaliveLogger } from './keepalive.ts';
+import { decideAllWindowsClosed, decideRelaunchReveal } from './last-window-policy.ts';
 import { getBootAmbientCapsFacts, logAmbientCapsPosture } from './linux-ambient-caps.ts';
+import { describeLinuxDisplaySession } from './linux-display-session.ts';
 import {
   detectGraphicalAuthCommand,
   runManualInstallFallbackDialog,
@@ -359,6 +372,8 @@ import {
   originForMenuDispatch,
   resolveMenuActionTarget,
 } from './menu-action-target.ts';
+import { menuDispatchHelpLinkUrl } from './menu-dispatch-help-link.ts';
+import { applyMenuDispatchRole } from './menu-dispatch-role.ts';
 import type { MenuTranslator } from './menu-translator.ts';
 import { beginNavigatorHandoff, createNavigatorWindow } from './navigator-window.ts';
 import {
@@ -407,6 +422,7 @@ import {
   type ProjectMcpReclaimCliSurface,
 } from './project-mcp-reclaim.ts';
 import { createProjectSessionHandlers } from './project-session.ts';
+import { observePtyFork } from './pty-phase-observation.ts';
 import { readHeadBranch as readHeadBranchImpl } from './read-head-branch.ts';
 import {
   applyReducedTransparency,
@@ -432,6 +448,7 @@ import { attachServerExitObserver } from './server-exit-observer.ts';
 import { createServerExitRecorder, type ServerExitRecorder } from './server-exit-record.ts';
 import { breakServerLockHeldBy } from './server-lock-break.ts';
 import {
+  deliverNavigatorSettings,
   openSettingsSurface,
   resolveSettingsWindowKind,
   type SettingsSurfaceOptions,
@@ -482,6 +499,7 @@ import {
   setProjectWindowBounds,
   setSpellCheckEnabled as setSpellCheckEnabledState,
   type UpdateChannel,
+  unrecognizedUpdateModeIn,
   windowRestoreKey,
 } from './state-store.ts';
 import { quoteStopCommandPath } from './stop-command.ts';
@@ -530,6 +548,10 @@ import {
   resolveUninstallWindowTheme,
 } from './uninstall-window.ts';
 import {
+  deliverUpdateNoticesToLoadedWindows,
+  replayUpdateNoticesOnEveryLoad,
+} from './update-notice-replay.ts';
+import {
   applyResetIncompatible,
   applyStateQuery,
   type UpdateStateHandlerDeps,
@@ -541,6 +563,7 @@ import {
   type ShareDeepLinkBranchSwitchPayload,
   type ShareNavigatorPayload,
 } from './url-scheme.ts';
+import { createUserConfigDispatch, createUserConfigStore } from './user-config-ipc.ts';
 import { migrateLegacyUserDataDir } from './userdata-migration.ts';
 import { buildUtilityForkEnv } from './utility-fork-env.ts';
 import { computeFirstLaunchAfterUpgrade } from './version-drift.ts';
@@ -548,6 +571,7 @@ import { buildViewMenuStateDeps, EditorViewMenuStateRegistry } from './view-menu
 import { applyThemeToWindow, buildNonDarwinChromeOpts } from './window-chrome.ts';
 import {
   type BrowserWindowLike,
+  bringWindowToFront,
   collabUrlFromApiOrigin,
   setWindowInstanceLabel,
   type UtilityProcessLike,
@@ -907,6 +931,13 @@ function loadAppState(): AppState {
     quarantineCorruptState(statePath, 'schema-invalid');
     return emptyState();
   }
+  const unrecognizedUpdateMode = unrecognizedUpdateModeIn(raw);
+  if (unrecognizedUpdateMode !== null) {
+    getRootDesktopLogger().warn(
+      { persisted: unrecognizedUpdateMode },
+      'persisted update mode unrecognized, automatic updates stay on',
+    );
+  }
   return parsed;
 }
 
@@ -984,6 +1015,8 @@ function attachSpellcheckMenuToWindow(win: BrowserWindow): void {
   });
 }
 let navigatorWindow: BrowserWindowLike | null = null;
+let lastClosedWasNavigator = false;
+let lastFocusedWindow: BrowserWindow | null = null;
 let wm: WindowManager;
 let terminalReaper: TerminalReaper | null = null;
 let announcedShutdownCause: AppShutdownCause = 'quit';
@@ -1159,6 +1192,8 @@ const reducedTransparencyDeps: ReducedTransparencyDeps = {
   },
 };
 let autoUpdaterHandle: StartAutoUpdaterHandle | null = null;
+const updateNoticeSource = (): StartAutoUpdaterHandle | null =>
+  app.isPackaged || process.env.OK_UPDATER_FORCE_DEV === '1' ? autoUpdaterHandle : null;
 let bundleReplaceWatcherHandle: BundleReplaceWatcherHandle | null = null;
 let debugIpc: DebugIpcHandle | null = null;
 let mcpWiringHandle: RunMcpWiringHandle | null = null;
@@ -1168,6 +1203,7 @@ let rendererRecovery: RendererRecovery | null = null;
 let desktopProcessObservability: DesktopProcessObservability | null = null;
 let crashSentinelHeartbeat: NodeJS.Timeout | null = null;
 let osShutdownNoted = false;
+let sessionEnding = false;
 
 let serverExitRecorder: ServerExitRecorder | null = null;
 function getServerExitRecorder(): ServerExitRecorder {
@@ -1486,14 +1522,7 @@ function ensureWindowManager() {
         });
       return win as unknown as BrowserWindowLike;
     },
-    /*
-     * UPSTREAM(electron/electron#19920): a BrowserWindow.focus() on a
-     * backgrounded app reorders within the app without foregrounding it, so
-     * bring-to-front needs this app-level activation as well.
-     */
-    activateApp: () => {
-      if (process.platform === 'darwin') app.focus({ steal: true });
-    },
+    activateApp: activateAppForBringToFront,
     forkUtility: (entry, args, opts) => {
       startupWaterfall.mark('serverSpawned');
       const child = utilityProcess.fork(entry, args, {
@@ -1638,6 +1667,32 @@ function openNavigator(pendingPayload?: ShareNavigatorPayload) {
   });
 }
 
+/*
+ * UPSTREAM(electron/electron#19920): a BrowserWindow.focus() on a
+ * backgrounded app reorders within the app without foregrounding it, so
+ * bring-to-front needs this app-level activation as well.
+ */
+function activateAppForBringToFront(): void {
+  if (process.platform === 'darwin') app.focus({ steal: true });
+}
+
+function revealWindowForRelaunch(): void {
+  const decision = decideRelaunchReveal({
+    lastFocusedWindow,
+    windows: BrowserWindow.getAllWindows(),
+    firstWindowShown,
+  });
+  getLogger('lifecycle').info(
+    { event: 'lifecycle.relaunch-reveal', action: decision.action },
+    'relaunch without a target',
+  );
+  if (decision.action === 'reveal') {
+    bringWindowToFront(decision.window as unknown as BrowserWindowLike, activateAppForBringToFront);
+    return;
+  }
+  if (decision.action === 'open-navigator') openNavigator();
+}
+
 function logAiIntegrationOutcomes(result: ProjectAiIntegrationsResult): number {
   const interesting = result.integrations.filter(
     (o) =>
@@ -1734,17 +1789,10 @@ async function openProject(
   );
 
   if (discovery.kind === 'rejected') {
-    dialog.showErrorBox(
+    showErrorOverNavigator(
       'Cannot open this folder',
-      `${projectPath}\n\nReason: ${
-        discovery.reason === 'symlink-escape'
-          ? 'Symlink resolves outside its parent directory.'
-          : discovery.reason === 'home-directory'
-            ? "This is your home directory, not a project. ~/.ok is OpenKnowledge's own user-global folder (settings, skills), and opening a project here would set up git in your home directory and write project config into your editors' global folders. Make a folder for your notes and open that instead."
-            : 'Folder is unreadable or does not exist.'
-      }`,
+      `${projectPath}\n\nReason: ${REJECTION_REASON_COPY[discovery.reason]}`,
     );
-    openNavigator();
     return false;
   }
 
@@ -1807,7 +1855,7 @@ async function openProject(
       { projectName, resolvedPickedName },
       'project admission confirmation requested',
     );
-    const { response } = await dialog.showMessageBox({
+    const { response } = await showMessageBoxAttached({
       type: 'question',
       buttons: ['Cancel', `Open ${projectName}`],
       cancelId: 0,
@@ -1849,7 +1897,7 @@ async function openProject(
       openNavigator();
       navigator = navigatorWindow;
       if (!navigator) {
-        dialog.showErrorBox(
+        showErrorOnFocusedWindow(
           'Cannot open this folder',
           `${projectPath}\n\nFailed to open the Project Navigator.`,
         );
@@ -2143,6 +2191,15 @@ async function openProjectOrFallbackToNavigator(
     } else if (kind === 'lock-collision') {
       dialogTitle = 'OpenKnowledge is already running for this project';
       dialogBody = `${projectPath}\n\n${errorMessage}`;
+    } else if (kind === 'content-ownership') {
+      dialogTitle = 'This content is already open';
+      dialogBody = `${projectPath}\n\n${errorMessage}`;
+    } else if (kind === 'content-ownership-unverified') {
+      dialogTitle = 'OpenKnowledge cannot safely open this content';
+      dialogBody = `${projectPath}\n\n${errorMessage}`;
+    } else if (kind === 'authority-registry') {
+      dialogTitle = 'OpenKnowledge cannot safely open this folder';
+      dialogBody = `${projectPath}\n\n${errorMessage}`;
     } else if (kind === 'stale-lock-holder') {
       dialogTitle =
         staleLockReason === 'lock-not-attachable'
@@ -2163,7 +2220,7 @@ async function openProjectOrFallbackToNavigator(
         holderIsOwnChild,
       },
       {
-        showMessageBox: (options) => dialog.showMessageBox(options),
+        showMessageBox: (options) => showMessageBoxAttached(options),
         forceStop: (expectedHolder) => {
           ensureWindowManager();
           return wm.forceStopConflictingServer(projectPath, expectedHolder);
@@ -2191,11 +2248,10 @@ async function openProjectOrFallbackToNavigator(
               '[main] openProject retry after stopping the conflicting server failed',
             );
             flushDesktopLogger();
-            dialog.showErrorBox(
+            showErrorOverNavigator(
               'Unable to open project',
               `${projectPath}\n\n${(retryErr as Error).message}`,
             );
-            openNavigator();
             return false;
           }
         },
@@ -2216,12 +2272,12 @@ async function openProjectOrFallbackToNavigator(
     if (prompt.kind !== 'not-offered') {
       if (prompt.kind === 'stop-failed') {
         flushDesktopLogger();
-        dialog.showErrorBox(
+        showErrorOverNavigator(
           'Unable to open project',
           `${projectPath}\n\n` +
             (prompt.reason === 'eperm'
               ? 'The conflicting server belongs to another user account and cannot be stopped from here. Quit it from that account and try again.'
-              : 'Could not stop the conflicting server. Quit it manually (`ok stop`) and try again.'),
+              : `Could not stop the conflicting server. Quit it manually (\`ok stop --force ${quoteStopCommandPath(projectPath, process.platform)}\`) and try again.`),
         );
       } else {
         getLogger('project').info(
@@ -2236,7 +2292,7 @@ async function openProjectOrFallbackToNavigator(
         if (isStaleLockHolder && otherChannelHolder === null) {
           const stopCommandTarget = quoteStopCommandPath(projectPath, process.platform);
           flushDesktopLogger();
-          dialog.showErrorBox(
+          showErrorOverNavigator(
             dialogTitle,
             `${dialogBody}\n\n` +
               (holderIsOwnChild
@@ -2257,8 +2313,7 @@ async function openProjectOrFallbackToNavigator(
       openNavigator();
       return false;
     }
-    dialog.showErrorBox(dialogTitle, dialogBody);
-    openNavigator();
+    showErrorOverNavigator(dialogTitle, dialogBody);
     return false;
   }
 }
@@ -2272,13 +2327,10 @@ async function openEphemeralFile(filePath: string): Promise<void> {
     plan = prepareSingleFileOpen(filePath);
   } catch (err) {
     getLogger('project').warn({ file: filePath, err }, 'single-file open could not be prepared');
-    dialog.showErrorBox(
+    showErrorOnFocusedWindowOrNavigator(
       'Cannot open this file',
       `${filePath}\n\n${err instanceof Error ? err.message : String(err)}`,
     );
-    if (BrowserWindow.getAllWindows().length === 0) {
-      openNavigator();
-    }
     return;
   }
 
@@ -2317,13 +2369,10 @@ async function openEphemeralFile(filePath: string): Promise<void> {
       { file: plan.canonicalFilePath, err },
       'ephemeral single-file open failed',
     );
-    dialog.showErrorBox(
+    showErrorOnFocusedWindowOrNavigator(
       'Could not open file',
       `${filePath}\n\n${err instanceof Error ? err.message : String(err)}`,
     );
-    if (BrowserWindow.getAllWindows().length === 0) {
-      openNavigator();
-    }
   }
 }
 
@@ -2388,7 +2437,7 @@ async function runMenuDispatchCommand(
       openNavigator();
       return;
     case 'open-folder-dialog': {
-      const picked = await promptForExistingFolder(dialog);
+      const picked = await promptForExistingFolder(dialog, { errorParent: dialogParentWindow });
       if (picked) await openProjectOrFallbackToNavigator(picked, 'pick-existing');
       return;
     }
@@ -2412,70 +2461,17 @@ async function runMenuDispatchCommand(
       reconfigureMcpWiringNow(pickLoadedRendererForMcpDialog());
       return;
     case 'open-github':
-      void shell.openExternal('https://github.com/inkeep/open-knowledge');
+    case 'open-docs':
+    case 'open-discord':
+      void shell.openExternal(menuDispatchHelpLinkUrl(command));
       return;
     case 'toggle-spell-check':
       setSpellCheckEnabledAppWide(!appState.spellCheckEnabled);
       return;
-  }
-}
-
-function applyMenuDispatchRole(role: MenuDispatchRole, sender: Electron.WebContents): void {
-  if (role === 'quit') {
-    app.quit();
-    return;
-  }
-  const win = BrowserWindow.fromWebContents(sender) ?? BrowserWindow.getFocusedWindow();
-  if (!win || win.isDestroyed()) return;
-  const wc = win.webContents;
-  switch (role) {
-    case 'undo':
-      wc.undo();
-      return;
-    case 'redo':
-      wc.redo();
-      return;
-    case 'cut':
-      wc.cut();
-      return;
-    case 'copy':
-      wc.copy();
-      return;
-    case 'paste':
-      wc.paste();
-      return;
-    case 'selectAll':
-      wc.selectAll();
-      return;
-    case 'reload':
-      wc.reload();
-      return;
-    case 'forceReload':
-      wc.reloadIgnoringCache();
-      return;
-    case 'toggleDevTools':
-      if (!app.isPackaged || DESKTOP_VARIANT.name !== 'stable') {
-        wc.toggleDevTools();
-      }
-      return;
-    case 'resetZoom':
-      wc.setZoomLevel(0);
-      return;
-    case 'zoomIn':
-      wc.setZoomLevel(wc.getZoomLevel() + 0.5);
-      return;
-    case 'zoomOut':
-      wc.setZoomLevel(wc.getZoomLevel() - 0.5);
-      return;
-    case 'toggleFullScreen':
-      win.setFullScreen(!win.isFullScreen());
-      return;
-    case 'minimize':
-      win.minimize();
-      return;
-    case 'close':
-      win.close();
-      return;
+    default: {
+      const _exhaustive: never = command;
+      return _exhaustive;
+    }
   }
 }
 
@@ -2489,6 +2485,7 @@ async function runApplicationMenuRefresh(): Promise<void> {
     showDevToolsMenu: !app.isPackaged || DESKTOP_VARIANT.name !== 'stable',
     terminalCapable: isTerminalAvailable(),
     dialog,
+    errorDialogParent: dialogParentWindow,
     openNavigator,
     openProject: async (path, entryPoint) => {
       await openProjectOrFallbackToNavigator(path, entryPoint);
@@ -2509,12 +2506,11 @@ async function runApplicationMenuRefresh(): Promise<void> {
     openExternalUrl: (url: string) => {
       void shell.openExternal(url);
     },
-    reconfigureMcpWiring:
-      app.isPackaged && supportedPackagedInstall()
-        ? () => {
-            reconfigureMcpWiringNow(pickLoadedRendererForMcpDialog());
-          }
-        : undefined,
+    reconfigureMcpWiring: canReconfigureMcpWiring()
+      ? () => {
+          reconfigureMcpWiringNow(pickLoadedRendererForMcpDialog());
+        }
+      : undefined,
     openInstallSkillDialog: () => {
       const target = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
       if (!target) return;
@@ -2583,14 +2579,59 @@ function supportedPackagedInstall(): boolean {
   return isSupportedInstallShape(process.platform, app.getPath('exe'), process.env);
 }
 
+function canReconfigureMcpWiring(): boolean {
+  return app.isPackaged && supportedPackagedInstall();
+}
+
 function desktopSelfUninstallAvailable(): boolean {
   if (process.platform !== 'darwin' || !app.isPackaged) return false;
   const appBundlePath = resolveAppBundleFromExecPath(process.execPath, process.platform);
   return appBundlePath !== null && isSupportedApplicationsBundle(appBundlePath, osHomedir());
 }
 
+function dialogParentWindow(): BrowserWindow | null {
+  return (
+    BrowserWindow.getFocusedWindow() ??
+    BrowserWindow.getAllWindows().find((w) => !w.isDestroyed()) ??
+    null
+  );
+}
+
+function showErrorOnFocusedWindow(title: string, body: string): void {
+  void showErrorDialog(dialog, dialogParentWindow(), title, body);
+}
+
+function showErrorOverNavigator(title: string, body: string): void {
+  try {
+    openNavigator();
+  } catch (err) {
+    getLogger('navigator').error({ err, title }, 'navigator failed to open to report an error');
+    showErrorOnFocusedWindow(title, body);
+    return;
+  }
+  void showErrorDialogOnceVisible(
+    dialog,
+    navigatorWindow as unknown as BrowserWindow | null,
+    title,
+    body,
+    {
+      setTimeout: (cb, ms) => setTimeout(cb, ms),
+      clearTimeout: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
+      timeoutMs: RESTORE_REVEAL_TIMEOUT_MS,
+    },
+  );
+}
+
+function showErrorOnFocusedWindowOrNavigator(title: string, body: string): void {
+  if (BrowserWindow.getAllWindows().length === 0) {
+    showErrorOverNavigator(title, body);
+  } else {
+    showErrorOnFocusedWindow(title, body);
+  }
+}
+
 async function showMessageBoxAttached(options: MessageBoxOptions) {
-  const target = BrowserWindow.getFocusedWindow();
+  const target = dialogParentWindow();
   return target ? dialog.showMessageBox(target, options) : dialog.showMessageBox(options);
 }
 
@@ -3612,29 +3653,16 @@ function openSettings(
           getLogger('settings').warn({ err }, 'failed to open editor settings');
         });
       },
-      showNavigator: (win) => {
-        if (win?.isMinimized()) win.restore();
-        win?.focus();
-        if (!(app.isPackaged && supportedPackagedInstall())) {
-          getLogger('settings').warn(
-            { packaged: app.isPackaged, supported: supportedPackagedInstall() },
-            'navigator settings unavailable on this install',
-          );
-          const options: MessageBoxOptions = {
-            type: 'info',
-            buttons: ['OK'],
-            defaultId: 0,
-            cancelId: 0,
-            title: 'Settings unavailable',
-            message:
-              'Settings from the navigator is unavailable in this build. Open Settings from a project window instead.',
-          };
-          void (win ? dialog.showMessageBox(win, options) : dialog.showMessageBox(options));
-          return false;
-        }
-        return reconfigureMcpWiringNow(
-          win && !win.webContents.isLoading() ? win.webContents : undefined,
-        );
+      showNavigatorSettings: (win) => {
+        const created = win === null && navigatorWindow === null;
+        if (win === null) openNavigator();
+        const target = win ?? (navigatorWindow as unknown as BrowserWindow | null);
+        if (!target || target.isDestroyed()) return;
+        deliverNavigatorSettings(target, {
+          awaitLoad: created,
+          onError: (err) =>
+            getLogger('settings').warn({ err }, 'failed to open navigator settings'),
+        });
       },
       openNavigator,
       onEditorRequired: (win) => {
@@ -3657,7 +3685,7 @@ function openSettings(
 }
 
 function reconfigureMcpWiringNow(target: McpWiringDispatchTarget | undefined): boolean {
-  if (!(app.isPackaged && supportedPackagedInstall())) return false;
+  if (!canReconfigureMcpWiring()) return false;
   mcpWiringHandle?.destroy();
   mcpWiringHandle = null;
   try {
@@ -3669,7 +3697,7 @@ function reconfigureMcpWiringNow(target: McpWiringDispatchTarget | undefined): b
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('[main] reconfigureMcpWiring failed', { err: message });
-    dialog.showErrorBox(
+    showErrorOnFocusedWindow(
       'Set up OpenKnowledge integrations failed',
       `OpenKnowledge couldn't re-arm the MCP consent dialog:\n\n${message}`,
     );
@@ -3843,11 +3871,24 @@ function registerIpcHandlers() {
     }
   };
 
+  const phaseTrace = createPtyPhaseTrace(process.env, 'main', (record) => {
+    if (record.phase === 'paths') process.stderr.write(`${JSON.stringify(record)}\n`);
+    getLogger('terminal').info({ ...record }, 'PTY phase');
+  });
+  phaseTrace?.mark('paths', 'point', {
+    userDataDir: app.getPath('userData'),
+    logDir: desktopLogDirectory(),
+  });
+  let nextTraceRequest = 0;
+  let nextTraceFork = 0;
   const terminalManager = createTerminalManager({
     forkPtyHost: (windowId) =>
-      utilityProcess.fork(join(__dirname, 'utility/pty-host.js'), [], {
-        serviceName: `OpenKnowledge Terminal Host ${windowId}`,
-      }) as unknown as PtyUtilityLike,
+      observePtyFork(phaseTrace, windowId, phaseTrace ? ++nextTraceFork : 0, () =>
+        utilityProcess.fork(join(__dirname, 'utility/pty-host.js'), [], {
+          serviceName: `OpenKnowledge Terminal Host ${windowId}`,
+          ...(phaseTrace ? { stdio: ['ignore', 'inherit', 'pipe'] } : {}),
+        }),
+      ) as unknown as PtyUtilityLike,
     sendData: (wc, payload) => sendToRenderer(wc, 'ok:pty:data', payload),
     sendExit: (wc, payload) => sendToRenderer(wc, 'ok:pty:exit', payload),
     sendNotice: (wc, payload) => sendToRenderer(wc, 'ok:pty:notice', payload),
@@ -3866,57 +3907,79 @@ function registerIpcHandlers() {
   terminalReaper = terminalManager;
 
   handle('ok:pty:create', async (event, opts) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    const editorCtx =
-      win && wm ? wm.getContextForBrowserWindow(win as unknown as BrowserWindowLike) : null;
-    const projectPath = resolvePtyProjectRoot({
-      editorProjectPath: editorCtx?.projectPath ?? null,
-      terminalWindow: win ? getTerminalWindowContext(win.id) : undefined,
-      homedir: osHomedir(),
-    });
-    if (!win || !projectPath) {
-      logIpcError({
-        event: 'ipc.error',
-        channel: 'ok:pty:create',
-        reason: 'no-project',
-        handler: 'createPty',
+    const traceContext = phaseTrace
+      ? { scope: `request-${++nextTraceRequest}`, webContentsId: event.sender.id }
+      : undefined;
+    phaseTrace?.mark('ipc-create', 'begin', traceContext);
+    let traceFailed = false;
+    try {
+      const win = BrowserWindow.fromWebContents(event.sender);
+      const editorCtx =
+        win && wm ? wm.getContextForBrowserWindow(win as unknown as BrowserWindowLike) : null;
+      const projectPath = resolvePtyProjectRoot({
+        editorProjectPath: editorCtx?.projectPath ?? null,
+        terminalWindow: win ? getTerminalWindowContext(win.id) : undefined,
+        homedir: osHomedir(),
       });
-      return { ok: false, reason: 'no-project' };
-    }
-    if (!isTerminalConsented(projectPath) && !(await isTerminalConsentedWithGrace(projectPath))) {
-      logIpcError({
-        event: 'ipc.error',
-        channel: 'ok:pty:create',
-        reason: 'not-consented',
-        handler: 'createPty',
-      });
-      return { ok: false, reason: 'not-consented' };
-    }
-    if (opts.launchCli !== undefined) {
-      await observeTerminalLaunch({
-        launchCli: opts.launchCli,
+      if (!win || !projectPath) {
+        logIpcError({
+          event: 'ipc.error',
+          channel: 'ok:pty:create',
+          reason: 'no-project',
+          handler: 'createPty',
+        });
+        return { ok: false, reason: 'no-project' };
+      }
+      if (!isTerminalConsented(projectPath) && !(await isTerminalConsentedWithGrace(projectPath))) {
+        logIpcError({
+          event: 'ipc.error',
+          channel: 'ok:pty:create',
+          reason: 'not-consented',
+          handler: 'createPty',
+        });
+        return { ok: false, reason: 'not-consented' };
+      }
+      if (opts.launchCli !== undefined) {
+        await observeTerminalLaunch({
+          launchCli: opts.launchCli,
+          projectRoot: projectPath,
+          log: getLogger('agent-gate'),
+          snapshot: (projectRoot) =>
+            collectDesktopHostSnapshot({
+              resolve: createCliProbeResolver({ cwd: projectRoot, home: osHomedir() }),
+            }),
+        });
+      }
+      phaseTrace?.mark('configured-shell', 'begin', traceContext);
+      const shellSetting =
+        process.platform === 'win32'
+          ? readTerminalShellSetting(projectPath)
+          : { kind: 'unset' as const };
+      phaseTrace?.mark('configured-shell', 'end', traceContext);
+      phaseTrace?.mark('reservation', 'begin', traceContext);
+      const result = terminalManager.create({
+        windowId: win.id,
+        webContents: win.webContents,
         projectRoot: projectPath,
-        log: getLogger('agent-gate'),
-        snapshot: (projectRoot) =>
-          collectDesktopHostSnapshot({
-            resolve: createCliProbeResolver({ cwd: projectRoot, home: osHomedir() }),
-          }),
+        cols: clampPtyDimension(opts.cols, DEFAULT_PTY_COLS),
+        rows: clampPtyDimension(opts.rows, DEFAULT_PTY_ROWS),
+        ...(shellSetting.kind === 'configured' ? { shell: shellSetting.shell } : {}),
+        ...(shellSetting.kind === 'invalid' ? { shellInvalidReason: shellSetting.reason } : {}),
+        launchCommand: opts.launchCommand,
       });
+      phaseTrace?.mark('reservation', 'end', {
+        ...traceContext,
+        windowId: win.id,
+        ...(result.ok ? { ptyId: result.ptyId } : {}),
+        ok: result.ok,
+      });
+      return result;
+    } catch (error) {
+      traceFailed = true;
+      throw error;
+    } finally {
+      phaseTrace?.mark('ipc-create', traceFailed ? 'error' : 'end', traceContext);
     }
-    const shellSetting =
-      process.platform === 'win32'
-        ? readTerminalShellSetting(projectPath)
-        : { kind: 'unset' as const };
-    return terminalManager.create({
-      windowId: win.id,
-      webContents: win.webContents,
-      projectRoot: projectPath,
-      cols: clampPtyDimension(opts.cols, DEFAULT_PTY_COLS),
-      rows: clampPtyDimension(opts.rows, DEFAULT_PTY_ROWS),
-      ...(shellSetting.kind === 'configured' ? { shell: shellSetting.shell } : {}),
-      ...(shellSetting.kind === 'invalid' ? { shellInvalidReason: shellSetting.reason } : {}),
-      launchCommand: opts.launchCommand,
-    });
   });
   handle('ok:pty:input', async (event, req) => {
     const win = BrowserWindow.fromWebContents(event.sender);
@@ -3950,31 +4013,49 @@ function registerIpcHandlers() {
     return win ? terminalManager.listSessions(win.id) : [];
   });
   handle('ok:pty:adopt', async (event, req) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    if (!win) {
-      logIpcError({
-        event: 'ipc.error',
-        channel: 'ok:pty:adopt',
-        reason: 'unknown-session',
-        handler: 'adoptPty',
+    const traceContext = phaseTrace
+      ? { scope: `request-${++nextTraceRequest}`, webContentsId: event.sender.id }
+      : undefined;
+    const tracePhase = req.start === true ? 'ipc-start' : 'ipc-adopt';
+    phaseTrace?.mark(tracePhase, 'begin', traceContext);
+    let traceFailed = false;
+    try {
+      const win = BrowserWindow.fromWebContents(event.sender);
+      if (!win) {
+        logIpcError({
+          event: 'ipc.error',
+          channel: 'ok:pty:adopt',
+          reason: 'unknown-session',
+          handler: 'adoptPty',
+        });
+        return { ok: false, reason: 'unknown-session' };
+      }
+      phaseTrace?.mark('message-received', 'point', {
+        ...traceContext,
+        windowId: win.id,
+        ptyId: req.ptyId,
       });
-      return { ok: false, reason: 'unknown-session' };
-    }
-    const outcome = terminalManager.adoptSession({
-      start: req.start,
-      windowId: win.id,
-      ptyId: req.ptyId,
-      webContents: win.webContents,
-    });
-    if (!outcome.ok) {
-      logIpcError({
-        event: 'ipc.error',
-        channel: 'ok:pty:adopt',
-        reason: outcome.reason,
-        handler: 'adoptPty',
+      const outcome = terminalManager.adoptSession({
+        start: req.start,
+        windowId: win.id,
+        ptyId: req.ptyId,
+        webContents: win.webContents,
       });
+      if (!outcome.ok) {
+        logIpcError({
+          event: 'ipc.error',
+          channel: 'ok:pty:adopt',
+          reason: outcome.reason,
+          handler: 'adoptPty',
+        });
+      }
+      return outcome;
+    } catch (error) {
+      traceFailed = true;
+      throw error;
+    } finally {
+      phaseTrace?.mark(tracePhase, traceFailed ? 'error' : 'end', traceContext);
     }
-    return outcome;
   });
   handle('ok:pty:set-meta', async (event, req) => {
     const win = BrowserWindow.fromWebContents(event.sender);
@@ -4091,11 +4172,13 @@ function registerIpcHandlers() {
   });
 
   handle('ok:dialog:open-folder', async (_event, opts) => {
-    return promptForExistingFolder(dialog, opts);
+    return promptForExistingFolder(dialog, { ...opts, errorParent: dialogParentWindow });
   });
 
   handle('ok:project:open-file-picker', async () => {
-    const picked = await promptForExistingMarkdownFile(dialog);
+    const picked = await promptForExistingMarkdownFile(dialog, {
+      errorParent: dialogParentWindow,
+    });
     if (picked) await openEphemeralFile(picked);
     return undefined;
   });
@@ -4256,14 +4339,23 @@ function registerIpcHandlers() {
             );
           },
           openInDefault: async () => {
-            await openAssetSafely(
+            const outcome = await openAssetOrReveal(
               {
                 projectPath,
                 platform: process.platform,
                 openPath: (canonical) => shell.openPath(canonical),
+                showItemInFolder: (canonical) => shell.showItemInFolder(canonical),
               },
               params.relPath,
             );
+            if (!outcome.ok) {
+              logIpcError({
+                event: 'ipc.error',
+                channel: 'ok:shell:show-asset-menu',
+                reason: outcome.reason,
+                handler: 'openInDefault',
+              });
+            }
           },
           copyLink: () => clipboard.writeText(params.relPath),
         },
@@ -4459,13 +4551,16 @@ function registerIpcHandlers() {
     return result;
   });
 
-  handle('ok:locale:set-preference', async (_event, { preference }) => {
-    pushedLanguagePreference = preference;
-    menuTranslator = null;
-    getLogger('menu-locale').info({ preference }, 'language preference pushed; rebuilding menu');
-    refreshApplicationMenu();
-    return { ok: true };
+  const userConfigDispatch = createUserConfigDispatch({
+    store: createUserConfigStore({ homedir: osHomedir() }),
+    setLanguagePreference: (preference) => {
+      pushedLanguagePreference = preference;
+      menuTranslator = null;
+      getLogger('menu-locale').info({ preference }, 'language preference pushed; rebuilding menu');
+      refreshApplicationMenu();
+    },
   });
+  handle('ok:user-config:dispatch', (event, request) => userConfigDispatch(event.sender, request));
 
   handle('ok:theme:set-source', async (event, { source }) => {
     return applyThemeSource(
@@ -4509,7 +4604,7 @@ function registerIpcHandlers() {
           spellCheckEnabled: appState.spellCheckEnabled,
           showDevToolsMenu: !app.isPackaged || DESKTOP_VARIANT.name !== 'stable',
           canCheckForUpdates: autoUpdaterHandle != null,
-          canReconfigureMcpWiring: app.isPackaged && supportedPackagedInstall(),
+          canReconfigureMcpWiring: canReconfigureMcpWiring(),
           activeTarget: currentActiveTarget(),
           viewMenuState: (() => {
             const win = BrowserWindow.fromWebContents(event.sender);
@@ -4526,7 +4621,13 @@ function registerIpcHandlers() {
         await runMenuDispatchCommand(request.command, event.sender);
         return undefined;
       case 'role':
-        applyMenuDispatchRole(request.role, event.sender);
+        applyMenuDispatchRole(request.role, event.sender, {
+          quit: () => app.quit(),
+          showAboutPanel: () => app.showAboutPanel(),
+          resolveWindow: (sender) =>
+            BrowserWindow.fromWebContents(sender) ?? BrowserWindow.getFocusedWindow(),
+          devToolsAllowed: !app.isPackaged || DESKTOP_VARIANT.name !== 'stable',
+        });
         return undefined;
       case 'spelling-languages-query':
         return querySpellingLanguages(spellcheckLanguagesDeps);
@@ -4784,6 +4885,11 @@ function registerIpcHandlers() {
             path: null,
             foreignSkipped: 0,
             unknownSkipped: 0,
+          },
+        minidumpForCrashEvent: (eventId) =>
+          crashDetection?.minidumpForCrashEvent(eventId) ?? {
+            status: 'omitted',
+            reason: 'invitation-unbound',
           },
         screenshotPngBytes: () => bugReportScreenshots.get(event.sender.id)?.png ?? null,
         onScreenshotStaged: (reportId, png) => {
@@ -5376,6 +5482,9 @@ function registerIpcHandlers() {
     getBuildChannel: () => DESKTOP_VARIANT.updateChannel,
     getPendingSchemaIncompatibility,
     clearPendingSchemaIncompatibility,
+    getAppVersion: () => app.getVersion(),
+    variant: DESKTOP_VARIANT,
+    isUpdaterRunning: () => autoUpdaterHandle != null,
   });
   handle('ok:state:reset-incompatible', async () => applyResetIncompatible(updateStateDeps()));
   handle('ok:state:query', async () => applyStateQuery(updateStateDeps()));
@@ -5925,6 +6034,15 @@ applyDevShmPosture({
     getRootDesktopLogger()[level](facts, 'linux shared-memory posture for chromium'),
 });
 
+const linuxDisplaySession = describeLinuxDisplaySession({
+  platform: process.platform,
+  env: process.env,
+  getSwitchValue: (name) => app.commandLine.getSwitchValue(name),
+});
+if (linuxDisplaySession) {
+  getRootDesktopLogger().info(linuxDisplaySession, 'linux display session');
+}
+
 const bootAmbientCapsFacts = getBootAmbientCapsFacts();
 if (bootAmbientCapsFacts) {
   logAmbientCapsPosture(bootAmbientCapsFacts, (level, facts) =>
@@ -6055,6 +6173,7 @@ function bootPrimaryInstance(): void {
     crashDumpsDir: app.getPath('crashDumps'),
     appBundleRoot: appBundleRootFromExecutable(app.getPath('exe')),
     appVersion: app.getVersion(),
+    processId: process.pid,
     emit: (event) => {
       const focused = BrowserWindow.getFocusedWindow();
       const candidates = focused
@@ -6070,12 +6189,19 @@ function bootPrimaryInstance(): void {
     },
     now: () => new Date(),
     currentBootSessionUuid: readBootSessionUuid,
+    currentBootStartedAtMs: () => readBootStartedAtMs(),
     installInFlight: (span) =>
       installWasInFlightDuring(
         bootStateSnapshot,
         span,
         bootStateSnapshot.versionPendingInstallStagedAt,
       ),
+    ...(process.platform === 'darwin'
+      ? { processTermination: (query) => findJetsamKillSync(query) }
+      : {}),
+    ...(process.platform === 'win32'
+      ? { installedAppChange: () => readInstalledAppChangeSync(app.getPath('exe')) }
+      : {}),
     mainThreadWatchdog: createMainThreadWatchdog({
       path: join(app.getPath('userData'), 'bug-report-main-thread-liveness.json'),
       stallPath: join(app.getPath('userData'), 'bug-report-main-thread-stall.json'),
@@ -6133,12 +6259,23 @@ function bootPrimaryInstance(): void {
     SENTINEL_HEARTBEAT_INTERVAL_MS,
   );
   crashSentinelHeartbeat.unref();
-  powerMonitor.on('shutdown', () => crashDetection?.noteOsShutdown());
+  powerMonitor.on('shutdown', () => {
+    sessionEnding = true;
+    crashDetection?.noteOsShutdown();
+  });
   powerMonitor.on('suspend', () => crashDetection?.noteSuspend());
   powerMonitor.on('resume', () => crashDetection?.noteResume());
+  app.on('browser-window-focus', (_event, win) => {
+    lastFocusedWindow = win;
+  });
   app.on('browser-window-created', (_event, win) => {
     desktopProcessObservability?.observeWindow(win);
+    win.prependListener('closed', () => {
+      lastClosedWasNavigator = win === navigatorWindow;
+      if (lastFocusedWindow === win) lastFocusedWindow = null;
+    });
     win.on('session-end', (event) => {
+      sessionEnding = true;
       if (crashDetection === null || osShutdownNoted) return;
       osShutdownNoted = true;
       crashDetection.noteOsShutdown(event.reasons);
@@ -6349,6 +6486,7 @@ function bootPrimaryInstance(): void {
       return first ? (first as unknown as object) : null;
     },
     getInitialArgv: () => process.argv,
+    onRelaunchWithoutTarget: revealWindowForRelaunch,
     log: {
       warn: (obj, msg) => getLogger('url-scheme').warn(obj, msg),
       info: (obj, msg) => getLogger('url-scheme').info(obj, msg),
@@ -6428,17 +6566,7 @@ function bootPrimaryInstance(): void {
       startupWaterfall.mark('bootstrapDone');
 
       app.on('browser-window-created', (_event, win) => {
-        win.webContents.once('did-finish-load', () => {
-          if (!(app.isPackaged || process.env.OK_UPDATER_FORCE_DEV === '1')) return;
-          const pending = appState.versionPendingInstall;
-          if (pending && !autoUpdaterHandle?.isWithinPostUpdateQuietWindow()) {
-            sendToRenderer(win.webContents, 'ok:update:downloaded', { version: pending });
-          }
-          const whatsNew = autoUpdaterHandle?.getActiveWhatsNew();
-          if (whatsNew) {
-            sendToRenderer(win.webContents, 'ok:update:whats-new', whatsNew);
-          }
-        });
+        replayUpdateNoticesOnEveryLoad(win.webContents, updateNoticeSource);
       });
 
       mcpWiringHandle = armMcpWiring();
@@ -6503,7 +6631,13 @@ function bootPrimaryInstance(): void {
           showMessageBox: async (opts) =>
             dialog.showMessageBox({ ...opts, buttons: [...opts.buttons] }),
           openExternal: (url) => shell.openExternal(url),
-          log: { warn: (msg, obj) => console.warn(msg, obj) },
+          log: {
+            warn: (msg, obj) => {
+              getLogger('git-preflight').warn({ ...obj }, msg);
+              flushDesktopLogger();
+            },
+            info: (msg, obj) => getLogger('git-preflight').info({ ...obj }, msg),
+          },
         });
         if (gitOutcome === 'aborted') {
           app.quit();
@@ -6763,15 +6897,64 @@ function bootPrimaryInstance(): void {
               detail: `OpenKnowledge ${result.currentVersion} is the most current version available.`,
             });
           } else if (result.kind === 'ready-to-install') {
-            void dialog.showMessageBox(target, {
-              type: 'info',
-              buttons: ['OK'],
-              defaultId: 0,
-              title: 'Update Ready',
-              message: `OpenKnowledge ${result.stagedVersion} is downloaded and ready.`,
-              detail: `It installs the next time you relaunch. Any newer build is offered after that.`,
-            });
+            switch (result.relaunch) {
+              case 'available':
+                return dialog
+                  .showMessageBox(target, {
+                    type: 'info',
+                    buttons: ['Quit and Restart', 'Later'],
+                    defaultId: 0,
+                    cancelId: 1,
+                    title: 'Update Ready',
+                    message: `OpenKnowledge ${result.stagedVersion} is downloaded and ready.`,
+                    detail:
+                      'Quit and restart now to install it, or it installs the next time you quit OpenKnowledge.',
+                  })
+                  .then(({ response }) => (response === 0 ? 'relaunch' : 'dismiss'));
+              case 'installing':
+                void dialog.showMessageBox(target, {
+                  type: 'info',
+                  buttons: ['OK'],
+                  defaultId: 0,
+                  title: 'Update Ready',
+                  message: `OpenKnowledge ${result.stagedVersion} is downloaded and ready.`,
+                  detail: 'OpenKnowledge is already restarting to install it.',
+                });
+                return undefined;
+              case 'not-pending':
+                void dialog.showMessageBox(target, {
+                  type: 'info',
+                  buttons: ['OK'],
+                  defaultId: 0,
+                  title: 'Update Downloaded',
+                  message: `OpenKnowledge ${result.stagedVersion} was downloaded.`,
+                  detail: `It may install the next time you quit OpenKnowledge. If it doesn't, download the latest build from ${STUCK_HINT_DOWNLOAD_URL}.`,
+                });
+                return undefined;
+              default: {
+                const _exhaustive: never = result.relaunch;
+                return _exhaustive;
+              }
+            }
           } else if (result.kind === 'available') {
+            if (result.download === 'manual') {
+              const releasesUrl = releasesPageUrl(DESKTOP_VARIANT);
+              return dialog
+                .showMessageBox(target, {
+                  type: 'info',
+                  buttons: ['Download Manually', 'OK'],
+                  defaultId: 0,
+                  cancelId: 1,
+                  title: 'Update Available',
+                  message: `OpenKnowledge ${result.latestVersion} is available.`,
+                  detail:
+                    'Automatic updates are turned off, so OpenKnowledge will not download it. Download it from the releases page, or turn on "Download and install updates automatically" in Settings > About & updates.',
+                })
+                .then(async ({ response }) => {
+                  if (response === 0) await shell.openExternal(releasesUrl);
+                  return 'dismiss' as const;
+                });
+            }
             void dialog.showMessageBox(target, {
               type: 'info',
               buttons: ['OK'],
@@ -6780,7 +6963,25 @@ function bootPrimaryInstance(): void {
               message: `OpenKnowledge ${result.latestVersion} is available.`,
               detail: `It's downloading in the background. You'll be prompted to relaunch when the install is ready.`,
             });
-          } else {
+          } else if (result.kind === 'updater-inactive') {
+            void dialog.showMessageBox(target, {
+              type: 'info',
+              buttons: ['OK'],
+              defaultId: 0,
+              title: "Updates Aren't Available",
+              message: "This copy of OpenKnowledge can't update itself.",
+              detail: `Development builds don't receive automatic updates. To update, pull the latest source or download the newest release from ${STUCK_HINT_DOWNLOAD_URL}.`,
+            });
+          } else if (result.kind === 'download-failed') {
+            void dialog.showMessageBox(target, {
+              type: 'warning',
+              buttons: ['OK'],
+              defaultId: 0,
+              title: "Couldn't Download the Update",
+              message: `OpenKnowledge ${result.latestVersion} couldn't be downloaded.`,
+              detail: result.message,
+            });
+          } else if (result.kind === 'error') {
             void dialog.showMessageBox(target, {
               type: 'warning',
               buttons: ['OK'],
@@ -6789,9 +6990,16 @@ function bootPrimaryInstance(): void {
               message: "OpenKnowledge couldn't check for updates right now.",
               detail: result.message,
             });
+          } else {
+            const _exhaustive: never = result;
+            return _exhaustive;
           }
         },
       });
+      deliverUpdateNoticesToLoadedWindows(
+        BrowserWindow.getAllWindows().map((win) => win.webContents),
+        updateNoticeSource(),
+      );
       refreshApplicationMenu();
 
       if (process.platform === 'darwin' && app.isPackaged) {
@@ -6814,6 +7022,11 @@ function bootPrimaryInstance(): void {
     .catch((err: unknown) => {
       const message = err instanceof Error ? err.message : String(err);
       const stack = err instanceof Error ? (err.stack ?? '') : '';
+      getLogger('startup').error(
+        { event: 'whenReady-unhandled-rejection', err },
+        'startup chain rejected; its remaining steps did not run',
+      );
+      flushDesktopLogger();
       console.error(JSON.stringify({ event: 'whenReady-unhandled-rejection', message, stack }));
     });
 
@@ -6884,8 +7097,29 @@ function bootPrimaryInstance(): void {
   });
 
   app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') {
+    const action = decideAllWindowsClosed({
+      platform: process.platform,
+      lastClosedWasNavigator,
+      sessionEnding,
+    });
+    getLogger('lifecycle').info(
+      { event: 'lifecycle.all-windows-closed', action, lastClosedWasNavigator, sessionEnding },
+      'every window closed',
+    );
+    if (action === 'quit') {
       app.quit();
+      return;
+    }
+    if (action === 'open-navigator') {
+      try {
+        openNavigator();
+      } catch (err) {
+        getLogger('lifecycle').error(
+          { event: 'lifecycle.all-windows-closed.navigator-failed', err },
+          'could not open the Project Navigator after the last window closed; quitting',
+        );
+        app.quit();
+      }
     }
   });
 

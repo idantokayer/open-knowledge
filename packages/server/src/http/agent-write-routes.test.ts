@@ -32,6 +32,7 @@ function buildGroup(overrides: Partial<Deps> = {}) {
       label: undefined,
     }),
     docNameExistsWithAnySupportedExtension: notDispatched,
+    findMissingDocCandidates: notDispatched,
     contentDir: '/nonexistent-content',
     summaryResponseFields: () => ({ stored: undefined }),
     sessionManager: {} as AgentSessionManager,
@@ -51,13 +52,12 @@ function buildGroup(overrides: Partial<Deps> = {}) {
     onAgentWrite: undefined,
     computeOrphanHints: notDispatched,
     registerWrittenDocInFileIndex: notDispatched,
-    collectAdmittedDocNames: notDispatched,
-    createLinkedFileExists: notDispatched,
-    createLinkedFolderExists: notDispatched,
+    prepareWriteLinkAdvisory: notDispatched,
     buildReconcileWarning: notDispatched,
     computeLintViolations: notDispatched,
     log: loggerFactory.getLogger('test'),
     flushDocToGit: notDispatched,
+    commitOkArtifactWrite: notDispatched,
     isSafeDocName: notDispatched,
     shadowRef: undefined,
     getPrincipal: undefined,
@@ -107,26 +107,105 @@ describe('agent-write session capacity responses', () => {
     ['/api/agent-write-md', { docName: 'note', markdown: '# Note', position: 'replace' }],
     ['/api/frontmatter-patch', { docName: 'note', patch: { title: 'Note' } }],
     ['/api/agent-patch', { docName: 'note', find: 'old', replace: 'new' }],
-  ])('%s returns the retryable problem when the session limit is full', async (path, body) => {
+  ])(
+    '%s refuses before writing and says nothing was committed when the session limit is full',
+    async (path, body) => {
+      const hocuspocus = new Hocuspocus({ quiet: true });
+      const sessionManager = new AgentSessionManager(hocuspocus, {
+        maxSessions: 1,
+        minEvictableIdleMs: Number.POSITIVE_INFINITY,
+      });
+      try {
+        await sessionManager.getSession('occupied', 'agent-occupant');
+        const group = buildGroup({
+          hocuspocus,
+          sessionManager,
+          docNameExistsWithAnySupportedExtension: () => true,
+        });
+        const route = group.table.resolve(path);
+        if (!route?.dispatch) throw new Error(`${path} did not resolve to a dispatch handler`);
+        const { res, captured } = makeCaptureRes();
+        await route.dispatch(makeReq(path, body), res);
+        expect(captured.status).toBe(503);
+        expect(captured.headers['content-type']).toContain('application/problem+json');
+        expect(captured.headers['retry-after']).toBe('10');
+        expect(JSON.parse(captured.body)).toMatchObject({
+          status: 503,
+          type: 'urn:ok:error:too-many-agent-sessions',
+          committed: false,
+          retryAfterSeconds: 10,
+        });
+        expect(hocuspocus.documents.has('note')).toBe(false);
+      } finally {
+        await sessionManager.closeAll();
+      }
+    },
+  );
+});
+
+describe('edit routes refuse a document path that has nothing behind it', () => {
+  test.each([
+    ['/api/agent-patch', { docName: 'system/ops', find: 'present elsewhere', replace: 'x' }],
+    ['/api/frontmatter-patch', { docName: 'system/ops', patch: { title: 'probe' } }],
+  ])('%s answers doc-not-found with near matches and creates nothing', async (path, body) => {
     const hocuspocus = new Hocuspocus({ quiet: true });
-    const sessionManager = new AgentSessionManager(hocuspocus, {
-      maxSessions: 1,
-      minEvictableIdleMs: Number.POSITIVE_INFINITY,
-    });
+    const sessionManager = new AgentSessionManager(hocuspocus);
     try {
-      await sessionManager.getSession('occupied', 'agent-occupant');
-      const group = buildGroup({ hocuspocus, sessionManager });
+      const group = buildGroup({
+        hocuspocus,
+        sessionManager,
+        docNameExistsWithAnySupportedExtension: () => false,
+        findMissingDocCandidates: (docName) => (docName === 'system/ops' ? ['kb/system/ops'] : []),
+      });
       const route = group.table.resolve(path);
       if (!route?.dispatch) throw new Error(`${path} did not resolve to a dispatch handler`);
       const { res, captured } = makeCaptureRes();
       await route.dispatch(makeReq(path, body), res);
-      expect(captured.status).toBe(503);
-      expect(captured.headers['content-type']).toContain('application/problem+json');
-      expect(captured.headers['retry-after']).toBe('10');
-      expect(JSON.parse(captured.body)).toMatchObject({
-        status: 503,
-        type: 'urn:ok:error:too-many-agent-sessions',
+      expect(captured.status).toBe(404);
+      const problem = JSON.parse(captured.body);
+      expect(problem).toMatchObject({
+        type: 'urn:ok:error:doc-not-found',
+        candidates: ['kb/system/ops'],
+        committed: false,
       });
+      expect(problem.title).toContain('No document at "system/ops"');
+      expect(problem.title).toContain('Did you mean "kb/system/ops"?');
+      expect(problem.title).not.toContain('Text not found');
+      expect(problem.title).not.toContain('to create one');
+      expect(hocuspocus.documents.has('system/ops')).toBe(false);
+    } finally {
+      await sessionManager.closeAll();
+    }
+  });
+
+  test('a path with no near match points to write instead of a suggestion', async () => {
+    const hocuspocus = new Hocuspocus({ quiet: true });
+    const sessionManager = new AgentSessionManager(hocuspocus);
+    try {
+      const group = buildGroup({
+        hocuspocus,
+        sessionManager,
+        docNameExistsWithAnySupportedExtension: () => false,
+        findMissingDocCandidates: () => [],
+      });
+      const route = group.table.resolve('/api/agent-patch');
+      if (!route?.dispatch)
+        throw new Error('/api/agent-patch did not resolve to a dispatch handler');
+      const { res, captured } = makeCaptureRes();
+      await route.dispatch(
+        makeReq('/api/agent-patch', { docName: 'wiki/new', find: 'x', replace: 'y' }),
+        res,
+      );
+      expect(captured.status).toBe(404);
+      const problem = JSON.parse(captured.body);
+      expect(problem).toMatchObject({
+        type: 'urn:ok:error:doc-not-found',
+        candidates: [],
+        committed: false,
+      });
+      expect(problem.title).toContain('No document at "wiki/new"');
+      expect(problem.title).toContain('use write(');
+      expect(problem.title).not.toContain('Did you mean');
     } finally {
       await sessionManager.closeAll();
     }

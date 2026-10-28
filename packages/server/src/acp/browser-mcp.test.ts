@@ -1,5 +1,6 @@
 import { spawn, spawnSync } from 'node:child_process';
 import {
+  appendFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -17,12 +18,14 @@ import { afterEach, describe, expect, test } from 'vitest';
 import { resolveOnPath } from '../git-preflight.ts';
 import {
   AGENT_BROWSER_MCP_PACKAGE,
+  agentBrowserInstallLaunch,
   agentBrowserMcpServer,
   agentGetsBrowser,
   type BrowserCallEvidence,
   browserNpxRunnable,
   identifyBrowserCall,
   needsReportedToolCall,
+  npmCacheOf,
   prepareAgentBrowserFolders,
   removeAgentBrowserFolders,
   resolveBrowserNpx,
@@ -309,7 +312,7 @@ describe('agentBrowserMcpServer', () => {
         '/opt/node/bin/npx',
         '--prefix',
         FOLDERS.npm,
-        '-y',
+        '--yes=false',
         AGENT_BROWSER_MCP_PACKAGE,
         '--isolated',
         '--no-webmcp',
@@ -318,7 +321,10 @@ describe('agentBrowserMcpServer', () => {
         '--file-paths',
         'absolute',
       ],
-      env: [{ name: 'PATH', value: '/opt/node/bin:/usr/bin' }],
+      env: [
+        { name: 'PATH', value: '/opt/node/bin:/usr/bin' },
+        { name: 'npm_config_prefer_offline', value: 'true' },
+      ],
     });
     expect(
       agentBrowserMcpServer({
@@ -329,6 +335,22 @@ describe('agentBrowserMcpServer', () => {
         exists: () => false,
       }),
     ).toBeNull();
+  });
+
+  test("reads npm's cache from the agent's own npm cache setting", () => {
+    const server = agentBrowserMcpServer({
+      npx: NPX,
+      folders: FOLDERS,
+      npmCache: '/runtime/npm-cache',
+      platform: 'darwin',
+      env: {},
+      exists: () => true,
+    });
+    expect(server?.env).toEqual([
+      { name: 'PATH', value: '/opt/node/bin:/usr/bin' },
+      { name: 'npm_config_prefer_offline', value: 'true' },
+      { name: 'npm_config_cache', value: '/runtime/npm-cache' },
+    ]);
   });
 
   test('runs headless only on Linux with no display', () => {
@@ -355,21 +377,24 @@ describe('agentBrowserMcpServer', () => {
         env: processEnv,
         exists: () => true,
       })?.env;
-    const path = { name: 'PATH', value: NPX.path };
+    const npm = [
+      { name: 'PATH', value: NPX.path },
+      { name: 'npm_config_prefer_offline', value: 'true' },
+    ];
     expect(env('linux', { DISPLAY: ':0', XAUTHORITY: '/home/me/.Xauthority', HOME: '/h' })).toEqual(
       [
-        path,
+        ...npm,
         { name: 'DISPLAY', value: ':0' },
         { name: 'XAUTHORITY', value: '/home/me/.Xauthority' },
       ],
     );
     expect(env('linux', { WAYLAND_DISPLAY: 'wayland-0', XDG_RUNTIME_DIR: '/run/user/1' })).toEqual([
-      path,
+      ...npm,
       { name: 'WAYLAND_DISPLAY', value: 'wayland-0' },
       { name: 'XDG_RUNTIME_DIR', value: '/run/user/1' },
     ]);
-    expect(env('linux', { XAUTHORITY: '/home/me/.Xauthority' })).toEqual([path]);
-    expect(env('darwin', { DISPLAY: ':0' })).toEqual([path]);
+    expect(env('linux', { XAUTHORITY: '/home/me/.Xauthority' })).toEqual(npm);
+    expect(env('darwin', { DISPLAY: ':0' })).toEqual(npm);
   });
 
   test('on Windows runs npm through the node that ships beside npx, or not at all', () => {
@@ -392,7 +417,7 @@ describe('agentBrowserMcpServer', () => {
       npxCli,
       '--prefix',
       FOLDERS.npm,
-      '-y',
+      '--yes=false',
       AGENT_BROWSER_MCP_PACKAGE,
     ]);
     expect(
@@ -498,8 +523,12 @@ describe.skipIf(process.platform === 'win32')('the browser server relay', () => 
       child.stdin.write(`${typeof message === 'string' ? message : JSON.stringify(message)}\n`);
     }
     const deadline = Date.now() + 10_000;
-    while (!settled() && Date.now() < deadline) await new Promise((r) => setTimeout(r, 25));
-    child.stdin.end();
+    try {
+      while (!settled() && Date.now() < deadline) await new Promise((r) => setTimeout(r, 25));
+    } finally {
+      child.stdin.end();
+      await exited;
+    }
     expect(await exited).toBe(0);
     return stdout;
   }
@@ -518,10 +547,37 @@ describe.skipIf(process.platform === 'win32')('the browser server relay', () => 
   const receivedLines = (path: string): Array<Record<string, unknown>> =>
     existsSync(path)
       ? readFileSync(path, 'utf8')
-          .trim()
           .split('\n')
+          .slice(0, -1)
           .map((line) => JSON.parse(line) as Record<string, unknown>)
       : [];
+
+  test('reads no receive records from an empty file', () => {
+    const received = join(tmp(), 'received.ndjson');
+    writeFileSync(received, '');
+    expect(receivedLines(received)).toEqual([]);
+    appendFileSync(received, '{"id":1}\n');
+    expect(receivedLines(received)).toEqual([{ id: 1 }]);
+  });
+
+  test.each([
+    { stage: 'empty tail', tail: '', rest: '{"id":2}' },
+    { stage: 'partial JSON', tail: '{"id":', rest: '2}' },
+    { stage: 'unterminated JSON', tail: '{"id":2}', rest: '' },
+  ])('reads only complete receive records with $stage', ({ tail, rest }) => {
+    const received = join(tmp(), 'received.ndjson');
+    writeFileSync(received, `{"id":1}\n${tail}`);
+    expect(() => receivedLines(received)).not.toThrow();
+    expect(receivedLines(received)).toEqual([{ id: 1 }]);
+    appendFileSync(received, `${rest}\n`);
+    expect(receivedLines(received)).toEqual([{ id: 1 }, { id: 2 }]);
+  });
+
+  test('reports malformed completed receive records', () => {
+    const received = join(tmp(), 'received.ndjson');
+    writeFileSync(received, 'not-json\n');
+    expect(() => receivedLines(received)).toThrow(SyntaxError);
+  });
 
   test("answers the server's roots request with the chat's files folder instead of the agent's roots", async () => {
     const root = tmp();
@@ -778,6 +834,43 @@ describe.skipIf(process.platform === 'win32')('the browser server launch, run fo
       `isolated --isolated --no-webmcp --output-dir ${files} --file-paths absolute\n`,
     );
   }, 90_000);
+});
+
+describe('agentBrowserInstallLaunch', () => {
+  test("installs through the browser's npx and PATH, into the cache the browser reads", () => {
+    const base = {
+      Path: '/elsewhere',
+      NPM_CONFIG_CACHE: '/server/cache',
+      NPM_CONFIG_PREFER_OFFLINE: 'false',
+      HOME: '/home/me',
+    };
+    expect(agentBrowserInstallLaunch(NPX, '/runtime/npm-cache', 'cached', base)).toEqual({
+      cmd: '/opt/node/bin/npx',
+      args: [],
+      env: {
+        HOME: '/home/me',
+        PATH: NPX.path,
+        npm_config_prefer_offline: 'true',
+        npm_config_cache: '/runtime/npm-cache',
+      },
+      kind: 'npx',
+      pathFromOverlay: true,
+    });
+    expect(agentBrowserInstallLaunch(NPX, null, 'fresh', base).env).toEqual({
+      NPM_CONFIG_CACHE: '/server/cache',
+      HOME: '/home/me',
+      PATH: NPX.path,
+      npm_config_prefer_offline: 'false',
+    });
+  });
+});
+
+describe('npmCacheOf', () => {
+  test('reads the npm cache setting in any spelling and ignores an empty one', () => {
+    expect(npmCacheOf({ NPM_CONFIG_CACHE: '/a' })).toBe('/a');
+    expect(npmCacheOf({ npm_config_cache: '' })).toBeNull();
+    expect(npmCacheOf({ PATH: '/bin' })).toBeNull();
+  });
 });
 
 describe('resolveBrowserNpx', () => {

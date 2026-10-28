@@ -72,6 +72,14 @@ export {
   pendingContentLines,
 } from './intraline-predicate.ts';
 export {
+  documentBodyLineEnding,
+  dominantLineEnding,
+  type LfProjection,
+  type LineEnding,
+  projectToLf,
+  spellLineEndings,
+} from './line-endings.ts';
+export {
   assertContentPreservation,
   BridgeMergeContentLossError,
   type BridgeMergeContentLossInfo,
@@ -79,6 +87,7 @@ export {
   type BridgeMergeContentLossSide,
   type BridgeMergeContentLossWhich,
   findDroppedContent,
+  findDroppedSourceContentInRange,
   mergeThreeWay,
   tryLineLevelCombine,
 } from './merge-three-way.ts';

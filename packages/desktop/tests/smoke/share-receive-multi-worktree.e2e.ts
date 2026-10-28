@@ -2,8 +2,10 @@ import { execSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { _electron as electron } from '@playwright/test';
+import { configureTestGitRepository } from '../../../../test-support/configure-git-fixture.test-helper.ts';
+import { expectCaptureHomeMatchesProcess } from './_helpers/capture-home.test-helper';
 import { desktopLaunchOptions, resolveDesktopTarget } from './_helpers/launch-desktop';
+import { launchDesktopInHome } from './_helpers/launch-in-home';
 import { expect, test } from './_helpers/smoke-test';
 
 const TARGET = resolveDesktopTarget();
@@ -35,6 +37,7 @@ function setupMultiWorktree(): MultiWorktreeFixture {
   const mainRepo = join(root, 'main');
   mkdirSync(mainRepo);
   gitSync(mainRepo, 'init', '--initial-branch=main', '.');
+  configureTestGitRepository(mainRepo);
   gitSync(mainRepo, 'config', 'user.email', 'test@example.com');
   gitSync(mainRepo, 'config', 'user.name', 'Test');
   gitSync(mainRepo, 'remote', 'add', 'origin', 'https://github.com/inkeep/open-knowledge.git');
@@ -50,6 +53,7 @@ function setupMultiWorktree(): MultiWorktreeFixture {
   const featBarWorktree = join(root, 'wt', 'feat-bar');
   mkdirSync(join(root, 'wt'), { recursive: true });
   gitSync(mainRepo, 'worktree', 'add', '-b', 'feat-bar', featBarWorktree);
+  configureTestGitRepository(featBarWorktree);
   mkdirSync(join(featBarWorktree, 'docs'), { recursive: true });
   writeFileSync(join(featBarWorktree, 'docs', 'x.md'), '# feat-bar/docs/x\n');
   gitSync(featBarWorktree, 'add', 'docs/x.md');
@@ -102,7 +106,8 @@ test.describe('share-receive multi-worktree smoke (US-014 / J1 silent dispatch)'
     };
     writeFileSync(join(userData, 'Electron', 'state.json'), JSON.stringify(recentsState, null, 2));
 
-    const app = await electron.launch(
+    const app = await launchDesktopInHome(
+      tmpHome,
       desktopLaunchOptions({
         target: TARGET,
         args: [`--user-data-dir=${userData}`],
@@ -110,9 +115,9 @@ test.describe('share-receive multi-worktree smoke (US-014 / J1 silent dispatch)'
       }),
     );
     captureStderrFor(app, {
-      home: tmpHome,
       cleanupDirs: [fixture.root, tmpHome],
     });
+    await expectCaptureHomeMatchesProcess(app);
 
     const firstWindow = await app.firstWindow({ timeout: 15_000 });
     expect(firstWindow).toBeDefined();

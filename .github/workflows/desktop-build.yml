@@ -1,8 +1,9 @@
 name: Desktop build
 
 # M2 per specs/2026-04-11-electron-desktop-app/SPEC.md §14:
-# Produces a Universal DMG (arm64 + x64 merged). When Apple Developer cert
-# + notary credentials are configured as repo secrets, the DMG is signed with
+# Produces a Universal DMG (arm64 + x64 merged). When the run is on main and
+# the release-signing environment holds the Apple Developer cert + notary
+# credentials, the DMG is signed with
 # Developer ID, notarized via xcrun notarytool, stapled, and fuse-verified
 # (D17 paranoid post-sign check). When secrets are absent, the workflow runs
 # `build:mac:unsigned` explicitly and uploads the artifact under a name that
@@ -15,7 +16,7 @@ name: Desktop build
 # ~10× more expensive than ubuntu — PR-triggering only makes sense after
 # M2 is closing the DOD loop.
 #
-# Required secrets (when ready to sign — wire via Settings → Secrets):
+# Required secrets, held in the release-signing environment (main only):
 #   CSC_LINK                    Base64-encoded .p12 containing the Developer
 #                               ID Application cert + private key. Generate:
 #                                 base64 -i developer-id.p12 | pbcopy
@@ -80,6 +81,8 @@ jobs:
     # `build/okglass.icon` into `Assets.car` via Apple's `actool`, which only
     # ships with Xcode 26+.
     runs-on: macos-26
+    cache-mode: none
+    environment: ${{ github.ref == 'refs/heads/main' && 'release-signing' || '' }}
     # 45 min budget. Local `pnpm run build:mac:unsigned` baseline on M3 Max
     # is ~3-4 min wall-clock; CI runners are ~2× slower; signing +
     # notarization adds 2-5 min of Apple round-trip on top. 45 min leaves
@@ -88,25 +91,15 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # Node 24 matches the existing ci.yml / release.yml pattern —
-      # turbo's `^build` pulls in the app via workspace deps that resolve
-      # to `.ts` sources; Node 22.6+ strips TypeScript types natively.
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
-          node-version: "24"
+          node-version-file: .node-version
+          package-manager-cache: false
 
       - uses: pnpm/setup@84cb39b217b10273981911c288cd62326dc7c6d2 # v2.0.2
         with:
           install: false
-      - name: Get pnpm store directory
-        shell: bash
-        run: echo "STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_ENV"
-      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-ok-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-ok-pnpm-store-
+          cache: false
 
       - name: Install dependencies
         # ELECTRON_SKIP_REBUILD=0 overrides the default CI skip in
@@ -115,6 +108,11 @@ jobs:
         env:
           ELECTRON_SKIP_REBUILD: "0"
         run: pnpm install --frozen-lockfile
+
+      - name: Install the declared Rust toolchain
+        run: |
+          rustup toolchain install --no-self-update
+          rustc -vV
 
       - name: Build workspace (produces packages/cli/dist/public for extraResources)
         run: |
@@ -145,6 +143,49 @@ jobs:
             echo "mode=unsigned" >> "$GITHUB_OUTPUT"
             echo "::notice::CSC_LINK absent — building unsigned DMG. Artifact will be labeled 'unsigned'."
           fi
+
+      # Step A: vite/main/preload bundles via electron-vite. Always identical
+      # for signed and unsigned modes.
+      - name: Build electron-vite bundles
+        working-directory: packages/desktop
+        run: pnpm run build:desktop
+
+      # Force-install both darwin-arm64 and darwin-x64 prebuilt binaries for
+      # @napi-rs/keyring before electron-builder's universal merge runs. pnpm
+      # under workspace conditions only installs the host-arch optionalDependency
+      # (cpu constraint), so the darwin-x64 binary is missing on an arm64
+      # runner. @electron/universal's lipo merge then either errors or hangs
+      # waiting for x64 inputs that don't exist.
+      #
+      # NOTE: electron-builder.yml is currently arm64-only (`target.arch:
+      # [arm64]`), so this step is effectively a no-op for the smoke build.
+      # Kept in place because (a) it's idempotent and adds <1s, (b) it
+      # unblocks a future flip to universal target without another mirror
+      # cycle. Documented for the next reader who'd otherwise wonder why.
+      - name: Force-install darwin keyring prebuilds for universal merge
+        working-directory: packages/desktop
+        run: node scripts/prepare-universal.mjs
+
+      # Stage @parcel/watcher onto the bundled CLI's module path. This workflow
+      # invokes electron-builder directly (not the build:mac npm script, which
+      # DOES run this), so the step must be explicit here or the smoke/QA DMG
+      # ships without @parcel/watcher on the CLI path and the server degrades to
+      # chokidar (#760).
+      - name: Stage @parcel/watcher for the bundled CLI
+        working-directory: packages/desktop
+        run: node scripts/stage-parcel-watcher.mjs
+
+      - name: Validate variant provisioning profile
+        if: steps.signmode.outputs.mode == 'signed' && env.OK_DESKTOP_VARIANT != 'stable'
+        working-directory: packages/desktop
+        run: |
+          set -euo pipefail
+          PROFILE_PATH="build/embedded.${OK_DESKTOP_VARIANT}.provisionprofile"
+          if [[ ! -f "$PROFILE_PATH" ]]; then
+            echo "::error::The committed ${OK_DESKTOP_VARIANT} Developer ID provisioning profile is missing."
+            exit 1
+          fi
+          security cms -D -i "$PROFILE_PATH" >/dev/null
 
       # Twin of the step in desktop-release.yml; keep them in lockstep. Stage
       # the Developer ID cert in a keychain this job owns and hand it to
@@ -268,49 +309,6 @@ jobs:
           echo "APPLE_API_KEY=$KEY_PATH" >> "$GITHUB_ENV"
           echo "::notice::APPLE_API_KEY materialized to $KEY_PATH"
 
-      # Step A: vite/main/preload bundles via electron-vite. Always identical
-      # for signed and unsigned modes.
-      - name: Build electron-vite bundles
-        working-directory: packages/desktop
-        run: pnpm run build:desktop
-
-      # Force-install both darwin-arm64 and darwin-x64 prebuilt binaries for
-      # @napi-rs/keyring before electron-builder's universal merge runs. pnpm
-      # under workspace conditions only installs the host-arch optionalDependency
-      # (cpu constraint), so the darwin-x64 binary is missing on an arm64
-      # runner. @electron/universal's lipo merge then either errors or hangs
-      # waiting for x64 inputs that don't exist.
-      #
-      # NOTE: electron-builder.yml is currently arm64-only (`target.arch:
-      # [arm64]`), so this step is effectively a no-op for the smoke build.
-      # Kept in place because (a) it's idempotent and adds <1s, (b) it
-      # unblocks a future flip to universal target without another mirror
-      # cycle. Documented for the next reader who'd otherwise wonder why.
-      - name: Force-install darwin keyring prebuilds for universal merge
-        working-directory: packages/desktop
-        run: node scripts/prepare-universal.mjs
-
-      # Stage @parcel/watcher onto the bundled CLI's module path. This workflow
-      # invokes electron-builder directly (not the build:mac npm script, which
-      # DOES run this), so the step must be explicit here or the smoke/QA DMG
-      # ships without @parcel/watcher on the CLI path and the server degrades to
-      # chokidar (#760).
-      - name: Stage @parcel/watcher for the bundled CLI
-        working-directory: packages/desktop
-        run: node scripts/stage-parcel-watcher.mjs
-
-      - name: Validate variant provisioning profile
-        if: steps.signmode.outputs.mode == 'signed' && env.OK_DESKTOP_VARIANT != 'stable'
-        working-directory: packages/desktop
-        run: |
-          set -euo pipefail
-          PROFILE_PATH="build/embedded.${OK_DESKTOP_VARIANT}.provisionprofile"
-          if [[ ! -f "$PROFILE_PATH" ]]; then
-            echo "::error::The committed ${OK_DESKTOP_VARIANT} Developer ID provisioning profile is missing."
-            exit 1
-          fi
-          security cms -D -i "$PROFILE_PATH" >/dev/null
-
       # Step B: package via electron-builder. Kept as a separate runner step
       # from step A (rather than chained via && in a single shell). The split
       # was originally forced by a packaging bug in the previous script runner:
@@ -350,6 +348,17 @@ jobs:
             pnpm exec node "$GITHUB_WORKSPACE/.github/scripts/package-desktop.mjs" --mac --publish never
           fi
 
+      - name: Remove App Store Connect API key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/AuthKey.p8"
+
+      - name: Remove signing keychain
+        if: always()
+        run: |
+          if [[ -n "${CSC_KEYCHAIN:-}" ]]; then
+            security delete-keychain "$CSC_KEYCHAIN" || true
+          fi
+
       # Twin of desktop-release.yml's "Attest the signed macOS app": with
       # CSC_KEYCHAIN, a missing identity is a warning and an ad-hoc-signed app
       # rather than electron-builder's own hard failure, so signed mode proves
@@ -384,6 +393,10 @@ jobs:
           fi
           echo "Attested $FOUND signed, notarized, stapled app bundle(s)."
 
+      - name: Assert the packaged server helper runs as Node
+        working-directory: packages/desktop
+        run: node scripts/assert-packaged-helper-runs-as-node.mjs dist-desktop "desktop-build (macOS .app)"
+
       # Gate on success() — on build failure, there is no DMG, so running
       # the upload step would stack a second "no files found" error on top
       # of the real build error and dilute CI signal. The GHA run log
@@ -404,13 +417,3 @@ jobs:
             packages/desktop/dist-desktop/*-mac.yml
           retention-days: 14
           if-no-files-found: error
-
-      # Hosted runners are ephemeral, so this is hygiene rather than a
-      # security boundary. Runs after the upload so a late failure still
-      # leaves diagnostics.
-      - name: Remove signing keychain
-        if: always()
-        run: |
-          if [[ -n "${CSC_KEYCHAIN:-}" ]]; then
-            security delete-keychain "$CSC_KEYCHAIN" || true
-          fi

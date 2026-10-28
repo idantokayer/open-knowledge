@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
 import { parse } from 'yaml';
+import { configureTestGitRepository } from '../../../../test-support/configure-git-fixture.test-helper.ts';
 import {
   expect,
   openProjectPluginsPanel,
@@ -60,9 +61,11 @@ async function expectDisclosureContrast(page: Page, theme: 'light' | 'dark'): Pr
   }, theme);
 
   try {
-    await page.evaluate(async () => {
+    await page.getByTestId('settings-okf-generate-index-confirm').evaluate(async (dialog) => {
       await Promise.all(
-        document.documentElement.getAnimations().map((animation) => animation.finished),
+        [...document.documentElement.getAnimations(), ...dialog.getAnimations()].map(
+          (animation) => animation.finished,
+        ),
       );
     });
     const results = await new AxeBuilder({ page })
@@ -84,6 +87,7 @@ test('Escape decline restores focus, confirmation creates indexes, and disabling
   workerServer,
 }) => {
   execFileSync('git', ['init', '-q'], { cwd: workerServer.contentDir });
+  configureTestGitRepository(workerServer.contentDir);
   await api.seedDocs([
     {
       name: 'home',

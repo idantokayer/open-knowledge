@@ -88,6 +88,10 @@ msgstr "「{docName}」不存在。"
 msgid "\"{docName}\" took too long. Check your connection."
 msgstr "「{docName}」耗時過久。請檢查你的網路連線。"
 
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "\"{name}\""
+msgstr "「{name}」"
+
 #: src/hooks/use-skill-origin.ts
 msgid "\"{name}\" is already up to date"
 msgstr "「{name}」已是最新"
@@ -216,6 +220,11 @@ msgstr "{0, plural, other {預覽的安全性原則攔截了 # 個要求}}"
 msgid "{0, plural, one {# result} other {# results}}"
 msgstr "{0, plural, other {# 筆結果}}"
 
+#. placeholder {0}: templates.length
+#: src/components/empty-state/CreateView.tsx
+msgid "{0, plural, one {# template available} other {# templates available}}"
+msgstr "{0, plural, other {有 # 個範本可用}}"
+
 #. placeholder {0}: folder.templateCount
 #: src/components/CreatedItemsList.tsx
 msgid "{0, plural, one {# template} other {# templates}}"
@@ -230,6 +239,11 @@ msgstr "{0, plural, other {# 次使用}}"
 #: src/components/ProblemsPanel.tsx
 msgid "{0, plural, one {# warning} other {# warnings}}"
 msgstr "{0, plural, other {# 則警告}}"
+
+#. placeholder {0}: templates.length
+#: src/components/empty-state/CreateView.tsx
+msgid "{0, plural, one {At least # template found} other {At least # templates found}}"
+msgstr "{0, plural, other {至少找到 # 個範本}}"
 
 #. placeholder {0}: deleteTargets.length
 #: src/components/FileTree.tsx
@@ -453,11 +467,6 @@ msgstr "{0} 共用此資料夾。"
 #: src/components/SkillsTree.tsx
 msgid "{0} skills selected"
 msgstr "已選擇 {0} 個技能"
-
-#. placeholder {0}: templates.length
-#: src/components/empty-state/CreateView.tsx
-msgid "{0} templates available"
-msgstr "有 {0} 個範本可用"
 
 #. placeholder {0}: formatBundleSize(operation.zipSizeBytes)
 #: src/components/BugReportSendToast.tsx
@@ -750,6 +759,10 @@ msgstr "{count, plural, other {確定要刪除以下 # 個檔案嗎？}}"
 msgid "{count, plural, one {Are you sure you want to delete the following # file/directory and its contents?} other {Are you sure you want to delete the following # files/directories and their contents?}}"
 msgstr "{count, plural, other {確定要刪除以下 # 個檔案/資料夾及其內容嗎？}}"
 
+#: src/components/ConsentDialogBody.tsx
+msgid "{count, plural, one {Found {formattedCount} markdown file} other {Found {formattedCount} markdown files}}"
+msgstr "{count, plural, other {找到 {formattedCount} 個 markdown 檔案}}"
+
 #: src/components/ProblemsPanel.tsx
 msgid "{count, plural, one {Hands the # problem to your AI agent, including what has no automatic fix.} other {Hands all # problems to your AI agent, including what has no automatic fix.}}"
 msgstr "{count, plural, other {把這 # 個問題交給你的 AI 代理，包括沒有自動修正方式的部分。}}"
@@ -964,6 +977,14 @@ msgstr "{label}（{0}）"
 msgid "{label} already loads \"{0}\" from the {1} plugin. Installing here puts a copy at {2} that {label} uses instead of the plugin's — it stops tracking plugin updates."
 msgstr "{label} 已經透過 {1} 外掛載入 \"{0}\"。在此安裝會在 {2} 建立一個副本，{label} 將使用該副本而非外掛的版本——副本不再跟隨外掛更新。"
 
+#: src/components/InstanceBadge.tsx
+msgid "{label} build, v{version}. Its settings and data are kept separate from other OpenKnowledge apps."
+msgstr "{label} 版本，v{version}。其設定和資料與其他 OpenKnowledge 應用程式分開儲存。"
+
+#: src/components/InstanceBadge.tsx
+msgid "{label} build. Its settings and data are kept separate from other OpenKnowledge apps."
+msgstr "{label} 版本。其設定和資料與其他 OpenKnowledge 應用程式分開儲存。"
+
 #: src/components/settings/plugin-enabled-notice.ts
 msgid "{label} enabled"
 msgstr "已啟用 {label}"
@@ -971,10 +992,6 @@ msgstr "已啟用 {label}"
 #: src/components/file-tree-problem-indicators.ts
 msgid "{label} problems"
 msgstr "{label} 個問題"
-
-#: src/components/InstanceBadge.tsx
-msgid "{label} uses isolated app data"
-msgstr "{label} 使用隔離的應用程式資料"
 
 #: src/components/ActivityPanelBurstRow.tsx
 msgid "{laterEdits, plural, one {Removes # newer edit on this file.} other {Removes # newer edits on this file.}}"
@@ -1034,6 +1051,7 @@ msgid "{openedWorktreeCount, plural, one {worktree} other {worktrees}}"
 msgstr "{openedWorktreeCount, plural, one {worktree} other {worktree}}"
 
 #: src/lib/acp/image-attachment.ts
+#: src/lib/install-stale-tab-reload-prompt.ts
 msgid "{others, plural, one {# other} other {# others}}"
 msgstr "{others, plural, other {其他 # 個檔案}}"
 
@@ -1548,6 +1566,10 @@ msgstr "這裡已存在名為 <0>{trimmedSlug}</0> 的範本。儲存會建立�
 msgid "A title, description, tags — anything that describes this folder."
 msgstr "標題、描述、標籤——任何能描述這個資料夾的資訊。"
 
+#: src/components/settings/AccountSection.tsx
+msgid "A token added here only applies to HTTPS remotes, and this project's remote doesn't use HTTPS."
+msgstr "在此新增的權杖只適用於 HTTPS 遠端儲存庫，而此專案的遠端儲存庫不使用 HTTPS。"
+
 #: src/components/ShareBranchSwitchDialog.tsx
 msgid "A worktree folder for {shareBranch} already exists."
 msgstr "{shareBranch} 的 worktree 資料夾已存在。"
@@ -1556,13 +1578,26 @@ msgstr "{shareBranch} 的 worktree 資料夾已存在。"
 msgid "A worktree folder for that branch already exists."
 msgstr "該分支的 worktree 資料夾已存在。"
 
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "about"
+msgstr "關於"
+
 #: src/lib/native-menu-catalog.ts
+#: src/lib/platform-labels.ts
 msgid "About"
 msgstr "關於"
 
 #: src/lib/native-menu-catalog.ts
+#: src/lib/platform-labels.ts
 msgid "About {appName}"
 msgstr "關於 {appName}"
+
+#: src/components/HelpPopover.tsx
+#: src/components/settings/AboutSection.tsx
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "About & updates"
+msgstr "關於與更新"
 
 #: src/editor/slash-command/items.tsx
 msgid "Above"
@@ -1600,9 +1635,8 @@ msgid "Accept their deletion"
 msgstr "接受對方的刪除"
 
 #: src/components/settings/AccountSection.tsx
-#: src/components/settings/SettingsDialogShell.tsx
-msgid "Account"
-msgstr "帳戶"
+msgid "Access token"
+msgstr "存取權杖"
 
 #: src/components/TemplateRow.tsx
 msgid "Actions for {label}"
@@ -1680,6 +1714,10 @@ msgstr "新增屬性"
 #: src/components/empty-state/CreateView.tsx
 msgid "Add a starter pack"
 msgstr "加入入門套件"
+
+#: src/components/settings/AccountSection.tsx
+msgid "Add an access token for a GitLab, Gitea, Bitbucket, Azure DevOps or self-hosted git server. Without one, git uses the credentials it already has saved for that host; with one, OpenKnowledge uses the token instead."
+msgstr "為 GitLab、Gitea、Bitbucket、Azure DevOps 或自架 git 伺服器新增存取權杖。沒有權杖時，git 會使用它已為該主機儲存的憑證；新增權杖後，OpenKnowledge 改用該權杖。"
 
 #: src/components/settings/OkignoreSection.tsx
 msgid "Add another pattern"
@@ -1810,6 +1848,12 @@ msgstr "加入詞典"
 msgid "Add to prompt"
 msgstr "加入提示"
 
+#: src/components/settings/AccountSection.tsx
+#: src/components/SyncStatusBadge.tsx
+#: src/hooks/use-sync-auth-prompt.ts
+msgid "Add token"
+msgstr "新增權杖"
+
 #: src/components/settings/frontmatter-schema-field-editor.tsx
 msgid "Add value"
 msgstr "新增值"
@@ -1819,6 +1863,10 @@ msgstr "新增值"
 #: src/components/SyncStatusBadge.tsx
 msgid "Added"
 msgstr "已新增"
+
+#: src/components/settings/AccountSection.tsx
+msgid "Adding"
+msgstr "正在新增"
 
 #: src/components/settings/AgentConnectionDialogs.tsx
 msgid "Adds a global OpenKnowledge MCP entry for this agent."
@@ -1909,8 +1957,7 @@ msgstr "智慧代理對話"
 msgid "Agent configuration file"
 msgstr "代理設定檔"
 
-#: src/components/settings/AgentConnectionsSection.tsx
-#: src/components/settings/SettingsDialogShell.tsx
+#: src/components/settings/settings-section-labels.ts
 msgid "Agent connections"
 msgstr "智慧代理連線"
 
@@ -2016,6 +2063,11 @@ msgstr "即將完成。以下是已完成和尚待完成的事項。"
 msgid "Already at {assetContentPath} — reusing."
 msgstr "已經在 {assetContentPath} 了——直接重複使用。"
 
+#. Status under the unticked AI-tools checkbox; replacingToolList names the tools that already have an OpenKnowledge MCP entry, which stay as they are while the box is unticked
+#: src/components/McpConsentDialogBody.tsx
+msgid "Already connected to {replacingToolList}"
+msgstr "已連接到：{replacingToolList}"
+
 #: src/components/settings/applies-to-folder-picker.tsx
 msgid "Already covered by a picked parent folder"
 msgstr "已由選取的上層資料夾涵蓋"
@@ -2115,9 +2167,17 @@ msgstr "還有什麼想補充的嗎？（選填）"
 msgid "API key set"
 msgstr "API 金鑰已設定"
 
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "App"
+msgstr "應用程式"
+
 #: src/components/InstanceBadge.tsx
 msgid "App instance: {label}"
 msgstr "應用程式實例：{label}"
+
+#: src/components/InstanceBadge.tsx
+msgid "App instance: {label}, v{version}"
+msgstr "應用程式實例：{label}，v{version}"
 
 #: src/components/CreatedItemsList.tsx
 msgid "Append-only log of what changed."
@@ -2335,6 +2395,10 @@ msgstr "附件總大小必須小於 3 MB。"
 msgid "Authenticated as {login}."
 msgstr "已以 {login} 身分驗證。"
 
+#: src/components/SyncStatusBadge.tsx
+msgid "Authentication failed for this git host. Add a token for it in Settings, or replace the one stored."
+msgstr "這個 git 主機的驗證失敗。請在「設定」中為它新增權杖，或者取代已儲存的權杖。"
+
 #: src/editor/slash-command/component-items.tsx
 msgid "Authoritative content; mirrored verbatim everywhere it's referenced."
 msgstr "權威內容；在所有被參照的地方逐字鏡像。"
@@ -2399,6 +2463,10 @@ msgid "Auto-save"
 msgstr "自動儲存"
 
 #: src/components/settings/SyncSection.tsx
+msgid "Auto-sync is on, but there's no remote to sync with yet. It starts as soon as a remote is connected."
+msgstr "自動同步已開啟，但還沒有可同步的遠端儲存庫。連接遠端儲存庫後就會開始同步。"
+
+#: src/components/settings/SyncSection.tsx
 msgid "Auto-sync is paused — sign in to resume."
 msgstr "自動同步已暫停——請登入以繼續。"
 
@@ -2439,6 +2507,14 @@ msgstr "自動"
 #: src/components/settings/NetworkAccessSection.tsx
 msgid "Automatic picks a free port each start. Choose a fixed port to keep the same address across restarts."
 msgstr "自動模式會在每次啟動時挑選一個空閒的連接埠。選擇固定連接埠可在重新啟動後維持相同位址。"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "Automatic updates"
+msgstr "自動更新"
+
+#: src/components/settings/AboutSection.tsx
+msgid "Automatic updates are not available right now."
+msgstr "目前無法自動更新。"
 
 #: src/components/PublishToGitHubDialog.tsx
 msgid "Available"
@@ -2535,6 +2611,11 @@ msgstr "大型章節標題。"
 #: src/components/empty-state/use-create-suggestions.ts
 msgid "Bird wiki"
 msgstr "鳥類維基"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "Bitbucket"
+msgstr "Bitbucket"
 
 #: src/components/NewItemDialog.tsx
 msgid "Blank note"
@@ -2883,6 +2964,10 @@ msgid "Chat name"
 msgstr "對話名稱"
 
 #: src/components/command-palette-commands.ts
+#: src/components/HelpPopover.tsx
+#: src/components/settings/AboutSection.tsx
+#: src/components/settings/SettingsDialogShell.tsx
+#: src/components/UpdateNotices.shared.ts
 msgid "Check for updates"
 msgstr "檢查更新"
 
@@ -2934,6 +3019,7 @@ msgstr "正在尋找代理"
 msgid "Checking for Slidev"
 msgstr "正在檢查 Slidev"
 
+#: src/components/settings/AboutSection.tsx
 #: src/components/SyncStatusBadge.tsx
 msgid "Checking for updates"
 msgstr "正在檢查更新"
@@ -2943,6 +3029,7 @@ msgstr "正在檢查更新"
 msgid "Checking for updates on GitHub"
 msgstr "正在 GitHub 上檢查更新"
 
+#: src/components/settings/SettingsDialogShell.tsx
 #: src/components/UpdateNotices.shared.ts
 msgid "Checking for updates…"
 msgstr "正在檢查更新…"
@@ -3062,8 +3149,8 @@ msgid "Choose where to send this message"
 msgstr "選擇要將這則訊息傳送到哪裡"
 
 #: src/components/settings/SharingSection.tsx
-msgid "Choose whether this project's OpenKnowledge setup, including its AI-tool connections, is saved with the project so teammates get it too, or kept only on your computer."
-msgstr "選擇這個專案的 OpenKnowledge 設定（包括它和 AI 工具的連接）要隨專案一起保存、讓隊友也能拿到，還是只留在你的電腦上。"
+msgid "Choose whether this project's OpenKnowledge setup, including its AI-tool connections and the Shared default sync mode, is saved with the project so teammates get it too, or kept only on your computer."
+msgstr "選擇這個專案的 OpenKnowledge 設定（包括它和 AI 工具的連接以及分享的預設值同步模式）要隨專案一起保存、讓隊友也能拿到，還是只留在你的電腦上。"
 
 #: src/components/settings/AgentConnectionsSection.tsx
 msgid "Choose which agents appear in agent menus across the app, and set them up to read and update your documents."
@@ -3301,6 +3388,10 @@ msgstr "關閉終端機"
 #: src/components/acp/ThreadHistoryPanel.tsx
 msgid "Close this chat's tab to delete it"
 msgstr "關閉此對話的分頁後才能刪除"
+
+#: src/editor/image-upload/upload-admission.ts
+msgid "Close this preview, then open the folder to upload files"
+msgstr "關閉此預覽，然後開啟資料夾以上傳檔案"
 
 #: src/components/NoteWindowDeletedState.tsx
 msgid "Close window"
@@ -3605,8 +3696,8 @@ msgid "Connect"
 msgstr "連接"
 
 #: src/components/settings/AccountSection.tsx
-msgid "Connect a GitHub account to browse and sync your repositories."
-msgstr "連接一個 GitHub 帳戶，就能瀏覽並同步你的儲存庫。"
+msgid "Connect a GitHub account to browse and publish GitHub repositories."
+msgstr "連接一個 GitHub 帳戶，以瀏覽和發布 GitHub 儲存庫。"
 
 #: src/components/settings/SyncSection.tsx
 msgid "Connect an existing repository"
@@ -3664,7 +3755,6 @@ msgid "Connected — this endpoint returns {0}-dimension vectors."
 msgstr "已連線——這個端點傳回 {0} 維向量。"
 
 #: src/components/AuthModal.tsx
-#: src/components/settings/AccountSection.tsx
 msgid "Connected as @{login}"
 msgstr "已以 @{login} 的身分連接"
 
@@ -3675,6 +3765,10 @@ msgstr "已以 <0>@{signedInLogin}</0> 的身分連接"
 #: src/components/settings/SyncSection.tsx
 msgid "Connected to"
 msgstr "已連接到"
+
+#: src/components/settings/AccountSection.tsx
+msgid "Connected to {host} as @{login}"
+msgstr "已以 @{login} 的身分連接到 {host}"
 
 #: src/components/AuthModal.tsx
 msgid "Connected to GitHub"
@@ -3698,6 +3792,7 @@ msgid "Connection dropped"
 msgstr "連線已中斷"
 
 #: src/components/AuthModal.tsx
+#: src/components/settings/AccountSection.tsx
 #: src/lib/transports/auth-transport.ts
 msgid "Connection error — try again"
 msgstr "連線出錯——請再試一次"
@@ -4413,6 +4508,10 @@ msgstr "無法連上這個端點。請檢查 URL，並確認伺服器已啟動�
 msgid "Couldn't reach the Open Knowledge server to upload {fileName}."
 msgstr "無法連上 Open Knowledge 伺服器來上傳 {fileName}。"
 
+#: src/components/settings/SyncSection.tsx
+msgid "Couldn't reach the OpenKnowledge server, so sync options are hidden. They appear here as soon as the sync status loads; closing and reopening Settings also retries."
+msgstr "無法連線到 OpenKnowledge 伺服器，因此已隱藏同步選項。同步狀態一載入完成，選項就會顯示在這裡；關閉並重新開啟設定也會重試。"
+
 #: src/components/acp/ThreadView.tsx
 #: src/editor/use-composer-attachments.ts
 msgid "Couldn't read {fileName}."
@@ -4561,6 +4660,10 @@ msgstr "無法儲存金鑰——請再試一次。"
 #: src/components/DiffViewBoundary.tsx
 msgid "Couldn't save the resolution for {filePath}."
 msgstr "無法儲存 {filePath} 的解決結果。"
+
+#: src/components/settings/AboutSection.tsx
+msgid "Couldn't save this setting. Try again."
+msgstr "無法儲存此設定。請再試一次。"
 
 #: src/components/McpConsentDialogBody.tsx
 msgid "Couldn't save your theme preference."
@@ -5323,6 +5426,8 @@ msgstr "文件結構"
 msgid "Document the architecture of this repo: create an overview page that links to a page per major module describing its responsibilities and entry points."
 msgstr "記錄這個儲存庫的架構：建立一頁總覽，連到每個主要模組的頁面，說明各自的職責和進入點。"
 
+#: src/components/AppMenubar.tsx
+#: src/components/command-palette-commands.ts
 #: src/components/settings/markdownlint-rule-browser.tsx
 msgid "Documentation"
 msgstr "說明文件"
@@ -5382,6 +5487,10 @@ msgstr "按兩下即可編輯"
 #: src/components/acp/ThreadView.tsx
 msgid "Download {0}"
 msgstr "下載 {0}"
+
+#: src/components/settings/AboutSection.tsx
+msgid "Download and install updates automatically"
+msgstr "自動下載並安裝更新"
 
 #: src/components/HelpPopover.tsx
 msgid "Download app"
@@ -5937,6 +6046,10 @@ msgstr "請輸入介於 {minimum} 和 {maximum} 之間的整數。"
 msgid "Enter at least 3 characters to search by meaning."
 msgstr "輸入至少 3 個字元以依含義搜尋。"
 
+#: src/components/settings/AccountSection.tsx
+msgid "Enter the host name git connects to, with an optional :port and no scheme or path, for example git.example.com."
+msgstr "輸入 git 連線的主機名稱，可加上選用的 :port，不要包含協定或路徑，例如 git.example.com。"
+
 #: src/components/settings/NetworkAccessSection.tsx
 msgid "Enter the public origin your tunnel serves, for example https://notes.example.com"
 msgstr "輸入你的通道所提供服務的公開來源，例如 https://notes.example.com"
@@ -6001,6 +6114,18 @@ msgstr "Excalidraw 畫板載入失敗。"
 #: src/components/ExcalidrawDocEditor.tsx
 msgid "Excalidraw canvas"
 msgstr "Excalidraw 畫布"
+
+#: src/components/LinksPanel.tsx
+msgid "Excluded"
+msgstr "已排除"
+
+#: src/components/LinksPanel.tsx
+msgid "Excluded file {identity}. Go to reference."
+msgstr "已排除的檔案 {identity}。前往引用位置。"
+
+#: src/components/LinksPanel.tsx
+msgid "Excluded image {identity}. Go to reference."
+msgstr "已排除的圖片 {identity}。前往引用位置。"
 
 #: src/components/NewWorktreeDialog.tsx
 msgid "Existing branch <0>{trimmed}</0> will be checked out into its own window, under <1>.ok/worktrees/</1>."
@@ -6412,6 +6537,7 @@ msgid "Failed to start sign-in — try again"
 msgstr "啟動登入失敗——請再試一次"
 
 #: src/components/AuthModal.tsx
+#: src/components/settings/AccountSection.tsx
 #: src/lib/transports/auth-transport.ts
 msgid "Failed to store the token — try again"
 msgstr "儲存權杖失敗——請再試一次"
@@ -6882,8 +7008,18 @@ msgstr "取得在應用程式中開啟此專案或文件的連結"
 
 #: src/components/settings/SettingsDialogShell.tsx
 msgctxt "settings search keyword"
+msgid "gh"
+msgstr "gh"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
 msgid "GHES"
 msgstr "GHES"
+
+#: src/components/settings/AccountSection.tsx
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "Git"
+msgstr "Git"
 
 #: src/components/ExploreSkills.tsx
 msgid "Git & PRs"
@@ -6892,6 +7028,10 @@ msgstr "Git 與 PR"
 #: src/components/ShareFreshnessWarning.tsx
 msgid "Git can't track this folder — it's empty or contains only ignored files. The link won't work until you add a tracked document."
 msgstr "Git 無法追蹤這個資料夾——它是空的，或者只有被忽略的檔案。在你加入一份被追蹤的文件之前，連結不會生效。"
+
+#: src/hooks/use-sync-auth-prompt.ts
+msgid "Git couldn't authenticate with this host. Check the SSH key or saved credentials git uses for it."
+msgstr "git 無法向此主機進行驗證。請檢查 git 為該主機使用的 SSH 金鑰或已儲存的憑證。"
 
 #: src/components/RecentProjectsMenu.tsx
 msgid "Git has locked this worktree, but it can still be opened."
@@ -6931,9 +7071,19 @@ msgstr "Git 同步"
 msgid "Git syncing is paused because a Git operation or unresolved conflicts need attention. Your edits still save locally. Finish the operation or resolve the conflicts in your terminal, then retry sync."
 msgstr "Git 同步已暫停，因為有 Git 操作或尚未解決的衝突需要處理。你的編輯仍會儲存在本機。請在終端機中完成該操作或解決衝突，然後重試同步。"
 
+#: src/components/settings/AccountSection.tsx
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "GitHub"
+msgstr "GitHub"
+
 #: src/components/SyncStatusBadge.tsx
 msgid "GitHub authentication failed. Try signing in again."
 msgstr "GitHub 驗證失敗。請試著重新登入。"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "GitHub CLI"
+msgstr "GitHub CLI"
 
 #: src/lib/share/publish-wizard.ts
 msgid "GitHub connection expired. Connect again to continue."
@@ -6952,10 +7102,6 @@ msgstr "GitHub Enterprise Server 主機"
 msgid "GitHub sign-in is missing or expired. Reconnect to resume syncing."
 msgstr "GitHub 登入不存在或已過期。請重新連接以繼續同步。"
 
-#: src/components/settings/AccountSection.tsx
-msgid "GitHub sign-in isn't available for this project"
-msgstr "此專案無法使用 GitHub 登入"
-
 #: src/components/ImportSkillForm.tsx
 msgid "GitHub, a git URL, or a local path."
 msgstr "GitHub、一個 git URL，或一個本機路徑。"
@@ -6963,6 +7109,11 @@ msgstr "GitHub、一個 git URL，或一個本機路徑。"
 #: src/components/settings/EnterpriseHostsSection.tsx
 msgid "github.com is always recognized, so it doesn't need to be added."
 msgstr "github.com 一律會被辨識，不需要新增。"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "GitLab"
+msgstr "GitLab"
 
 #: src/components/settings/SavedThemesTiles.tsx
 msgid "Give it a name before editing its colors."
@@ -7318,6 +7469,10 @@ msgstr "水平膠囊列，作用中的面板在下方；點一下膠囊即可切
 msgid "Horizontal rule that divides sections."
 msgstr "用來分隔章節的水平分隔線。"
 
+#: src/components/settings/AccountSection.tsx
+msgid "Host"
+msgstr "主機"
+
 #: src/components/settings/NetworkAccessSection.tsx
 msgid "Hosting is on. The server is running on port {boundPort}. Reach it through your tunnel."
 msgstr "託管已開啟。伺服器正在連接埠 {boundPort} 上執行。透過您的通道存取它。"
@@ -7488,6 +7643,10 @@ msgstr "無法將圖片目標「{shown}」解析為專案本機檔案。"
 #: src/editor/localized-validation-message.ts
 msgid "Image target \"{shown}\" does not resolve to an existing file."
 msgstr "圖片目標「{shown}」未指向現有檔案。"
+
+#: src/editor/localized-validation-message.ts
+msgid "Image target \"{shown}\" exists but is excluded by .gitignore or .okignore. Re-include it, or its folder, with a \"!\" rule in .okignore."
+msgstr "圖片目標「{shown}」存在，但被 .gitignore 或 .okignore 排除。請在 .okignore 中加入「!」規則，重新納入該檔案或其資料夾。"
 
 #: src/components/ReportBugDialogBody.tsx
 msgid "Images aren't redacted."
@@ -7975,8 +8134,24 @@ msgid "Invalid YAML"
 msgstr "無效的 YAML"
 
 #: src/components/ReportBugDialogBody.tsx
+msgid "It also adds any display-connection errors OpenKnowledge wrote to your user journal in the past week, each message cut to 200 characters."
+msgstr "它還會加入 OpenKnowledge 在過去一週內寫入你的使用者日誌的顯示連線錯誤，每則訊息截斷為 200 個字元。"
+
+#: src/components/ReportBugDialogBody.tsx
+msgid "It also adds the crash and hang records Windows logged for OpenKnowledge in the past week, without file paths, and the times of every shutdown, restart, power loss, and low-memory warning on this computer in that week, whatever caused them."
+msgstr "它還會加入 Windows 在過去一週內為 OpenKnowledge 記錄的當機與沒有回應記錄（不含檔案路徑），以及這台電腦在那一週內每次關機、重新啟動、斷電和記憶體不足警告的時間，無論原因為何。"
+
+#: src/components/ReportBugDialogBody.tsx
 msgid "It also adds the crash reports macOS recorded for OpenKnowledge and its helper processes, never another app's report, though ours do name the processes they were running alongside. Each one carries machine details macOS puts in every report: your account uid, the Mac model, and the name of the process that launched the app. On a managed machine, that launching process can be internal tooling. The identifiers that would link the bug reports you file to each other are replaced first, so a collected report is not byte-identical to the one macOS wrote."
 msgstr "還會加入 macOS 為 OpenKnowledge 及其輔助處理程序記錄的當機報告，絕不包含其他應用程式的報告，不過我們自己的報告會列出與之同時執行的處理程序。每份報告都含有 macOS 寫入所有報告的機器資訊：你的帳戶 uid、Mac 機型，以及啟動該應用程式的處理程序名稱。在受管理的裝置上，該啟動處理程序可能是內部工具。會先替換掉可能將你提交的多份問題報告相互關聯的識別碼，因此收集到的報告與 macOS 寫入的原文並非逐位元組相同。"
+
+#: src/components/ReportBugDialogBody.tsx
+msgid "It also adds the low-memory reports macOS wrote in the past week that list OpenKnowledge's processes, with each one's memory use and whether macOS ended it."
+msgstr "它還會加入 macOS 在過去一週內寫下、列出 OpenKnowledge 處理程序的記憶體不足報告，包括每個處理程序的記憶體用量以及 macOS 是否結束了它。"
+
+#: src/components/ReportBugDialogBody.tsx
+msgid "It also adds the out-of-memory kills of OpenKnowledge that the system journal recorded in the past week, without the machine name, account id, or folder paths."
+msgstr "它還會加入系統日誌在過去一週內記錄的 OpenKnowledge 因記憶體耗盡被終止的事件，不含電腦名稱、帳戶 ID 或資料夾路徑。"
 
 #. placeholder {0}: prompt.cwd
 #. placeholder {1}: prompt.agentName
@@ -8009,6 +8184,8 @@ msgstr "斜體"
 msgid "Item {0}"
 msgstr "項目 {0}"
 
+#: src/components/AppMenubar.tsx
+#: src/components/command-palette-commands.ts
 #: src/components/SubscribeCard.tsx
 msgid "Join us on Discord"
 msgstr "來 Discord 加入我們"
@@ -8269,6 +8446,10 @@ msgstr "連結目標「{shown}」未指向現有文件。"
 msgid "Link target \"{shown}\" does not resolve to an existing file."
 msgstr "連結目標「{shown}」未指向現有檔案。"
 
+#: src/editor/localized-validation-message.ts
+msgid "Link target \"{shown}\" exists but is excluded by .gitignore or .okignore. Re-include it, or its folder, with a \"!\" rule in .okignore."
+msgstr "連結目標「{shown}」存在，但被 .gitignore 或 .okignore 排除。請在 .okignore 中加入「!」規則，重新納入該檔案或其資料夾。"
+
 #: src/lib/keyboard-shortcuts.ts
 msgid "Link the selected text, or edit the link under the caret."
 msgstr "為選取的文字加上連結，或編輯游標處的連結。"
@@ -8456,6 +8637,10 @@ msgstr "正在載入技能"
 msgid "Loading starter packs"
 msgstr "正在載入入門套件"
 
+#: src/components/settings/SyncSection.tsx
+msgid "Loading sync status"
+msgstr "正在載入同步狀態"
+
 #: src/components/CommandPalette.tsx
 #: src/editor/tag-suggestion/TagSuggestionMenu.tsx
 msgid "Loading tags"
@@ -8611,8 +8796,8 @@ msgid "Manage skill folders"
 msgstr "管理技能資料夾"
 
 #: src/components/settings/AccountSection.tsx
-msgid "Manage the GitHub account OpenKnowledge uses to browse and sync your repositories."
-msgstr "管理 OpenKnowledge 用來瀏覽和同步你的儲存庫的那個 GitHub 帳戶。"
+msgid "Manage the accounts and access tokens OpenKnowledge uses to connect to your git hosts."
+msgstr "管理 OpenKnowledge 用來連線到你的 git 主機的帳戶和存取權杖。"
 
 #: src/components/settings/AgentConnectionDialogs.tsx
 #: src/components/settings/AgentConnectionsSection.tsx
@@ -8756,6 +8941,12 @@ msgstr "鏡像來源 <0>api-spec</0>"
 #: src/components/LinksPanel.tsx
 msgid "Missing"
 msgstr "缺失"
+
+#. placeholder {0}: error.slots.length
+#. placeholder {1}: error.slots.join(', ')
+#: src/components/settings/CustomThemeEditor.tsx
+msgid "Missing {0} slot(s): {1}"
+msgstr "缺少 {0} 個色彩欄位：{1}"
 
 #: src/components/FeedbackForm.tsx
 msgid "Missing a feature"
@@ -9343,10 +9534,12 @@ msgstr "還沒有設定任何代理——請從傳送選單中挑一個。"
 msgid "no agents — saved, not installed anywhere"
 msgstr "未選擇代理 — 僅保存，不安裝到任何位置"
 
+#. Composer hint when no agent is set up; agentConnectionsLabel is the Settings sidebar pane name
+#. Composer hint when no agent is set up; agentConnectionsLabel is the Settings sidebar pane name
 #: src/components/BottomComposer.tsx
 #: src/components/empty-state/CreatePromptComposer.tsx
-msgid "No agents are set up yet — add an in-app agent in Agent connections to attach files."
-msgstr "還沒有設定任何代理——要附加檔案，請在「智慧代理連線」中新增應用程式內的智慧代理。"
+msgid "No agents are set up yet — add an in-app agent in {agentConnectionsLabel} to attach files."
+msgstr "還沒有設定任何代理——要附加檔案，請在「{agentConnectionsLabel}」中新增應用程式內的智慧代理。"
 
 #: src/components/settings/AgentConnectionsSection.tsx
 msgid "No agents available."
@@ -9369,10 +9562,10 @@ msgstr "沒有代理符合你的搜尋。"
 msgid "No AI agents installed"
 msgstr "沒有安裝任何 AI 代理"
 
-#. Shown in place of the AI-tools checkbox when no AI tool was detected
+#. Shown in place of the AI-tools checkbox when no AI tool was detected; agentConnectionsLabel is the Settings sidebar pane name
 #: src/components/McpConsentDialogBody.tsx
-msgid "No AI tools detected yet. Once you install one, connect it from Settings > AI tools & CLI."
-msgstr "尚未偵測到 AI 工具。安裝之後，可在「設定 > AI 工具與 CLI」中連接。"
+msgid "No AI tools detected yet. Once you install one, connect it from Settings > {agentConnectionsLabel}."
+msgstr "尚未偵測到 AI 工具。安裝之後，可在「設定 > {agentConnectionsLabel}」中連接。"
 
 #: src/components/ProjectAiToolsField.tsx
 msgid "No AI tools detected yet. Once you install one, connect it from Settings > This project."
@@ -9441,6 +9634,10 @@ msgstr "這個版本沒有內容變更。"
 #: src/components/TimelineDiffPane.tsx
 msgid "No content changes in this version"
 msgstr "這個版本沒有內容變更"
+
+#: src/components/SyncStatusBadge.tsx
+msgid "No credential is stored for this git host. Add a token in Settings, or let git use the credentials it already has."
+msgstr "沒有為這個 git 主機儲存任何憑證。請在「設定」中新增一個權杖，或者讓 git 使用它已有的憑證。"
 
 #: src/components/GraphPanel.tsx
 msgid "No disconnected pages. Pages appear here only when they have no incoming and no outgoing graph edges."
@@ -9748,6 +9945,15 @@ msgstr "這些問題都沒有自動修正的方式。可以試試「用 AI 全�
 msgid "Not a base16 theme"
 msgstr "不是 base16 主題"
 
+#. placeholder {0}: error.slots.join(', ')
+#: src/components/settings/CustomThemeEditor.tsx
+msgid "Not a hex color: {0}"
+msgstr "不是十六進位色彩：{0}"
+
+#: src/components/SkillConsentRow.tsx
+msgid "Not added to any AI tool yet."
+msgstr "尚未新增到任何 AI 工具。"
+
 #: src/components/acp/ThreadView.tsx
 msgid "Not answered"
 msgstr "未回答"
@@ -9805,6 +10011,7 @@ msgstr "尚未安裝到此專案。"
 #: src/components/ReportBugDialogBody.tsx
 #: src/components/settings/SkillsStudioIntroDialog.tsx
 #: src/lib/install-server-drift-listener.ts
+#: src/lib/install-stale-tab-reload-prompt.ts
 msgid "Not now"
 msgstr "現在不用"
 
@@ -10197,6 +10404,10 @@ msgid "Open it there"
 msgstr "在那裡開啟"
 
 #: src/components/settings/LintingSection.tsx
+msgid "Open Knowledge could not reach the project server to check index maintenance. The status updates when the project reconnects."
+msgstr "Open Knowledge 無法連線到專案伺服器以檢查索引維護。專案重新連線後，狀態就會更新。"
+
+#: src/components/settings/LintingSection.tsx
 msgid "Open Knowledge creates and maintains a navigation file named index.md in every folder that contains Markdown."
 msgstr "Open Knowledge 在包含 Markdown 的每個資料夾中建立並維護名為 index.md 的導覽檔案。"
 
@@ -10394,6 +10605,10 @@ msgstr "正在開啟…"
 msgid "OpenKnowledge"
 msgstr "OpenKnowledge"
 
+#: src/components/AuthModal.tsx
+msgid "OpenKnowledge can't sign in to GitHub for this project."
+msgstr "OpenKnowledge 無法為此專案登入 GitHub。"
+
 #: src/lib/acp/tool-call-display.ts
 msgid "OpenKnowledge checked {subject}"
 msgstr "OpenKnowledge 檢查了 {subject}"
@@ -10402,13 +10617,13 @@ msgstr "OpenKnowledge 檢查了 {subject}"
 msgid "OpenKnowledge checked the project"
 msgstr "OpenKnowledge 檢查了專案"
 
+#: src/components/settings/AboutSection.tsx
+msgid "OpenKnowledge checks for and downloads updates in the background."
+msgstr "OpenKnowledge 會在背景檢查並下載更新。"
+
 #: src/components/settings/AgentConnectionDialogs.tsx
 msgid "OpenKnowledge could not find this agent on this machine."
 msgstr "OpenKnowledge 未在此裝置上找到該代理程式。"
-
-#: src/components/settings/AccountSection.tsx
-msgid "OpenKnowledge couldn't find a host name in this project's git remote, so it can't tell which GitHub server to sign in to."
-msgstr "OpenKnowledge 在此專案的 git 遠端位址中找不到主機名稱，因此無法判斷要登入哪一台 GitHub 伺服器。"
 
 #: src/lib/worktree-create-error.ts
 msgid "OpenKnowledge couldn't finish setting up this project. The worktree was created but not opened."
@@ -10454,6 +10669,10 @@ msgstr "OpenKnowledge 無法辨識此項目，且無法在此檔案格式中安�
 msgid "OpenKnowledge does not recognize this entry. Turning it on replaces it."
 msgstr "OpenKnowledge 無法辨識此項目。啟用後將取代它。"
 
+#: src/components/settings/AboutSection.tsx
+msgid "OpenKnowledge doesn't check for or download updates on its own. Check for updates still works when you want a newer version."
+msgstr "OpenKnowledge 不會自行檢查或下載更新。需要新版本時，仍可使用「檢查更新」。"
+
 #: src/lib/acp/tool-call-display.ts
 msgid "OpenKnowledge edited {subject}"
 msgstr "OpenKnowledge 編輯了 {subject}"
@@ -10465,6 +10684,10 @@ msgstr "OpenKnowledge 編輯了一個文件"
 #: src/uninstall/UninstallResultScreen.tsx
 msgid "OpenKnowledge files were removed"
 msgstr "已移除 OpenKnowledge 檔案"
+
+#: src/hooks/use-sync-auth-prompt.ts
+msgid "OpenKnowledge has no credential stored for this host. Add a token in Settings, or let git use the credentials it already has."
+msgstr "OpenKnowledge 沒有為這個主機儲存任何憑證。請在「設定」中新增一個權杖，或者讓 git 使用它已有的憑證。"
 
 #: src/lib/acp/tool-call-display.ts
 msgid "OpenKnowledge imported {source}"
@@ -10495,12 +10718,12 @@ msgid "OpenKnowledge is set up at the repository root here, so the pack goes ins
 msgstr "這裡的 OpenKnowledge 設定在存放庫根目錄，因此入門套件會放進 <0>{sanitized}</0>，而不是存放庫頂層。"
 
 #: src/components/settings/AccountSection.tsx
-msgid "OpenKnowledge is using a GitHub account provided by the gh CLI. There's no separate OpenKnowledge credential to disconnect."
-msgstr "OpenKnowledge 正在使用 gh CLI 提供的 GitHub 帳戶。沒有另外的 OpenKnowledge 憑證需要中斷。"
-
-#: src/components/settings/AccountSection.tsx
 msgid "OpenKnowledge is using this GitHub account."
 msgstr "OpenKnowledge 正在使用這個 GitHub 帳戶。"
+
+#: src/components/settings/SettingsDialogBody.tsx
+msgid "OpenKnowledge keeps retrying and shows them as soon as the file can be read."
+msgstr "OpenKnowledge 會持續重試，並在檔案可以讀取後立即顯示這些設定。"
 
 #: src/components/settings/AgentConnectionDialogs.tsx
 msgid "OpenKnowledge left this file alone because it could not parse it safely. Fix the file by hand, then try again."
@@ -10542,6 +10765,14 @@ msgstr "OpenKnowledge 移動了一個文件"
 #: src/components/command-palette-commands.ts
 msgid "OpenKnowledge on GitHub"
 msgstr "GitHub 上的 OpenKnowledge"
+
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "OpenKnowledge on this computer changed to a different build, but this tab is still running the old one."
+msgstr "這台電腦上的 OpenKnowledge 已換成另一個組建，但這個分頁仍在執行舊的組建。"
+
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "OpenKnowledge on this computer is now v{serverVersion}, but this tab is still running v{tabVersion}."
+msgstr "這台電腦上的 OpenKnowledge 現在是 v{serverVersion}，但這個分頁仍在執行 v{tabVersion}。"
 
 #: src/lib/acp/tool-call-display.ts
 msgid "OpenKnowledge opened the live preview"
@@ -10693,6 +10924,11 @@ msgstr "其他"
 #: src/components/FeedbackForm.tsx
 msgid "Other"
 msgstr "其他"
+
+#: src/components/settings/AccountSection.tsx
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "Other Git hosts"
+msgstr "其他 Git 主機"
 
 #: src/components/settings/SharingSection.tsx
 msgid "Other OK paths are tracked upstream:"
@@ -11246,6 +11482,10 @@ msgstr "專案詳細資料"
 msgid "Project folder created, but git init failed. Try again."
 msgstr "專案資料夾已建立，但 git init 失敗。請再試一次。"
 
+#: src/components/ConsentDialogBody.tsx
+msgid "Project folder: <0>{projectDir}</0>"
+msgstr "專案資料夾：<0>{projectDir}</0>"
+
 #: src/components/settings/AgentConnectionDialogs.tsx
 msgid "Project MCP server"
 msgstr "專案 MCP 伺服器"
@@ -11319,6 +11559,10 @@ msgstr "屬性值"
 #: src/components/SyncStatusBadge.tsx
 msgid "Protected branch — cannot push"
 msgstr "受保護的分支——無法推送"
+
+#: src/components/settings/AccountSection.tsx
+msgid "Provided by the GitHub CLI (<0>gh</0>) on this computer. To switch accounts or sign out, run <1>gh auth</1> in a terminal."
+msgstr "由這台電腦上的 GitHub CLI（<0>gh</0>）提供。若要切換帳戶或登出，請在終端機中執行 <1>gh auth</1>。"
 
 #: src/components/TemplateForm.tsx
 msgid "provisional"
@@ -11628,6 +11872,14 @@ msgstr "需要重新連接"
 msgid "Reconnect required to keep syncing."
 msgstr "需要重新連線才能繼續同步。"
 
+#: src/components/SyncStatusBadge.tsx
+msgid "Reconnect required to keep syncing. Add a token for this host in Settings, or replace the one stored."
+msgstr "需要重新連線才能繼續同步。請在「設定」中為這個主機新增權杖，或者取代已儲存的權杖。"
+
+#: src/components/SyncStatusBadge.tsx
+msgid "Reconnect required to keep syncing. Check the SSH key or saved credentials git uses for this host."
+msgstr "需要重新連線才能繼續同步。請檢查 git 為此主機使用的 SSH 金鑰或已儲存的憑證。"
+
 #: src/presence/use-sync-toasts.ts
 msgid "Reconnected"
 msgstr "已重新連線"
@@ -11706,6 +11958,7 @@ msgstr "相對路徑"
 msgid "Relaunching to install the update…"
 msgstr "正在重新啟動以安裝更新…"
 
+#: src/components/settings/AboutSection.tsx
 #: src/components/settings/SettingsDialogShell.tsx
 #: src/components/SubscribeCard.tsx
 msgid "Release notes"
@@ -11725,10 +11978,15 @@ msgstr "相關度"
 #: src/components/settings/SettingsDialogErrorBoundary.tsx
 #: src/components/TerminalGate.tsx
 #: src/components/TerminalStartingNotice.tsx
+#: src/lib/install-stale-tab-reload-prompt.ts
 #: src/lib/locale-load-failure-notice.ts
 #: src/lib/native-menu-catalog.ts
 msgid "Reload"
 msgstr "重新載入"
+
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "Reload this tab to bring it up to date. Your edits are saved before it reloads."
+msgstr "重新載入這個分頁即可更新到最新。重新載入前會先儲存你的編輯。"
 
 #: src/components/NewWorktreeDialog.tsx
 msgid "remote"
@@ -11975,6 +12233,7 @@ msgid "Renaming changes the file on disk and the id agents use to pick this temp
 msgstr "重新命名會改變磁碟上的檔案，以及代理挑選這個範本時使用的 id。"
 
 #: src/editor/utils/severity.ts
+#: src/lib/rendered-diff/diff-jsx-block.tsx
 msgid "render error"
 msgstr "算繪錯誤"
 
@@ -12571,6 +12830,10 @@ msgstr "正在儲存"
 msgid "Saving changes…"
 msgstr "正在儲存變更…"
 
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "Saving your edits before reloading…"
+msgstr "正在儲存你的編輯，然後重新載入…"
+
 #: src/components/settings/LintingSection.tsx
 msgid "schema {deleteTarget}"
 msgstr "結構描述 {deleteTarget}"
@@ -13089,10 +13352,6 @@ msgstr "設定身分"
 #: src/components/settings/plugin-enabled-notice.ts
 msgid "Set it up on its own page under Plugins."
 msgstr "在「外掛」底下它自己的頁面中設定。"
-
-#: src/components/settings/SyncSection.tsx
-msgid "Set the sync default for users opening this project for the first time. This setting is committed to your repository."
-msgstr "為第一次開啟這個專案的使用者設定同步預設值。這項設定會提交到你的儲存庫。"
 
 #: src/components/command-palette-commands.ts
 msgid "Set up OpenKnowledge integrations"
@@ -13663,6 +13922,14 @@ msgstr "部分檢查失敗，但仍可合併"
 msgid "Some dropped files could not be inserted safely."
 msgstr "部分拖放的檔案無法安全插入。"
 
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "Some edits haven't reached the server yet, so the tab didn't reload. Open {docs} to save them, then reload."
+msgstr "部分編輯尚未送達伺服器，因此沒有重新載入分頁。請開啟 {docs} 以儲存這些編輯，然後重新載入。"
+
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "Some edits haven't reached the server yet, so the tab didn't reload. Your edits are still here."
+msgstr "部分編輯尚未送達伺服器，因此沒有重新載入分頁。你的編輯仍然保留在這裡。"
+
 #: src/components/SyncStatusBadge.tsx
 msgid "Some files are not listed — the working tree has too many changes."
 msgstr "部分檔案未列出：工作區的變更過多。"
@@ -13678,6 +13945,10 @@ msgstr "因為主題資料夾超出掃描限制，部分已儲存的主題未顯
 #: src/components/SkillBulkDeleteDialog.tsx
 msgid "Some skills were deleted with a warning"
 msgstr "部分技能刪除時帶有警告"
+
+#: src/components/empty-state/CreateView.tsx
+msgid "Some templates may not be listed because this knowledge base has too many folders to scan. To see a folder's templates, open its menu in the file tree and choose New from template."
+msgstr "部分範本可能未列出，因為此知識庫的資料夾太多，無法全部掃描。若要查看某個資料夾的範本，請在檔案樹中開啟該資料夾的選單，然後選擇「從範本新增」。"
 
 #: src/components/DiffViewBoundary.tsx
 msgid "Someone may have already resolved {filePath} — check the document's current content before redoing your edit."
@@ -14154,6 +14425,10 @@ msgstr "這個 worktree 的同步已設為「手動」，繼承自 {project}。�
 msgid "Sync is taking longer than usual — your changes are safe on this device."
 msgstr "同步花費的時間比平常更久——你的變更已安全儲存在此裝置上。"
 
+#: src/components/settings/SettingsDialogBody.tsx
+msgid "Sync keeps this computer's copy up to date with your Git remote. The shared settings below decide what teammates get when they open the project."
+msgstr "同步會讓這台電腦上的副本與你的 Git 遠端儲存庫保持一致。下方的分享設定決定隊友開啟專案時會拿到什麼。"
+
 #: src/components/SyncStatusBadge.tsx
 msgid "Sync mode"
 msgstr "同步模式"
@@ -14443,6 +14718,15 @@ msgstr "操作沒有成功。請查看伺服器記錄後再試一次。"
 msgid "That document didn't open in time. Try again once it has synced."
 msgstr "該文件未能及時開啟。請在同步完成後重試。"
 
+#. placeholder {0}: error.line
+#: src/components/settings/CustomThemeEditor.tsx
+msgid "That doesn’t parse as YAML or JSON — check line {0}."
+msgstr "無法將這段內容解析為 YAML 或 JSON，請檢查第 {0} 行。"
+
+#: src/components/settings/CustomThemeEditor.tsx
+msgid "That doesn’t parse as YAML or JSON."
+msgstr "無法將這段內容解析為 YAML 或 JSON。"
+
 #: src/components/settings/SearchSection.tsx
 msgid "That endpoint can't be used. Enter an https:// URL — http:// is only allowed for loopback endpoints."
 msgstr "無法使用那個端點。請輸入 https:// 的 URL——http:// 只允許用在回環端點。"
@@ -14471,6 +14755,10 @@ msgstr "該語言不支援拼字檢查。"
 #: src/components/acp/ThreadView.tsx
 msgid "That message already went out — your edit wasn't applied."
 msgstr "該訊息已送出——你的編輯未生效。"
+
+#: src/components/settings/CustomThemeEditor.tsx
+msgid "That parsed, but it isn’t a base16 theme."
+msgstr "解析成功，但這不是 base16 主題。"
 
 #. placeholder {0}: item.displayName
 #: src/components/acp/ThreadView.tsx
@@ -14598,6 +14886,10 @@ msgstr "無法將對話加入這份回報。"
 #: src/lib/skills-api.ts
 msgid "The copy of \"{name}\" kept in {scopeLabel} is a redundant duplicate: the original was verified unchanged. Remove that copy, then retry the move."
 msgstr "保留在{scopeLabel}中的「{name}」副本是多餘的重複：原件已核實未被更動。請刪除該副本，然後重試移動。"
+
+#: src/components/ReportBugDialogBody.tsx
+msgid "The crash dump couldn't be added to this report."
+msgstr "無法將當機傾印加入這份回報。"
 
 #: src/components/SyncStatusBadge.tsx
 msgid "The default branch is protected — pushes need a pull request."
@@ -14778,6 +15070,10 @@ msgstr "啟用 Open Knowledge 工具的請求已逾時。此執行緒將在沒�
 msgid "The schema file does not exist or failed to load — adding a field creates it."
 msgstr "結構描述檔案不存在或載入失敗——新增欄位就會建立它。"
 
+#: src/components/settings/SyncSection.tsx
+msgid "The server couldn't read this project's sync status, so sync options are hidden. They appear here as soon as the sync status loads; closing and reopening Settings also retries."
+msgstr "伺服器無法讀取此專案的同步狀態，因此已隱藏同步選項。同步狀態一載入完成，選項就會顯示在這裡；關閉並重新開啟設定也會重試。"
+
 #: src/components/ConnectingBanner.tsx
 msgid "the server responded but server.lock has no port yet"
 msgstr "伺服器有回應，但 server.lock 裡還沒有連接埠"
@@ -14818,6 +15114,14 @@ msgstr "技能清單與其結構定義不符。"
 #: src/components/SkillInstallMenu.tsx
 msgid "The source folder itself does not move."
 msgstr "來源資料夾本身不會移動。"
+
+#: src/components/SyncStatusBadge.tsx
+msgid "The stored token is missing the permissions this host needs to push."
+msgstr "儲存的權杖缺少這個主機推送所需的權限。"
+
+#: src/components/settings/SyncSection.tsx
+msgid "The sync mode teammates start with the first time they open this project. It's saved in the project's OpenKnowledge settings, so it only reaches them when Config sharing below is set to Shared."
+msgstr "隊友第一次開啟此專案時採用的同步模式。它保存在專案的 OpenKnowledge 設定中，因此只有當下方的設定分享設為已分享時才會傳給他們。"
 
 #: src/components/TemplateProperties.tsx
 msgid "The template's filename (without `.md`)."
@@ -14876,6 +15180,10 @@ msgstr "找不到 .ok/local/config.yml 中指定的 terminal.shell 執行檔，�
 #: src/components/AuthModal.tsx
 msgid "The token needs the repo and read:user scopes."
 msgstr "這個權杖需要 repo 和 read:user 權限範圍。"
+
+#: src/components/settings/AccountSection.tsx
+msgid "The username git sends with the token. Some hosts expect a fixed value: type <0>x-bitbucket-api-token-auth</0> for a Bitbucket API token, <1>x-token-auth</1> for a Bitbucket repository or workspace access token, or <2>oauth2</2> for GitLab. For Gitea, use your Gitea username. Azure DevOps accepts any value."
+msgstr "git 隨權杖一起傳送的使用者名稱。有些主機要求填寫固定值：Bitbucket API 權杖填 <0>x-bitbucket-api-token-auth</0>，Bitbucket 儲存庫或工作區存取權杖填 <1>x-token-auth</1>，GitLab 填 <2>oauth2</2>。Gitea 請填你的 Gitea 使用者名稱。Azure DevOps 可填任意值。"
 
 #: src/lib/tab-session-restore-recovery-notice.ts
 msgid "The workspace opened without it so the app could start."
@@ -15067,9 +15375,10 @@ msgstr "這個分支已在以下位置簽出："
 msgid "This branch redirects an OpenKnowledge setup path outside the worktree. The worktree was created but not opened."
 msgstr "此分支將 OpenKnowledge 設定路徑重新導向到工作樹之外。工作樹已建立，但未開啟。"
 
+#. Toast after first-launch setup ends without connecting AI tools; agentConnectionsLabel is the Settings sidebar pane name
 #: src/components/McpConsentDialogBody.tsx
-msgid "This can be configured in Settings > AI tools & CLI"
-msgstr "這可以在「設定 > AI 工具與 CLI」中設定"
+msgid "This can be configured in Settings > {agentConnectionsLabel}"
+msgstr "這可以在「設定 > {agentConnectionsLabel}」中設定"
 
 #: src/components/RecentProjectsMenu.tsx
 msgid "This checkout path cannot be read."
@@ -15277,10 +15586,6 @@ msgstr "這份清單可能不是最新的——上次讀取：{staleRelative}。
 msgid "This list may be out of date."
 msgstr "這份清單可能不是最新的。"
 
-#: src/components/ConsentDialogBody.tsx
-msgid "This looks like a drive root (e.g., C:\\). Scaffolding here will scan an entire drive."
-msgstr "這看起來像是磁碟機根目錄（例如 C:\\）。在這裡建立專案骨架會掃描整個磁碟機。"
-
 #: src/components/settings/AgentConnectionDialogs.tsx
 #: src/components/settings/ScopeBadge.tsx
 #: src/components/SkillScopeSegment.tsx
@@ -15290,6 +15595,10 @@ msgstr "這台機器"
 #: src/uninstall/UninstallProgressScreen.tsx
 msgid "This may take a moment. Your markdown content is kept."
 msgstr "這可能要花一點時間。你的 markdown 內容會保留。"
+
+#: src/components/settings/SyncSection.tsx
+msgid "This mode comes from the project's Shared default below. Pick a mode to choose your own for this computer."
+msgstr "此模式來自下方專案的分享的預設值。選擇一個模式即可為這台電腦設定你自己的模式。"
 
 #. placeholder {0}: scopeLabels[scope]
 #. placeholder {1}: scopeLabels[toScope]
@@ -15405,10 +15714,6 @@ msgstr "這個專案不是 git 儲存庫，所以無法使用 worktree。"
 msgid "This project lives only on this computer. Connect it to GitHub to back it up and share it with other people."
 msgstr "這個專案只存在於這台電腦上。把它連接到 GitHub 就能備份，也能和別人分享。"
 
-#: src/components/settings/AccountSection.tsx
-msgid "This project's git remote is on {host}, which OpenKnowledge doesn't recognize as a GitHub host. If {host} runs GitHub Enterprise Server, add it to GitHub Enterprise Server hosts below, then restart OpenKnowledge."
-msgstr "此專案的 git 遠端位於 {host}，OpenKnowledge 並未將其辨識為 GitHub 主機。如果 {host} 執行的是 GitHub Enterprise Server，請在下方的「GitHub Enterprise Server 主機」中新增它，然後重新啟動 OpenKnowledge。"
-
 #: src/components/DocumentErrorBoundary.tsx
 msgid "This project's running server doesn't support live editing. Restart OpenKnowledge to fix."
 msgstr "這個專案正在執行的伺服器不支援即時編輯。重新啟動 OpenKnowledge 即可修正。"
@@ -15480,6 +15785,14 @@ msgstr "這個來源包含好幾個技能——先選一個，再匯入。"
 msgid "This source bundles several skills — choose the one to import."
 msgstr "這個來源包含好幾個技能——請選要匯入的那一個。"
 
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "This tab couldn't confirm that your edits are saved, so it didn't reload. Your edits are still here."
+msgstr "此分頁無法確認你的編輯已儲存，因此沒有重新載入。你的編輯仍然保留在這裡。"
+
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "This tab is still reconnecting to OpenKnowledge, so it didn't reload. Try again in a moment."
+msgstr "此分頁仍在重新連線至 OpenKnowledge，因此沒有重新載入。請稍後再試。"
+
 #: src/components/TemplateDeleteDialog.tsx
 msgid "This template lives in a parent folder — deleting it affects every folder beneath it that doesn't define its own version."
 msgstr "這個範本放在上層資料夾中——刪掉它會影響底下所有沒有定義自己版本的資料夾。"
@@ -15500,11 +15813,16 @@ msgstr "無法讀取這個主題檔案"
 msgid "This theme file is too large"
 msgstr "這個主題檔案太大"
 
+#: src/components/UpdateNotices.shared.ts
+msgid "This update is no longer ready to install."
+msgstr "此更新已不再可供安裝。"
+
 #: src/components/ShareReceiveDialog.tsx
 msgid "This usually means one of:"
 msgstr "這通常代表下列其中之一："
 
 #: src/components/AuthModal.tsx
+#: src/components/settings/AccountSection.tsx
 msgid "This window can't store a token — open Settings from the main app window."
 msgstr "這個視窗無法儲存權杖——請從應用程式主視窗開啟「設定」。"
 
@@ -15538,6 +15856,10 @@ msgstr "標題"
 #: src/editor/extensions/CodeBlockView.tsx
 msgid "Title"
 msgstr "標題"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "To connect AI tools without a project, use File > Set up OpenKnowledge integrations…"
+msgstr "若要在沒有專案的情況下連接 AI 工具，請使用「檔案 > 設定 OpenKnowledge 整合…」。"
 
 #: src/editor/slash-command/items.tsx
 msgid "To do"
@@ -15658,6 +15980,15 @@ msgstr "切換底線格式。"
 msgid "Toggles the pattern {0}/**"
 msgstr "切換模式 {0}/**"
 
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "token"
+msgstr "權杖"
+
+#: src/components/settings/AccountSection.tsx
+msgid "Token stored for {login} on {host}. To remove it, run <0>ok auth signout --host {host}</0>."
+msgstr "已為 {host} 上的 {login} 儲存權杖。要移除它，請執行 <0>ok auth signout --host {host}</0>。"
+
 #: src/components/SkillBundlePreview.tsx
 #: src/components/SkillProperties.tsx
 msgid "tokens"
@@ -15743,6 +16074,10 @@ msgstr "把 {display} 變回一個真正的目錄，裡面為它目前看得到�
 msgid "Turn it off any time in Settings."
 msgstr "隨時在“設定”中將其關閉。"
 
+#: src/components/settings/SyncSection.tsx
+msgid "Turn off auto-sync"
+msgstr "關閉自動同步"
+
 #: src/components/NotInSidebarIndicator.tsx
 msgid "Turn off Only markdown files"
 msgstr "關閉「只顯示 markdown 檔案」"
@@ -15775,6 +16110,22 @@ msgstr "將其關閉"
 #: src/components/acp/working-status.ts
 msgid "Turning it over…"
 msgstr "反覆推敲中…"
+
+#: src/components/settings/LintingSection.tsx
+msgid "Turning off index maintenance failed because Open Knowledge could not reach the project server. Try again when the project reconnects."
+msgstr "關閉索引維護失敗，因為 Open Knowledge 無法連線到專案伺服器。專案重新連線後再試一次。"
+
+#: src/components/settings/LintingSection.tsx
+msgid "Turning off index maintenance failed because Open Knowledge could not update the Git merge rule. Check Git and .gitattributes, then try again."
+msgstr "關閉索引維護失敗，因為 Open Knowledge 無法更新 Git 合併規則。檢查 Git 和 .gitattributes，然後再試一次。"
+
+#: src/components/settings/LintingSection.tsx
+msgid "Turning off index maintenance failed because the Open Knowledge section of .gitattributes was edited or is incomplete. Remove that section, then try again."
+msgstr "關閉索引維護失敗，因為 .gitattributes 中的 Open Knowledge 區段已被編輯或不完整。移除該區段，然後再試一次。"
+
+#: src/components/settings/LintingSection.tsx
+msgid "Turning off index maintenance failed because the project setting could not be saved. Check the project file permissions, then try again."
+msgstr "關閉索引維護失敗，因為無法儲存專案設定。檢查專案檔案權限，然後再試一次。"
 
 #. placeholder {0}: skill.name
 #: src/components/SkillForkDialog.tsx
@@ -15920,6 +16271,7 @@ msgid "Unknown component: {componentName} — source editable below"
 msgstr "未知的元件：{componentName}——可在下方編輯原始碼"
 
 #: src/editor/extensions/RawMdxFallbackCMView.tsx
+#: src/lib/rendered-diff/diff-jsx-block.tsx
 msgid "Unknown component: {unregisteredComponentName}"
 msgstr "未知的元件：{unregisteredComponentName}"
 
@@ -16004,6 +16356,11 @@ msgstr "未追蹤"
 #: src/components/SyncStatusBadge.tsx
 msgid "Up to date"
 msgstr "已是最新"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "update"
+msgstr "更新"
 
 #: src/components/SkillOriginInline.tsx
 #: src/components/SkillPreviewTab.tsx
@@ -16244,6 +16601,10 @@ msgstr "使用者"
 msgid "User plugins are personal to this device — turn them on or off here. Each enabled plugin gets its own page under Plugins in the settings sidebar."
 msgstr "使用者外掛只屬於這台裝置——在這裡開啟或關閉它們。每個啟用的外掛在設定側邊欄的「外掛」底下都有自己的頁面。"
 
+#: src/components/settings/AccountSection.tsx
+msgid "Username"
+msgstr "使用者名稱"
+
 #: src/components/settings/SearchSection.tsx
 msgid "Using the <0>OK_EMBEDDINGS_API_KEY</0> environment variable (managed outside OpenKnowledge)."
 msgstr "正在使用 <0>OK_EMBEDDINGS_API_KEY</0> 環境變數（在 OpenKnowledge 之外管理）。"
@@ -16268,6 +16629,11 @@ msgstr "這一項必填"
 #: src/components/FrontmatterRow.tsx
 msgid "Values for {keyName}"
 msgstr "{keyName} 的值"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "version"
+msgstr "版本"
 
 #: src/components/CommandPalette.tsx
 msgid "via {viaTags}"
@@ -16761,14 +17127,6 @@ msgstr "你選了 ~/Documents。OpenKnowledge 會把它底下的每個 markdown 
 msgid "You picked ~/Downloads. Files there are usually transient — consider a stable folder instead."
 msgstr "你選了 ~/Downloads。那裡的檔案通常是暫時的——建議改用一個穩定的資料夾。"
 
-#: src/components/ConsentDialogBody.tsx
-msgid "You picked the filesystem root (/). Scaffolding here will scan every file on this machine — make sure that's what you want."
-msgstr "你選了檔案系統根目錄（/）。在這裡建立專案骨架會掃描這台電腦上的每個檔案——請確認這真的是你要的。"
-
-#: src/components/ConsentDialogBody.tsx
-msgid "You picked your home directory. OpenKnowledge will index everything in your home tree — large and may surface personal files."
-msgstr "你選了家目錄。OpenKnowledge 會把整個家目錄樹都建立索引——數量龐大，而且可能把個人檔案帶出來。"
-
 #: src/components/OnboardingCard.tsx
 msgid "You're all set up!"
 msgstr "全都設定好了！"
@@ -16889,6 +17247,10 @@ msgstr "你的搜尋查詢和相符頁面的全文會送到你的嵌入服務供
 #: src/components/PublishToGitHubDialog.tsx
 msgid "Your share link is ready below."
 msgstr "你的分享連結已經在下面產生好了。"
+
+#: src/components/settings/SettingsDialogBody.tsx
+msgid "Your user settings could not be read"
+msgstr "無法讀取你的使用者設定"
 
 #: src/components/ImportSkillForm.tsx
 msgid "Zip file"

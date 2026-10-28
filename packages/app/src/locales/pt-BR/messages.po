@@ -88,6 +88,10 @@ msgstr "\"{docName}\" não existe."
 msgid "\"{docName}\" took too long. Check your connection."
 msgstr "\"{docName}\" demorou demais. Verifique sua conexão."
 
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "\"{name}\""
+msgstr "\"{name}\""
+
 #: src/hooks/use-skill-origin.ts
 msgid "\"{name}\" is already up to date"
 msgstr "\"{name}\" já está atualizado"
@@ -216,6 +220,11 @@ msgstr "{0, plural, one {# requisição bloqueada pela política de segurança d
 msgid "{0, plural, one {# result} other {# results}}"
 msgstr "{0, plural, one {# resultado} many {# resultados} other {# resultados}}"
 
+#. placeholder {0}: templates.length
+#: src/components/empty-state/CreateView.tsx
+msgid "{0, plural, one {# template available} other {# templates available}}"
+msgstr "{0, plural, one {# modelo disponível} many {# modelos disponíveis} other {# modelos disponíveis}}"
+
 #. placeholder {0}: folder.templateCount
 #: src/components/CreatedItemsList.tsx
 msgid "{0, plural, one {# template} other {# templates}}"
@@ -230,6 +239,11 @@ msgstr "{0, plural, one {# uso} many {# usos} other {# usos}}"
 #: src/components/ProblemsPanel.tsx
 msgid "{0, plural, one {# warning} other {# warnings}}"
 msgstr "{0, plural, one {# aviso} many {# avisos} other {# avisos}}"
+
+#. placeholder {0}: templates.length
+#: src/components/empty-state/CreateView.tsx
+msgid "{0, plural, one {At least # template found} other {At least # templates found}}"
+msgstr "{0, plural, one {Pelo menos # modelo encontrado} many {Pelo menos # modelos encontrados} other {Pelo menos # modelos encontrados}}"
 
 #. placeholder {0}: deleteTargets.length
 #: src/components/FileTree.tsx
@@ -453,11 +467,6 @@ msgstr "{0} compartilham esta pasta."
 #: src/components/SkillsTree.tsx
 msgid "{0} skills selected"
 msgstr "{0} habilidades selecionadas"
-
-#. placeholder {0}: templates.length
-#: src/components/empty-state/CreateView.tsx
-msgid "{0} templates available"
-msgstr "{0} modelos disponíveis"
 
 #. placeholder {0}: formatBundleSize(operation.zipSizeBytes)
 #: src/components/BugReportSendToast.tsx
@@ -750,6 +759,10 @@ msgstr "{count, plural, one {Tem certeza de que deseja excluir o # arquivo a seg
 msgid "{count, plural, one {Are you sure you want to delete the following # file/directory and its contents?} other {Are you sure you want to delete the following # files/directories and their contents?}}"
 msgstr "{count, plural, one {Tem certeza de que deseja excluir o # arquivo/pasta a seguir e seu conteúdo?} many {Tem certeza de que deseja excluir os # arquivos/pastas a seguir e seu conteúdo?} other {Tem certeza de que deseja excluir os # arquivos/pastas a seguir e seu conteúdo?}}"
 
+#: src/components/ConsentDialogBody.tsx
+msgid "{count, plural, one {Found {formattedCount} markdown file} other {Found {formattedCount} markdown files}}"
+msgstr "{count, plural, one {{formattedCount} arquivo markdown encontrado} many {{formattedCount} arquivos markdown encontrados} other {{formattedCount} arquivos markdown encontrados}}"
+
 #: src/components/ProblemsPanel.tsx
 msgid "{count, plural, one {Hands the # problem to your AI agent, including what has no automatic fix.} other {Hands all # problems to your AI agent, including what has no automatic fix.}}"
 msgstr "{count, plural, one {Entrega o # problema ao seu agente de IA, incluindo o que não tem correção automática.} many {Entrega os # problemas ao seu agente de IA, incluindo o que não tem correção automática.} other {Entrega os # problemas ao seu agente de IA, incluindo o que não tem correção automática.}}"
@@ -964,6 +977,14 @@ msgstr "{label} ({0})"
 msgid "{label} already loads \"{0}\" from the {1} plugin. Installing here puts a copy at {2} that {label} uses instead of the plugin's — it stops tracking plugin updates."
 msgstr "{label} já carrega \"{0}\" do plugin {1}. Instalar aqui cria uma cópia em {2} que {label} usa no lugar da do plugin — ela deixa de acompanhar as atualizações do plugin."
 
+#: src/components/InstanceBadge.tsx
+msgid "{label} build, v{version}. Its settings and data are kept separate from other OpenKnowledge apps."
+msgstr "Versão {label}, v{version}. As configurações e os dados dela ficam separados dos outros aplicativos OpenKnowledge."
+
+#: src/components/InstanceBadge.tsx
+msgid "{label} build. Its settings and data are kept separate from other OpenKnowledge apps."
+msgstr "Versão {label}. As configurações e os dados dela ficam separados dos outros aplicativos OpenKnowledge."
+
 #: src/components/settings/plugin-enabled-notice.ts
 msgid "{label} enabled"
 msgstr "{label} ativado"
@@ -971,10 +992,6 @@ msgstr "{label} ativado"
 #: src/components/file-tree-problem-indicators.ts
 msgid "{label} problems"
 msgstr "{label} problemas"
-
-#: src/components/InstanceBadge.tsx
-msgid "{label} uses isolated app data"
-msgstr "{label} usa dados isolados do aplicativo"
 
 #: src/components/ActivityPanelBurstRow.tsx
 msgid "{laterEdits, plural, one {Removes # newer edit on this file.} other {Removes # newer edits on this file.}}"
@@ -1034,6 +1051,7 @@ msgid "{openedWorktreeCount, plural, one {worktree} other {worktrees}}"
 msgstr "{openedWorktreeCount, plural, one {worktree} many {worktrees} other {worktrees}}"
 
 #: src/lib/acp/image-attachment.ts
+#: src/lib/install-stale-tab-reload-prompt.ts
 msgid "{others, plural, one {# other} other {# others}}"
 msgstr "{others, plural, one {mais #} many {mais #} other {mais #}}"
 
@@ -1544,6 +1562,10 @@ msgstr "Já existe aqui um modelo chamado <0>{trimmedSlug}</0>. Salvar cria uma 
 msgid "A title, description, tags — anything that describes this folder."
 msgstr "Um título, uma descrição, tags — qualquer coisa que descreva esta pasta."
 
+#: src/components/settings/AccountSection.tsx
+msgid "A token added here only applies to HTTPS remotes, and this project's remote doesn't use HTTPS."
+msgstr "Um token adicionado aqui só se aplica a remotos HTTPS, e o remoto deste projeto não usa HTTPS."
+
 #: src/components/ShareBranchSwitchDialog.tsx
 msgid "A worktree folder for {shareBranch} already exists."
 msgstr "Já existe uma pasta de worktree para {shareBranch}."
@@ -1552,13 +1574,26 @@ msgstr "Já existe uma pasta de worktree para {shareBranch}."
 msgid "A worktree folder for that branch already exists."
 msgstr "Já existe uma pasta de worktree para esse ramo."
 
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "about"
+msgstr "sobre"
+
 #: src/lib/native-menu-catalog.ts
+#: src/lib/platform-labels.ts
 msgid "About"
 msgstr "Sobre"
 
 #: src/lib/native-menu-catalog.ts
+#: src/lib/platform-labels.ts
 msgid "About {appName}"
 msgstr "Sobre o {appName}"
+
+#: src/components/HelpPopover.tsx
+#: src/components/settings/AboutSection.tsx
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "About & updates"
+msgstr "Sobre e atualizações"
 
 #: src/editor/slash-command/items.tsx
 msgid "Above"
@@ -1596,9 +1631,8 @@ msgid "Accept their deletion"
 msgstr "Aceitar a exclusão deles"
 
 #: src/components/settings/AccountSection.tsx
-#: src/components/settings/SettingsDialogShell.tsx
-msgid "Account"
-msgstr "Conta"
+msgid "Access token"
+msgstr "Token de acesso"
 
 #: src/components/TemplateRow.tsx
 msgid "Actions for {label}"
@@ -1676,6 +1710,10 @@ msgstr "Adicionar uma propriedade"
 #: src/components/empty-state/CreateView.tsx
 msgid "Add a starter pack"
 msgstr "Adicionar um pacote inicial"
+
+#: src/components/settings/AccountSection.tsx
+msgid "Add an access token for a GitLab, Gitea, Bitbucket, Azure DevOps or self-hosted git server. Without one, git uses the credentials it already has saved for that host; with one, OpenKnowledge uses the token instead."
+msgstr "Adicione um token de acesso para um servidor GitLab, Gitea, Bitbucket, Azure DevOps ou git auto-hospedado. Sem ele, o git usa as credenciais que já tem salvas para esse host; com ele, o OpenKnowledge usa o token no lugar delas."
 
 #: src/components/settings/OkignoreSection.tsx
 msgid "Add another pattern"
@@ -1806,6 +1844,12 @@ msgstr "Adicionar ao dicionário"
 msgid "Add to prompt"
 msgstr "Adicionar ao prompt"
 
+#: src/components/settings/AccountSection.tsx
+#: src/components/SyncStatusBadge.tsx
+#: src/hooks/use-sync-auth-prompt.ts
+msgid "Add token"
+msgstr "Adicionar token"
+
 #: src/components/settings/frontmatter-schema-field-editor.tsx
 msgid "Add value"
 msgstr "Adicionar valor"
@@ -1815,6 +1859,10 @@ msgstr "Adicionar valor"
 #: src/components/SyncStatusBadge.tsx
 msgid "Added"
 msgstr "Adicionado"
+
+#: src/components/settings/AccountSection.tsx
+msgid "Adding"
+msgstr "Adicionando"
 
 #: src/components/settings/AgentConnectionDialogs.tsx
 msgid "Adds a global OpenKnowledge MCP entry for this agent."
@@ -1905,8 +1953,7 @@ msgstr "Chats de agentes"
 msgid "Agent configuration file"
 msgstr "Arquivo de configuração do agente"
 
-#: src/components/settings/AgentConnectionsSection.tsx
-#: src/components/settings/SettingsDialogShell.tsx
+#: src/components/settings/settings-section-labels.ts
 msgid "Agent connections"
 msgstr "Conexões de agentes"
 
@@ -2012,6 +2059,11 @@ msgstr "Quase pronto. Veja o que foi feito e o que falta fazer."
 msgid "Already at {assetContentPath} — reusing."
 msgstr "Já está em {assetContentPath} — reaproveitando."
 
+#. Status under the unticked AI-tools checkbox; replacingToolList names the tools that already have an OpenKnowledge MCP entry, which stay as they are while the box is unticked
+#: src/components/McpConsentDialogBody.tsx
+msgid "Already connected to {replacingToolList}"
+msgstr "Já conectado a: {replacingToolList}"
+
 #: src/components/settings/applies-to-folder-picker.tsx
 msgid "Already covered by a picked parent folder"
 msgstr "Já coberta por uma pasta principal selecionada"
@@ -2111,9 +2163,17 @@ msgstr "Quer acrescentar alguma coisa? (opcional)"
 msgid "API key set"
 msgstr "Chave de API definida"
 
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "App"
+msgstr "Aplicativo"
+
 #: src/components/InstanceBadge.tsx
 msgid "App instance: {label}"
 msgstr "Instância do aplicativo: {label}"
+
+#: src/components/InstanceBadge.tsx
+msgid "App instance: {label}, v{version}"
+msgstr "Instância do aplicativo: {label}, v{version}"
 
 #: src/components/CreatedItemsList.tsx
 msgid "Append-only log of what changed."
@@ -2331,6 +2391,10 @@ msgstr "Os anexos devem somar menos de 3 MB."
 msgid "Authenticated as {login}."
 msgstr "Autenticado como {login}."
 
+#: src/components/SyncStatusBadge.tsx
+msgid "Authentication failed for this git host. Add a token for it in Settings, or replace the one stored."
+msgstr "Falha na autenticação neste host git. Adicione um token para ele nas Configurações, ou substitua o que está guardado."
+
 #: src/editor/slash-command/component-items.tsx
 msgid "Authoritative content; mirrored verbatim everywhere it's referenced."
 msgstr "Conteúdo autoritativo; espelhado literalmente em todo lugar onde for referenciado."
@@ -2395,6 +2459,10 @@ msgid "Auto-save"
 msgstr "Salvamento automático"
 
 #: src/components/settings/SyncSection.tsx
+msgid "Auto-sync is on, but there's no remote to sync with yet. It starts as soon as a remote is connected."
+msgstr "A sincronização automática está ativada, mas ainda não há um remoto com o qual sincronizar. Ela começa assim que um remoto for conectado."
+
+#: src/components/settings/SyncSection.tsx
 msgid "Auto-sync is paused — sign in to resume."
 msgstr "A sincronização automática está pausada — entre na sua conta para retomar."
 
@@ -2435,6 +2503,14 @@ msgstr "Automático"
 #: src/components/settings/NetworkAccessSection.tsx
 msgid "Automatic picks a free port each start. Choose a fixed port to keep the same address across restarts."
 msgstr "O modo automático escolhe uma porta livre a cada inicialização. Escolha uma porta fixa para manter o mesmo endereço entre reinicializações."
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "Automatic updates"
+msgstr "Atualizações automáticas"
+
+#: src/components/settings/AboutSection.tsx
+msgid "Automatic updates are not available right now."
+msgstr "As atualizações automáticas não estão disponíveis no momento."
 
 #: src/components/PublishToGitHubDialog.tsx
 msgid "Available"
@@ -2531,6 +2607,11 @@ msgstr "Título de seção grande."
 #: src/components/empty-state/use-create-suggestions.ts
 msgid "Bird wiki"
 msgstr "Wiki de aves"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "Bitbucket"
+msgstr "Bitbucket"
 
 #: src/components/NewItemDialog.tsx
 msgid "Blank note"
@@ -2879,6 +2960,10 @@ msgid "Chat name"
 msgstr "Nome do chat"
 
 #: src/components/command-palette-commands.ts
+#: src/components/HelpPopover.tsx
+#: src/components/settings/AboutSection.tsx
+#: src/components/settings/SettingsDialogShell.tsx
+#: src/components/UpdateNotices.shared.ts
 msgid "Check for updates"
 msgstr "Buscar atualizações"
 
@@ -2930,6 +3015,7 @@ msgstr "Procurando agentes"
 msgid "Checking for Slidev"
 msgstr "Procurando o Slidev"
 
+#: src/components/settings/AboutSection.tsx
 #: src/components/SyncStatusBadge.tsx
 msgid "Checking for updates"
 msgstr "Buscando atualizações"
@@ -2939,6 +3025,7 @@ msgstr "Buscando atualizações"
 msgid "Checking for updates on GitHub"
 msgstr "Buscando atualizações no GitHub"
 
+#: src/components/settings/SettingsDialogShell.tsx
 #: src/components/UpdateNotices.shared.ts
 msgid "Checking for updates…"
 msgstr "Buscando atualizações…"
@@ -3058,8 +3145,8 @@ msgid "Choose where to send this message"
 msgstr "Escolher para onde enviar esta mensagem"
 
 #: src/components/settings/SharingSection.tsx
-msgid "Choose whether this project's OpenKnowledge setup, including its AI-tool connections, is saved with the project so teammates get it too, or kept only on your computer."
-msgstr "Escolha se a configuração do OpenKnowledge deste projeto, incluindo as conexões com ferramentas de IA, é salva junto com o projeto para que os colegas também a recebam, ou fica só no seu computador."
+msgid "Choose whether this project's OpenKnowledge setup, including its AI-tool connections and the Shared default sync mode, is saved with the project so teammates get it too, or kept only on your computer."
+msgstr "Escolha se a configuração do OpenKnowledge deste projeto, incluindo as conexões com ferramentas de IA e o modo de sincronização do Padrão compartilhado, é salva junto com o projeto para que os colegas também a recebam, ou fica só no seu computador."
 
 #: src/components/settings/AgentConnectionsSection.tsx
 msgid "Choose which agents appear in agent menus across the app, and set them up to read and update your documents."
@@ -3297,6 +3384,10 @@ msgstr "Fechar terminal"
 #: src/components/acp/ThreadHistoryPanel.tsx
 msgid "Close this chat's tab to delete it"
 msgstr "Feche a aba deste chat para excluí-lo"
+
+#: src/editor/image-upload/upload-admission.ts
+msgid "Close this preview, then open the folder to upload files"
+msgstr "Feche esta prévia e abra a pasta para enviar arquivos"
 
 #: src/components/NoteWindowDeletedState.tsx
 msgid "Close window"
@@ -3601,8 +3692,8 @@ msgid "Connect"
 msgstr "Conectar"
 
 #: src/components/settings/AccountSection.tsx
-msgid "Connect a GitHub account to browse and sync your repositories."
-msgstr "Conecte uma conta do GitHub para explorar e sincronizar seus repositórios."
+msgid "Connect a GitHub account to browse and publish GitHub repositories."
+msgstr "Conecte uma conta do GitHub para explorar e publicar repositórios do GitHub."
 
 #: src/components/settings/SyncSection.tsx
 msgid "Connect an existing repository"
@@ -3660,7 +3751,6 @@ msgid "Connected — this endpoint returns {0}-dimension vectors."
 msgstr "Conectado — este endpoint devolve vetores de {0} dimensões."
 
 #: src/components/AuthModal.tsx
-#: src/components/settings/AccountSection.tsx
 msgid "Connected as @{login}"
 msgstr "Conectado como @{login}"
 
@@ -3671,6 +3761,10 @@ msgstr "Conectado como <0>@{signedInLogin}</0>"
 #: src/components/settings/SyncSection.tsx
 msgid "Connected to"
 msgstr "Conectado a"
+
+#: src/components/settings/AccountSection.tsx
+msgid "Connected to {host} as @{login}"
+msgstr "Conectado a {host} como @{login}"
 
 #: src/components/AuthModal.tsx
 msgid "Connected to GitHub"
@@ -3694,6 +3788,7 @@ msgid "Connection dropped"
 msgstr "A conexão caiu"
 
 #: src/components/AuthModal.tsx
+#: src/components/settings/AccountSection.tsx
 #: src/lib/transports/auth-transport.ts
 msgid "Connection error — try again"
 msgstr "Erro de conexão — tente de novo"
@@ -4409,6 +4504,10 @@ msgstr "Não deu para contatar o endpoint. Verifique a URL e se o servidor está
 msgid "Couldn't reach the Open Knowledge server to upload {fileName}."
 msgstr "Não deu para contatar o servidor do Open Knowledge para enviar {fileName}."
 
+#: src/components/settings/SyncSection.tsx
+msgid "Couldn't reach the OpenKnowledge server, so sync options are hidden. They appear here as soon as the sync status loads; closing and reopening Settings also retries."
+msgstr "Não foi possível acessar o servidor do OpenKnowledge, então as opções de sincronização estão ocultas. Elas aparecem aqui assim que o status de sincronização carregar; fechar e abrir as Configurações de novo também tenta outra vez."
+
 #: src/components/acp/ThreadView.tsx
 #: src/editor/use-composer-attachments.ts
 msgid "Couldn't read {fileName}."
@@ -4557,6 +4656,10 @@ msgstr "Não deu para salvar a chave — tente de novo."
 #: src/components/DiffViewBoundary.tsx
 msgid "Couldn't save the resolution for {filePath}."
 msgstr "Não deu para salvar a resolução de {filePath}."
+
+#: src/components/settings/AboutSection.tsx
+msgid "Couldn't save this setting. Try again."
+msgstr "Não foi possível salvar esta configuração. Tente novamente."
 
 #: src/components/McpConsentDialogBody.tsx
 msgid "Couldn't save your theme preference."
@@ -5319,6 +5422,8 @@ msgstr "Estrutura do documento"
 msgid "Document the architecture of this repo: create an overview page that links to a page per major module describing its responsibilities and entry points."
 msgstr "Documente a arquitetura deste repositório: crie uma página geral que aponte para uma página por módulo principal descrevendo suas responsabilidades e seus pontos de entrada."
 
+#: src/components/AppMenubar.tsx
+#: src/components/command-palette-commands.ts
 #: src/components/settings/markdownlint-rule-browser.tsx
 msgid "Documentation"
 msgstr "Documentação"
@@ -5378,6 +5483,10 @@ msgstr "Clique duas vezes para editar"
 #: src/components/acp/ThreadView.tsx
 msgid "Download {0}"
 msgstr "Baixar {0}"
+
+#: src/components/settings/AboutSection.tsx
+msgid "Download and install updates automatically"
+msgstr "Baixar e instalar atualizações automaticamente"
 
 #: src/components/HelpPopover.tsx
 msgid "Download app"
@@ -5933,6 +6042,10 @@ msgstr "Insira um número inteiro entre {minimum} e {maximum}."
 msgid "Enter at least 3 characters to search by meaning."
 msgstr "Digite pelo menos 3 caracteres para buscar por significado."
 
+#: src/components/settings/AccountSection.tsx
+msgid "Enter the host name git connects to, with an optional :port and no scheme or path, for example git.example.com."
+msgstr "Digite o nome do host ao qual o git se conecta, com um :port opcional e sem esquema nem caminho, por exemplo git.example.com."
+
 #: src/components/settings/NetworkAccessSection.tsx
 msgid "Enter the public origin your tunnel serves, for example https://notes.example.com"
 msgstr "Insira a origem pública que seu túnel serve, por exemplo https://notes.example.com"
@@ -5997,6 +6110,18 @@ msgstr "Falha ao carregar o quadro do Excalidraw."
 #: src/components/ExcalidrawDocEditor.tsx
 msgid "Excalidraw canvas"
 msgstr "Tela do Excalidraw"
+
+#: src/components/LinksPanel.tsx
+msgid "Excluded"
+msgstr "Ignorado"
+
+#: src/components/LinksPanel.tsx
+msgid "Excluded file {identity}. Go to reference."
+msgstr "O arquivo {identity} está ignorado. Ir para a referência."
+
+#: src/components/LinksPanel.tsx
+msgid "Excluded image {identity}. Go to reference."
+msgstr "A imagem {identity} está ignorada. Ir para a referência."
 
 #: src/components/NewWorktreeDialog.tsx
 msgid "Existing branch <0>{trimmed}</0> will be checked out into its own window, under <1>.ok/worktrees/</1>."
@@ -6408,6 +6533,7 @@ msgid "Failed to start sign-in — try again"
 msgstr "Falha ao iniciar o login — tente de novo"
 
 #: src/components/AuthModal.tsx
+#: src/components/settings/AccountSection.tsx
 #: src/lib/transports/auth-transport.ts
 msgid "Failed to store the token — try again"
 msgstr "Falha ao guardar o token — tente de novo"
@@ -6878,8 +7004,18 @@ msgstr "Obtém o link que abre este projeto ou um documento no app"
 
 #: src/components/settings/SettingsDialogShell.tsx
 msgctxt "settings search keyword"
+msgid "gh"
+msgstr "gh"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
 msgid "GHES"
 msgstr "GHES"
+
+#: src/components/settings/AccountSection.tsx
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "Git"
+msgstr "Git"
 
 #: src/components/ExploreSkills.tsx
 msgid "Git & PRs"
@@ -6888,6 +7024,10 @@ msgstr "Git e PRs"
 #: src/components/ShareFreshnessWarning.tsx
 msgid "Git can't track this folder — it's empty or contains only ignored files. The link won't work until you add a tracked document."
 msgstr "O git não consegue rastrear esta pasta — ela está vazia ou só tem arquivos ignorados. O link não vai funcionar até você adicionar um documento rastreado."
+
+#: src/hooks/use-sync-auth-prompt.ts
+msgid "Git couldn't authenticate with this host. Check the SSH key or saved credentials git uses for it."
+msgstr "O git não conseguiu se autenticar neste host. Verifique a chave SSH ou as credenciais salvas que o git usa para ele."
 
 #: src/components/RecentProjectsMenu.tsx
 msgid "Git has locked this worktree, but it can still be opened."
@@ -6927,9 +7067,19 @@ msgstr "Sincronização com git"
 msgid "Git syncing is paused because a Git operation or unresolved conflicts need attention. Your edits still save locally. Finish the operation or resolve the conflicts in your terminal, then retry sync."
 msgstr "A sincronização do Git está pausada porque uma operação do Git ou conflitos não resolvidos precisam de atenção. Suas alterações continuam sendo salvas localmente. Conclua a operação ou resolva os conflitos no terminal e tente sincronizar novamente."
 
+#: src/components/settings/AccountSection.tsx
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "GitHub"
+msgstr "GitHub"
+
 #: src/components/SyncStatusBadge.tsx
 msgid "GitHub authentication failed. Try signing in again."
 msgstr "Falha na autenticação com o GitHub. Tente entrar de novo."
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "GitHub CLI"
+msgstr "GitHub CLI"
 
 #: src/lib/share/publish-wizard.ts
 msgid "GitHub connection expired. Connect again to continue."
@@ -6948,10 +7098,6 @@ msgstr "Hosts do GitHub Enterprise Server"
 msgid "GitHub sign-in is missing or expired. Reconnect to resume syncing."
 msgstr "O login do GitHub está ausente ou expirou. Reconecte para retomar a sincronização."
 
-#: src/components/settings/AccountSection.tsx
-msgid "GitHub sign-in isn't available for this project"
-msgstr "O login no GitHub não está disponível para este projeto"
-
 #: src/components/ImportSkillForm.tsx
 msgid "GitHub, a git URL, or a local path."
 msgstr "GitHub, uma URL de git ou um caminho local."
@@ -6959,6 +7105,11 @@ msgstr "GitHub, uma URL de git ou um caminho local."
 #: src/components/settings/EnterpriseHostsSection.tsx
 msgid "github.com is always recognized, so it doesn't need to be added."
 msgstr "O github.com é sempre reconhecido, então não precisa ser adicionado."
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "GitLab"
+msgstr "GitLab"
 
 #: src/components/settings/SavedThemesTiles.tsx
 msgid "Give it a name before editing its colors."
@@ -7314,6 +7465,10 @@ msgstr "Faixa horizontal de pastilhas com o painel ativo abaixo; clique em uma p
 msgid "Horizontal rule that divides sections."
 msgstr "Linha horizontal que separa seções."
 
+#: src/components/settings/AccountSection.tsx
+msgid "Host"
+msgstr "Host"
+
 #: src/components/settings/NetworkAccessSection.tsx
 msgid "Hosting is on. The server is running on port {boundPort}. Reach it through your tunnel."
 msgstr "A hospedagem está ativa. O servidor está em execução na porta {boundPort}. Acesse-o pelo seu túnel."
@@ -7484,6 +7639,10 @@ msgstr "O destino da imagem \"{shown}\" não pôde ser resolvido como um arquivo
 #: src/editor/localized-validation-message.ts
 msgid "Image target \"{shown}\" does not resolve to an existing file."
 msgstr "O destino da imagem \"{shown}\" não corresponde a um arquivo existente."
+
+#: src/editor/localized-validation-message.ts
+msgid "Image target \"{shown}\" exists but is excluded by .gitignore or .okignore. Re-include it, or its folder, with a \"!\" rule in .okignore."
+msgstr "O destino da imagem \"{shown}\" existe, mas é ignorado por .gitignore ou .okignore. Inclua-o de novo, ou a pasta dele, com uma regra \"!\" em .okignore."
 
 #: src/components/ReportBugDialogBody.tsx
 msgid "Images aren't redacted."
@@ -7971,8 +8130,24 @@ msgid "Invalid YAML"
 msgstr "YAML inválido"
 
 #: src/components/ReportBugDialogBody.tsx
+msgid "It also adds any display-connection errors OpenKnowledge wrote to your user journal in the past week, each message cut to 200 characters."
+msgstr "Também adiciona os erros de conexão com a tela que o OpenKnowledge gravou no seu diário de usuário na última semana, com cada mensagem cortada em 200 caracteres."
+
+#: src/components/ReportBugDialogBody.tsx
+msgid "It also adds the crash and hang records Windows logged for OpenKnowledge in the past week, without file paths, and the times of every shutdown, restart, power loss, and low-memory warning on this computer in that week, whatever caused them."
+msgstr "Também adiciona os registros de falhas e travamentos que o Windows anotou para o OpenKnowledge na última semana, sem caminhos de arquivo, e os horários de cada desligamento, reinicialização, queda de energia e aviso de pouca memória deste computador nessa semana, seja qual for a causa."
+
+#: src/components/ReportBugDialogBody.tsx
 msgid "It also adds the crash reports macOS recorded for OpenKnowledge and its helper processes, never another app's report, though ours do name the processes they were running alongside. Each one carries machine details macOS puts in every report: your account uid, the Mac model, and the name of the process that launched the app. On a managed machine, that launching process can be internal tooling. The identifiers that would link the bug reports you file to each other are replaced first, so a collected report is not byte-identical to the one macOS wrote."
 msgstr "Também adiciona os relatórios de falha que o macOS registrou para o OpenKnowledge e seus processos auxiliares, nunca o relatório de outro aplicativo, embora os nossos nomeiem os processos que estavam em execução ao lado deles. Cada um traz detalhes da máquina que o macOS coloca em todos os relatórios: o uid da sua conta, o modelo do Mac e o nome do processo que iniciou o aplicativo. Em uma máquina gerenciada, esse processo inicializador pode ser uma ferramenta interna. Os identificadores que ligariam entre si os relatórios de erro que você envia são substituídos antes, então um relatório coletado não é idêntico byte a byte ao que o macOS escreveu."
+
+#: src/components/ReportBugDialogBody.tsx
+msgid "It also adds the low-memory reports macOS wrote in the past week that list OpenKnowledge's processes, with each one's memory use and whether macOS ended it."
+msgstr "Também adiciona os relatórios de pouca memória que o macOS escreveu na última semana em que aparecem processos do OpenKnowledge, com o uso de memória de cada um e se o macOS o encerrou."
+
+#: src/components/ReportBugDialogBody.tsx
+msgid "It also adds the out-of-memory kills of OpenKnowledge that the system journal recorded in the past week, without the machine name, account id, or folder paths."
+msgstr "Também adiciona os encerramentos do OpenKnowledge por falta de memória que o diário do sistema registrou na última semana, sem o nome da máquina, o ID da conta ou caminhos de pastas."
 
 #. placeholder {0}: prompt.cwd
 #. placeholder {1}: prompt.agentName
@@ -8005,6 +8180,8 @@ msgstr "Itálico"
 msgid "Item {0}"
 msgstr "Item {0}"
 
+#: src/components/AppMenubar.tsx
+#: src/components/command-palette-commands.ts
 #: src/components/SubscribeCard.tsx
 msgid "Join us on Discord"
 msgstr "Entre no nosso Discord"
@@ -8265,6 +8442,10 @@ msgstr "O destino do link \"{shown}\" não corresponde a um documento existente.
 msgid "Link target \"{shown}\" does not resolve to an existing file."
 msgstr "O destino do link \"{shown}\" não corresponde a um arquivo existente."
 
+#: src/editor/localized-validation-message.ts
+msgid "Link target \"{shown}\" exists but is excluded by .gitignore or .okignore. Re-include it, or its folder, with a \"!\" rule in .okignore."
+msgstr "O destino do link \"{shown}\" existe, mas é ignorado por .gitignore ou .okignore. Inclua-o de novo, ou a pasta dele, com uma regra \"!\" em .okignore."
+
 #: src/lib/keyboard-shortcuts.ts
 msgid "Link the selected text, or edit the link under the caret."
 msgstr "Cria um link no texto selecionado ou edita o link sob o cursor."
@@ -8452,6 +8633,10 @@ msgstr "Carregando habilidades"
 msgid "Loading starter packs"
 msgstr "Carregando pacotes iniciais"
 
+#: src/components/settings/SyncSection.tsx
+msgid "Loading sync status"
+msgstr "Carregando status de sincronização"
+
 #: src/components/CommandPalette.tsx
 #: src/editor/tag-suggestion/TagSuggestionMenu.tsx
 msgid "Loading tags"
@@ -8607,8 +8792,8 @@ msgid "Manage skill folders"
 msgstr "Gerenciar as pastas de habilidades"
 
 #: src/components/settings/AccountSection.tsx
-msgid "Manage the GitHub account OpenKnowledge uses to browse and sync your repositories."
-msgstr "Gerencie a conta do GitHub que o OpenKnowledge usa para explorar e sincronizar seus repositórios."
+msgid "Manage the accounts and access tokens OpenKnowledge uses to connect to your git hosts."
+msgstr "Gerencie as contas e os tokens de acesso que o OpenKnowledge usa para se conectar aos seus hosts git."
 
 #: src/components/settings/AgentConnectionDialogs.tsx
 #: src/components/settings/AgentConnectionsSection.tsx
@@ -8752,6 +8937,12 @@ msgstr "Fonte do espelho <0>api-spec</0>"
 #: src/components/LinksPanel.tsx
 msgid "Missing"
 msgstr "Ausente"
+
+#. placeholder {0}: error.slots.length
+#. placeholder {1}: error.slots.join(', ')
+#: src/components/settings/CustomThemeEditor.tsx
+msgid "Missing {0} slot(s): {1}"
+msgstr "Espaços de cor ausentes ({0}): {1}"
 
 #: src/components/FeedbackForm.tsx
 msgid "Missing a feature"
@@ -9339,10 +9530,12 @@ msgstr "Nenhum agente foi configurado ainda — escolha um no menu de envio."
 msgid "no agents — saved, not installed anywhere"
 msgstr "nenhum agente — salvas, não instaladas em lugar algum"
 
+#. Composer hint when no agent is set up; agentConnectionsLabel is the Settings sidebar pane name
+#. Composer hint when no agent is set up; agentConnectionsLabel is the Settings sidebar pane name
 #: src/components/BottomComposer.tsx
 #: src/components/empty-state/CreatePromptComposer.tsx
-msgid "No agents are set up yet — add an in-app agent in Agent connections to attach files."
-msgstr "Nenhum agente foi configurado ainda — para anexar arquivos, adicione um agente integrado ao app em Conexões de agentes."
+msgid "No agents are set up yet — add an in-app agent in {agentConnectionsLabel} to attach files."
+msgstr "Nenhum agente foi configurado ainda — para anexar arquivos, adicione um agente integrado ao app em {agentConnectionsLabel}."
 
 #: src/components/settings/AgentConnectionsSection.tsx
 msgid "No agents available."
@@ -9365,10 +9558,10 @@ msgstr "Nenhum agente corresponde à sua busca."
 msgid "No AI agents installed"
 msgstr "Nenhum agente de IA instalado"
 
-#. Shown in place of the AI-tools checkbox when no AI tool was detected
+#. Shown in place of the AI-tools checkbox when no AI tool was detected; agentConnectionsLabel is the Settings sidebar pane name
 #: src/components/McpConsentDialogBody.tsx
-msgid "No AI tools detected yet. Once you install one, connect it from Settings > AI tools & CLI."
-msgstr "Nenhuma ferramenta de IA detectada ainda. Depois de instalar uma, conecte-a em Configurações > Ferramentas de IA e CLI."
+msgid "No AI tools detected yet. Once you install one, connect it from Settings > {agentConnectionsLabel}."
+msgstr "Nenhuma ferramenta de IA detectada ainda. Depois de instalar uma, conecte-a em Configurações > {agentConnectionsLabel}."
 
 #: src/components/ProjectAiToolsField.tsx
 msgid "No AI tools detected yet. Once you install one, connect it from Settings > This project."
@@ -9437,6 +9630,10 @@ msgstr "Nenhuma alteração de conteúdo nesta versão."
 #: src/components/TimelineDiffPane.tsx
 msgid "No content changes in this version"
 msgstr "Nenhuma alteração de conteúdo nesta versão"
+
+#: src/components/SyncStatusBadge.tsx
+msgid "No credential is stored for this git host. Add a token in Settings, or let git use the credentials it already has."
+msgstr "Nenhuma credencial está guardada para este host git. Adicione um token nas Configurações, ou deixe o git usar as credenciais que ele já tem."
 
 #: src/components/GraphPanel.tsx
 msgid "No disconnected pages. Pages appear here only when they have no incoming and no outgoing graph edges."
@@ -9744,6 +9941,15 @@ msgstr "Nenhum destes problemas tem correção automática. Tente Corrigir tudo 
 msgid "Not a base16 theme"
 msgstr "Não é um tema base16"
 
+#. placeholder {0}: error.slots.join(', ')
+#: src/components/settings/CustomThemeEditor.tsx
+msgid "Not a hex color: {0}"
+msgstr "Não é uma cor hexadecimal: {0}"
+
+#: src/components/SkillConsentRow.tsx
+msgid "Not added to any AI tool yet."
+msgstr "Ainda não adicionada a nenhuma ferramenta de IA."
+
 #: src/components/acp/ThreadView.tsx
 msgid "Not answered"
 msgstr "Sem resposta"
@@ -9801,6 +10007,7 @@ msgstr "Ainda não instalada neste projeto."
 #: src/components/ReportBugDialogBody.tsx
 #: src/components/settings/SkillsStudioIntroDialog.tsx
 #: src/lib/install-server-drift-listener.ts
+#: src/lib/install-stale-tab-reload-prompt.ts
 msgid "Not now"
 msgstr "Agora não"
 
@@ -10193,6 +10400,10 @@ msgid "Open it there"
 msgstr "Abrir por lá"
 
 #: src/components/settings/LintingSection.tsx
+msgid "Open Knowledge could not reach the project server to check index maintenance. The status updates when the project reconnects."
+msgstr "Open Knowledge não conseguiu acessar o servidor do projeto para verificar a manutenção do índice. O status será atualizado quando o projeto for reconectado."
+
+#: src/components/settings/LintingSection.tsx
 msgid "Open Knowledge creates and maintains a navigation file named index.md in every folder that contains Markdown."
 msgstr "Open Knowledge cria e mantém um arquivo de navegação denominado index.md em cada pasta que contém Markdown."
 
@@ -10390,6 +10601,10 @@ msgstr "Abrindo..."
 msgid "OpenKnowledge"
 msgstr "OpenKnowledge"
 
+#: src/components/AuthModal.tsx
+msgid "OpenKnowledge can't sign in to GitHub for this project."
+msgstr "O OpenKnowledge não pode entrar no GitHub para este projeto."
+
 #: src/lib/acp/tool-call-display.ts
 msgid "OpenKnowledge checked {subject}"
 msgstr "OpenKnowledge verificou {subject}"
@@ -10398,13 +10613,13 @@ msgstr "OpenKnowledge verificou {subject}"
 msgid "OpenKnowledge checked the project"
 msgstr "OpenKnowledge verificou o projeto"
 
+#: src/components/settings/AboutSection.tsx
+msgid "OpenKnowledge checks for and downloads updates in the background."
+msgstr "O OpenKnowledge busca e baixa atualizações em segundo plano."
+
 #: src/components/settings/AgentConnectionDialogs.tsx
 msgid "OpenKnowledge could not find this agent on this machine."
 msgstr "O OpenKnowledge não encontrou este agente nesta máquina."
-
-#: src/components/settings/AccountSection.tsx
-msgid "OpenKnowledge couldn't find a host name in this project's git remote, so it can't tell which GitHub server to sign in to."
-msgstr "O OpenKnowledge não encontrou um nome de host no remoto git deste projeto, então não consegue saber em qual servidor GitHub fazer login."
 
 #: src/lib/worktree-create-error.ts
 msgid "OpenKnowledge couldn't finish setting up this project. The worktree was created but not opened."
@@ -10450,6 +10665,10 @@ msgstr "O OpenKnowledge não reconhece esta entrada e não pode substituí-la co
 msgid "OpenKnowledge does not recognize this entry. Turning it on replaces it."
 msgstr "O OpenKnowledge não reconhece esta entrada. Ativá-la a substituirá."
 
+#: src/components/settings/AboutSection.tsx
+msgid "OpenKnowledge doesn't check for or download updates on its own. Check for updates still works when you want a newer version."
+msgstr "O OpenKnowledge não busca nem baixa atualizações por conta própria. Buscar atualizações continua funcionando quando você quiser uma versão mais recente."
+
 #: src/lib/acp/tool-call-display.ts
 msgid "OpenKnowledge edited {subject}"
 msgstr "OpenKnowledge editou {subject}"
@@ -10461,6 +10680,10 @@ msgstr "OpenKnowledge editou um documento"
 #: src/uninstall/UninstallResultScreen.tsx
 msgid "OpenKnowledge files were removed"
 msgstr "Os arquivos do OpenKnowledge foram removidos"
+
+#: src/hooks/use-sync-auth-prompt.ts
+msgid "OpenKnowledge has no credential stored for this host. Add a token in Settings, or let git use the credentials it already has."
+msgstr "O OpenKnowledge não tem nenhuma credencial guardada para este host. Adicione um token nas Configurações, ou deixe o git usar as credenciais que ele já tem."
 
 #: src/lib/acp/tool-call-display.ts
 msgid "OpenKnowledge imported {source}"
@@ -10491,12 +10714,12 @@ msgid "OpenKnowledge is set up at the repository root here, so the pack goes ins
 msgstr "Aqui o OpenKnowledge é configurado na raiz do repositório, então o pacote fica dentro de <0>{sanitized}</0> em vez de no topo do repositório."
 
 #: src/components/settings/AccountSection.tsx
-msgid "OpenKnowledge is using a GitHub account provided by the gh CLI. There's no separate OpenKnowledge credential to disconnect."
-msgstr "O OpenKnowledge está usando uma conta do GitHub fornecida pela CLI gh. Não há credencial própria do OpenKnowledge para desconectar."
-
-#: src/components/settings/AccountSection.tsx
 msgid "OpenKnowledge is using this GitHub account."
 msgstr "O OpenKnowledge está usando esta conta do GitHub."
+
+#: src/components/settings/SettingsDialogBody.tsx
+msgid "OpenKnowledge keeps retrying and shows them as soon as the file can be read."
+msgstr "O OpenKnowledge continua tentando e vai mostrá-las assim que o arquivo puder ser lido."
 
 #: src/components/settings/AgentConnectionDialogs.tsx
 msgid "OpenKnowledge left this file alone because it could not parse it safely. Fix the file by hand, then try again."
@@ -10538,6 +10761,14 @@ msgstr "OpenKnowledge moveu um documento"
 #: src/components/command-palette-commands.ts
 msgid "OpenKnowledge on GitHub"
 msgstr "OpenKnowledge no GitHub"
+
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "OpenKnowledge on this computer changed to a different build, but this tab is still running the old one."
+msgstr "O OpenKnowledge neste computador mudou para outra versão, mas esta aba ainda está executando a antiga."
+
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "OpenKnowledge on this computer is now v{serverVersion}, but this tab is still running v{tabVersion}."
+msgstr "O OpenKnowledge neste computador agora está na v{serverVersion}, mas esta aba ainda está executando a v{tabVersion}."
 
 #: src/lib/acp/tool-call-display.ts
 msgid "OpenKnowledge opened the live preview"
@@ -10689,6 +10920,11 @@ msgstr "outros"
 #: src/components/FeedbackForm.tsx
 msgid "Other"
 msgstr "Outro"
+
+#: src/components/settings/AccountSection.tsx
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "Other Git hosts"
+msgstr "Outros hosts Git"
 
 #: src/components/settings/SharingSection.tsx
 msgid "Other OK paths are tracked upstream:"
@@ -11242,6 +11478,10 @@ msgstr "Detalhes do projeto"
 msgid "Project folder created, but git init failed. Try again."
 msgstr "A pasta do projeto foi criada, mas o git init falhou. Tente de novo."
 
+#: src/components/ConsentDialogBody.tsx
+msgid "Project folder: <0>{projectDir}</0>"
+msgstr "Pasta do projeto: <0>{projectDir}</0>"
+
 #: src/components/settings/AgentConnectionDialogs.tsx
 msgid "Project MCP server"
 msgstr "Servidor MCP do projeto"
@@ -11315,6 +11555,10 @@ msgstr "Valor da propriedade"
 #: src/components/SyncStatusBadge.tsx
 msgid "Protected branch — cannot push"
 msgstr "Ramo protegido — não é possível enviar"
+
+#: src/components/settings/AccountSection.tsx
+msgid "Provided by the GitHub CLI (<0>gh</0>) on this computer. To switch accounts or sign out, run <1>gh auth</1> in a terminal."
+msgstr "Fornecido pela CLI do GitHub (<0>gh</0>) neste computador. Para trocar de conta ou sair, execute <1>gh auth</1> em um terminal."
 
 #: src/components/TemplateForm.tsx
 msgid "provisional"
@@ -11624,6 +11868,14 @@ msgstr "É preciso reconectar"
 msgid "Reconnect required to keep syncing."
 msgstr "É necessário reconectar para continuar sincronizando."
 
+#: src/components/SyncStatusBadge.tsx
+msgid "Reconnect required to keep syncing. Add a token for this host in Settings, or replace the one stored."
+msgstr "É necessário reconectar para continuar sincronizando. Adicione um token para este host nas Configurações, ou substitua o que está guardado."
+
+#: src/components/SyncStatusBadge.tsx
+msgid "Reconnect required to keep syncing. Check the SSH key or saved credentials git uses for this host."
+msgstr "É necessário reconectar para continuar sincronizando. Verifique a chave SSH ou as credenciais salvas que o git usa para este host."
+
 #: src/presence/use-sync-toasts.ts
 msgid "Reconnected"
 msgstr "Reconectado"
@@ -11702,6 +11954,7 @@ msgstr "Caminho relativo"
 msgid "Relaunching to install the update…"
 msgstr "Reiniciando para instalar a atualização…"
 
+#: src/components/settings/AboutSection.tsx
 #: src/components/settings/SettingsDialogShell.tsx
 #: src/components/SubscribeCard.tsx
 msgid "Release notes"
@@ -11721,10 +11974,15 @@ msgstr "Relevância"
 #: src/components/settings/SettingsDialogErrorBoundary.tsx
 #: src/components/TerminalGate.tsx
 #: src/components/TerminalStartingNotice.tsx
+#: src/lib/install-stale-tab-reload-prompt.ts
 #: src/lib/locale-load-failure-notice.ts
 #: src/lib/native-menu-catalog.ts
 msgid "Reload"
 msgstr "Recarregar"
+
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "Reload this tab to bring it up to date. Your edits are saved before it reloads."
+msgstr "Recarregue esta aba para atualizá-la. Suas edições são salvas antes de recarregar."
 
 #: src/components/NewWorktreeDialog.tsx
 msgid "remote"
@@ -11971,6 +12229,7 @@ msgid "Renaming changes the file on disk and the id agents use to pick this temp
 msgstr "Renomear muda o arquivo no disco e o id que os agentes usam para escolher este modelo."
 
 #: src/editor/utils/severity.ts
+#: src/lib/rendered-diff/diff-jsx-block.tsx
 msgid "render error"
 msgstr "erro de renderização"
 
@@ -12567,6 +12826,10 @@ msgstr "Salvando"
 msgid "Saving changes…"
 msgstr "Salvando alterações…"
 
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "Saving your edits before reloading…"
+msgstr "Salvando suas edições antes de recarregar…"
+
 #: src/components/settings/LintingSection.tsx
 msgid "schema {deleteTarget}"
 msgstr "esquema {deleteTarget}"
@@ -13085,10 +13348,6 @@ msgstr "Definir a identidade"
 #: src/components/settings/plugin-enabled-notice.ts
 msgid "Set it up on its own page under Plugins."
 msgstr "Configure na página própria dele, em Plugins."
-
-#: src/components/settings/SyncSection.tsx
-msgid "Set the sync default for users opening this project for the first time. This setting is committed to your repository."
-msgstr "Defina a sincronização padrão para quem abrir este projeto pela primeira vez. Esta configuração fica salva no seu repositório."
 
 #: src/components/command-palette-commands.ts
 msgid "Set up OpenKnowledge integrations"
@@ -13659,6 +13918,14 @@ msgstr "Algumas verificações falharam, mas ainda pode ser mesclado"
 msgid "Some dropped files could not be inserted safely."
 msgstr "Alguns arquivos soltos não puderam ser inseridos com segurança."
 
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "Some edits haven't reached the server yet, so the tab didn't reload. Open {docs} to save them, then reload."
+msgstr "Algumas edições ainda não chegaram ao servidor, então a aba não foi recarregada. Abra {docs} para salvá-las e depois recarregue."
+
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "Some edits haven't reached the server yet, so the tab didn't reload. Your edits are still here."
+msgstr "Algumas edições ainda não chegaram ao servidor, então a aba não foi recarregada. Suas edições continuam aqui."
+
 #: src/components/SyncStatusBadge.tsx
 msgid "Some files are not listed — the working tree has too many changes."
 msgstr "Alguns arquivos não estão listados: a árvore de trabalho tem alterações demais."
@@ -13674,6 +13941,10 @@ msgstr "Alguns temas salvos não são exibidos porque a pasta de temas excede o 
 #: src/components/SkillBulkDeleteDialog.tsx
 msgid "Some skills were deleted with a warning"
 msgstr "Algumas habilidades foram excluídas com um aviso"
+
+#: src/components/empty-state/CreateView.tsx
+msgid "Some templates may not be listed because this knowledge base has too many folders to scan. To see a folder's templates, open its menu in the file tree and choose New from template."
+msgstr "Alguns modelos podem não aparecer na lista porque esta base de conhecimento tem pastas demais para serem verificadas. Para ver os modelos de uma pasta, abra o menu dela na árvore de arquivos e escolha \"Novo a partir de um modelo\"."
 
 #: src/components/DiffViewBoundary.tsx
 msgid "Someone may have already resolved {filePath} — check the document's current content before redoing your edit."
@@ -14150,6 +14421,10 @@ msgstr "A sincronização deste worktree está em Manual, herdada de {project}. 
 msgid "Sync is taking longer than usual — your changes are safe on this device."
 msgstr "A sincronização está demorando mais que o normal — suas alterações estão seguras neste dispositivo."
 
+#: src/components/settings/SettingsDialogBody.tsx
+msgid "Sync keeps this computer's copy up to date with your Git remote. The shared settings below decide what teammates get when they open the project."
+msgstr "A sincronização mantém a cópia deste computador atualizada com o seu remoto Git. As configurações compartilhadas abaixo definem o que os colegas recebem quando abrem o projeto."
+
 #: src/components/SyncStatusBadge.tsx
 msgid "Sync mode"
 msgstr "Modo de sincronização"
@@ -14439,6 +14714,15 @@ msgstr "Isso não foi concluído. Verifique os logs do servidor e tente de novo.
 msgid "That document didn't open in time. Try again once it has synced."
 msgstr "Esse documento não abriu a tempo. Tente novamente quando ele estiver sincronizado."
 
+#. placeholder {0}: error.line
+#: src/components/settings/CustomThemeEditor.tsx
+msgid "That doesn’t parse as YAML or JSON — check line {0}."
+msgstr "Não foi possível interpretar como YAML ou JSON — verifique a linha {0}."
+
+#: src/components/settings/CustomThemeEditor.tsx
+msgid "That doesn’t parse as YAML or JSON."
+msgstr "Não foi possível interpretar como YAML ou JSON."
+
 #: src/components/settings/SearchSection.tsx
 msgid "That endpoint can't be used. Enter an https:// URL — http:// is only allowed for loopback endpoints."
 msgstr "Não dá para usar esse endpoint. Digite uma URL https:// — http:// só é aceito para endpoints de loopback."
@@ -14467,6 +14751,10 @@ msgstr "Esse idioma não está disponível para a verificação ortográfica."
 #: src/components/acp/ThreadView.tsx
 msgid "That message already went out — your edit wasn't applied."
 msgstr "Essa mensagem já foi enviada — sua edição não foi aplicada."
+
+#: src/components/settings/CustomThemeEditor.tsx
+msgid "That parsed, but it isn’t a base16 theme."
+msgstr "O conteúdo foi interpretado, mas não é um tema base16."
 
 #. placeholder {0}: item.displayName
 #: src/components/acp/ThreadView.tsx
@@ -14594,6 +14882,10 @@ msgstr "Não foi possível adicionar a conversa a este relatório."
 #: src/lib/skills-api.ts
 msgid "The copy of \"{name}\" kept in {scopeLabel} is a redundant duplicate: the original was verified unchanged. Remove that copy, then retry the move."
 msgstr "A cópia de “{name}” mantida em {scopeLabel} é uma duplicata redundante: o original foi verificado e está inalterado. Remova essa cópia e tente a movimentação de novo."
+
+#: src/components/ReportBugDialogBody.tsx
+msgid "The crash dump couldn't be added to this report."
+msgstr "Não foi possível adicionar o despejo de falha a este relatório."
 
 #: src/components/SyncStatusBadge.tsx
 msgid "The default branch is protected — pushes need a pull request."
@@ -14774,6 +15066,10 @@ msgstr "O pedido para ativar as ferramentas do Open Knowledge expirou. Esta conv
 msgid "The schema file does not exist or failed to load — adding a field creates it."
 msgstr "O arquivo de esquema não existe ou falhou ao carregar — adicionar um campo o cria."
 
+#: src/components/settings/SyncSection.tsx
+msgid "The server couldn't read this project's sync status, so sync options are hidden. They appear here as soon as the sync status loads; closing and reopening Settings also retries."
+msgstr "O servidor não conseguiu ler o status de sincronização deste projeto, então as opções de sincronização estão ocultas. Elas aparecem aqui assim que o status de sincronização carregar; fechar e abrir as Configurações de novo também tenta outra vez."
+
 #: src/components/ConnectingBanner.tsx
 msgid "the server responded but server.lock has no port yet"
 msgstr "o servidor respondeu, mas o server.lock ainda não tem porta"
@@ -14814,6 +15110,14 @@ msgstr "A lista de habilidades não corresponde ao seu esquema."
 #: src/components/SkillInstallMenu.tsx
 msgid "The source folder itself does not move."
 msgstr "A pasta de origem em si não se move."
+
+#: src/components/SyncStatusBadge.tsx
+msgid "The stored token is missing the permissions this host needs to push."
+msgstr "Faltam ao token guardado as permissões de que este host precisa para fazer push."
+
+#: src/components/settings/SyncSection.tsx
+msgid "The sync mode teammates start with the first time they open this project. It's saved in the project's OpenKnowledge settings, so it only reaches them when Config sharing below is set to Shared."
+msgstr "O modo de sincronização com que os colegas começam na primeira vez que abrem este projeto. Ele fica salvo nas configurações do OpenKnowledge do projeto, então só chega até eles quando o Compartilhamento de configuração abaixo está definido como Compartilhado."
 
 #: src/components/TemplateProperties.tsx
 msgid "The template's filename (without `.md`)."
@@ -14872,6 +15176,10 @@ msgstr "O executável terminal.shell em .ok/local/config.yml não foi encontrado
 #: src/components/AuthModal.tsx
 msgid "The token needs the repo and read:user scopes."
 msgstr "O token precisa dos escopos repo e read:user."
+
+#: src/components/settings/AccountSection.tsx
+msgid "The username git sends with the token. Some hosts expect a fixed value: type <0>x-bitbucket-api-token-auth</0> for a Bitbucket API token, <1>x-token-auth</1> for a Bitbucket repository or workspace access token, or <2>oauth2</2> for GitLab. For Gitea, use your Gitea username. Azure DevOps accepts any value."
+msgstr "O nome de usuário que o git envia com o token. Alguns hosts esperam um valor fixo: digite <0>x-bitbucket-api-token-auth</0> para um token de API do Bitbucket, <1>x-token-auth</1> para um token de acesso de repositório ou de workspace do Bitbucket, ou <2>oauth2</2> para o GitLab. No Gitea, use seu nome de usuário do Gitea. O Azure DevOps aceita qualquer valor."
 
 #: src/lib/tab-session-restore-recovery-notice.ts
 msgid "The workspace opened without it so the app could start."
@@ -15063,9 +15371,10 @@ msgstr "Este ramo está extraído em:"
 msgid "This branch redirects an OpenKnowledge setup path outside the worktree. The worktree was created but not opened."
 msgstr "Este branch redireciona um caminho de configuração do OpenKnowledge para fora do worktree. O worktree foi criado, mas não foi aberto."
 
+#. Toast after first-launch setup ends without connecting AI tools; agentConnectionsLabel is the Settings sidebar pane name
 #: src/components/McpConsentDialogBody.tsx
-msgid "This can be configured in Settings > AI tools & CLI"
-msgstr "Isto pode ser configurado em Configurações > Ferramentas de IA e CLI"
+msgid "This can be configured in Settings > {agentConnectionsLabel}"
+msgstr "Isto pode ser configurado em Configurações > {agentConnectionsLabel}"
 
 #: src/components/RecentProjectsMenu.tsx
 msgid "This checkout path cannot be read."
@@ -15273,10 +15582,6 @@ msgstr "Esta lista pode estar desatualizada — última leitura {staleRelative}.
 msgid "This list may be out of date."
 msgstr "Esta lista pode estar desatualizada."
 
-#: src/components/ConsentDialogBody.tsx
-msgid "This looks like a drive root (e.g., C:\\). Scaffolding here will scan an entire drive."
-msgstr "Isto parece a raiz de uma unidade (ex.: C:\\). Preparar o projeto aqui vai varrer uma unidade inteira."
-
 #: src/components/settings/AgentConnectionDialogs.tsx
 #: src/components/settings/ScopeBadge.tsx
 #: src/components/SkillScopeSegment.tsx
@@ -15286,6 +15591,10 @@ msgstr "Esta máquina"
 #: src/uninstall/UninstallProgressScreen.tsx
 msgid "This may take a moment. Your markdown content is kept."
 msgstr "Isto pode demorar um pouco. Seu conteúdo markdown é preservado."
+
+#: src/components/settings/SyncSection.tsx
+msgid "This mode comes from the project's Shared default below. Pick a mode to choose your own for this computer."
+msgstr "Este modo vem do Padrão compartilhado do projeto, abaixo. Escolha um modo para definir o seu neste computador."
 
 #. placeholder {0}: scopeLabels[scope]
 #. placeholder {1}: scopeLabels[toScope]
@@ -15401,10 +15710,6 @@ msgstr "Este projeto não é um repositório git, então worktrees não estão d
 msgid "This project lives only on this computer. Connect it to GitHub to back it up and share it with other people."
 msgstr "Este projeto vive só neste computador. Conecte-o ao GitHub para fazer backup e compartilhar com outras pessoas."
 
-#: src/components/settings/AccountSection.tsx
-msgid "This project's git remote is on {host}, which OpenKnowledge doesn't recognize as a GitHub host. If {host} runs GitHub Enterprise Server, add it to GitHub Enterprise Server hosts below, then restart OpenKnowledge."
-msgstr "O remoto git deste projeto está em {host}, que o OpenKnowledge não reconhece como host do GitHub. Se {host} executa o GitHub Enterprise Server, adicione-o em Hosts do GitHub Enterprise Server abaixo e reinicie o OpenKnowledge."
-
 #: src/components/DocumentErrorBoundary.tsx
 msgid "This project's running server doesn't support live editing. Restart OpenKnowledge to fix."
 msgstr "O servidor em execução deste projeto não suporta edição ao vivo. Reinicie o OpenKnowledge para corrigir."
@@ -15476,6 +15781,14 @@ msgstr "Esta fonte traz várias habilidades — escolha uma e depois Importar."
 msgid "This source bundles several skills — choose the one to import."
 msgstr "Esta fonte traz várias habilidades — escolha qual importar."
 
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "This tab couldn't confirm that your edits are saved, so it didn't reload. Your edits are still here."
+msgstr "Esta aba não conseguiu confirmar que suas edições estão salvas, então não foi recarregada. Suas edições continuam aqui."
+
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "This tab is still reconnecting to OpenKnowledge, so it didn't reload. Try again in a moment."
+msgstr "Esta aba ainda está se reconectando ao OpenKnowledge, então não foi recarregada. Tente novamente em instantes."
+
 #: src/components/TemplateDeleteDialog.tsx
 msgid "This template lives in a parent folder — deleting it affects every folder beneath it that doesn't define its own version."
 msgstr "Este modelo fica em uma pasta acima — excluí-lo afeta todas as pastas abaixo dela que não definem a própria versão."
@@ -15496,11 +15809,16 @@ msgstr "Não foi possível ler este arquivo de tema"
 msgid "This theme file is too large"
 msgstr "Este arquivo de tema é muito grande"
 
+#: src/components/UpdateNotices.shared.ts
+msgid "This update is no longer ready to install."
+msgstr "Esta atualização não está mais pronta para ser instalada."
+
 #: src/components/ShareReceiveDialog.tsx
 msgid "This usually means one of:"
 msgstr "Isto costuma significar uma destas coisas:"
 
 #: src/components/AuthModal.tsx
+#: src/components/settings/AccountSection.tsx
 msgid "This window can't store a token — open Settings from the main app window."
 msgstr "Esta janela não consegue guardar um token — abra Configurações pela janela principal do app."
 
@@ -15534,6 +15852,10 @@ msgstr "título"
 #: src/editor/extensions/CodeBlockView.tsx
 msgid "Title"
 msgstr "Título"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "To connect AI tools without a project, use File > Set up OpenKnowledge integrations…"
+msgstr "Para conectar ferramentas de IA sem um projeto, use Arquivo > Configurar as integrações do OpenKnowledge…"
 
 #: src/editor/slash-command/items.tsx
 msgid "To do"
@@ -15654,6 +15976,15 @@ msgstr "Liga ou desliga o sublinhado."
 msgid "Toggles the pattern {0}/**"
 msgstr "Alterna o padrão {0}/**"
 
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "token"
+msgstr "token"
+
+#: src/components/settings/AccountSection.tsx
+msgid "Token stored for {login} on {host}. To remove it, run <0>ok auth signout --host {host}</0>."
+msgstr "Token guardado para {login} em {host}. Para removê-lo, execute <0>ok auth signout --host {host}</0>."
+
 #: src/components/SkillBundlePreview.tsx
 #: src/components/SkillProperties.tsx
 msgid "tokens"
@@ -15739,6 +16070,10 @@ msgstr "Transforma {display} de volta em um diretório real com um link simbóli
 msgid "Turn it off any time in Settings."
 msgstr "Desligue-o a qualquer momento nas Configurações."
 
+#: src/components/settings/SyncSection.tsx
+msgid "Turn off auto-sync"
+msgstr "Desativar a sincronização automática"
+
 #: src/components/NotInSidebarIndicator.tsx
 msgid "Turn off Only markdown files"
 msgstr "Desligar Somente arquivos markdown"
@@ -15771,6 +16106,22 @@ msgstr "Desligando"
 #: src/components/acp/working-status.ts
 msgid "Turning it over…"
 msgstr "Remoendo…"
+
+#: src/components/settings/LintingSection.tsx
+msgid "Turning off index maintenance failed because Open Knowledge could not reach the project server. Try again when the project reconnects."
+msgstr "Falha ao desativar a manutenção do índice porque Open Knowledge não conseguiu acessar o servidor do projeto. Tente novamente quando o projeto for reconectado."
+
+#: src/components/settings/LintingSection.tsx
+msgid "Turning off index maintenance failed because Open Knowledge could not update the Git merge rule. Check Git and .gitattributes, then try again."
+msgstr "Falha ao desativar a manutenção do índice porque Open Knowledge não conseguiu atualizar a regra de mesclagem Git. Verifique Git e .gitattributes e tente novamente."
+
+#: src/components/settings/LintingSection.tsx
+msgid "Turning off index maintenance failed because the Open Knowledge section of .gitattributes was edited or is incomplete. Remove that section, then try again."
+msgstr "Falha ao desativar a manutenção do índice porque a seção do Open Knowledge em .gitattributes foi editada ou está incompleta. Remova essa seção e tente novamente."
+
+#: src/components/settings/LintingSection.tsx
+msgid "Turning off index maintenance failed because the project setting could not be saved. Check the project file permissions, then try again."
+msgstr "Falha ao desativar a manutenção do índice porque não foi possível salvar a configuração do projeto. Verifique as permissões do arquivo do projeto e tente novamente."
 
 #. placeholder {0}: skill.name
 #: src/components/SkillForkDialog.tsx
@@ -15916,6 +16267,7 @@ msgid "Unknown component: {componentName} — source editable below"
 msgstr "Componente desconhecido: {componentName} — código editável abaixo"
 
 #: src/editor/extensions/RawMdxFallbackCMView.tsx
+#: src/lib/rendered-diff/diff-jsx-block.tsx
 msgid "Unknown component: {unregisteredComponentName}"
 msgstr "Componente desconhecido: {unregisteredComponentName}"
 
@@ -16000,6 +16352,11 @@ msgstr "Não rastreado"
 #: src/components/SyncStatusBadge.tsx
 msgid "Up to date"
 msgstr "Atualizado"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "update"
+msgstr "atualização"
 
 #: src/components/SkillOriginInline.tsx
 #: src/components/SkillPreviewTab.tsx
@@ -16240,6 +16597,10 @@ msgstr "Usuário"
 msgid "User plugins are personal to this device — turn them on or off here. Each enabled plugin gets its own page under Plugins in the settings sidebar."
 msgstr "Os plugins de usuário são pessoais deste dispositivo — ligue ou desligue aqui. Cada plugin ativado ganha uma página própria em Plugins, na barra lateral de configurações."
 
+#: src/components/settings/AccountSection.tsx
+msgid "Username"
+msgstr "Nome de usuário"
+
 #: src/components/settings/SearchSection.tsx
 msgid "Using the <0>OK_EMBEDDINGS_API_KEY</0> environment variable (managed outside OpenKnowledge)."
 msgstr "Usando a variável de ambiente <0>OK_EMBEDDINGS_API_KEY</0> (gerenciada fora do OpenKnowledge)."
@@ -16264,6 +16625,11 @@ msgstr "O valor é obrigatório"
 #: src/components/FrontmatterRow.tsx
 msgid "Values for {keyName}"
 msgstr "Valores de {keyName}"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "version"
+msgstr "versão"
 
 #: src/components/CommandPalette.tsx
 msgid "via {viaTags}"
@@ -16757,14 +17123,6 @@ msgstr "Você escolheu ~/Documents. O OpenKnowledge vai indexar todos os arquivo
 msgid "You picked ~/Downloads. Files there are usually transient — consider a stable folder instead."
 msgstr "Você escolheu ~/Downloads. Os arquivos de lá costumam ser passageiros — pense em uma pasta mais estável."
 
-#: src/components/ConsentDialogBody.tsx
-msgid "You picked the filesystem root (/). Scaffolding here will scan every file on this machine — make sure that's what you want."
-msgstr "Você escolheu a raiz do sistema de arquivos (/). Preparar o projeto aqui vai varrer todos os arquivos deste computador — confira se é isso mesmo que você quer."
-
-#: src/components/ConsentDialogBody.tsx
-msgid "You picked your home directory. OpenKnowledge will index everything in your home tree — large and may surface personal files."
-msgstr "Você escolheu sua pasta pessoal. O OpenKnowledge vai indexar toda a sua árvore pessoal — é grande e pode trazer à tona arquivos pessoais."
-
 #: src/components/OnboardingCard.tsx
 msgid "You're all set up!"
 msgstr "Está tudo pronto!"
@@ -16885,6 +17243,10 @@ msgstr "Suas consultas de busca e o texto completo das páginas correspondentes 
 #: src/components/PublishToGitHubDialog.tsx
 msgid "Your share link is ready below."
 msgstr "Seu link de compartilhamento está pronto abaixo."
+
+#: src/components/settings/SettingsDialogBody.tsx
+msgid "Your user settings could not be read"
+msgstr "Não foi possível ler suas configurações de usuário"
 
 #: src/components/ImportSkillForm.tsx
 msgid "Zip file"

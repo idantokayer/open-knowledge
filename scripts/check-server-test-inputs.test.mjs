@@ -1,9 +1,9 @@
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, test } from 'vitest';
+import { afterAll, describe, expect, test } from 'vitest';
+import { createTempDirFactory } from '../test-support/temp-dir.test-helper.ts';
 import {
   escapingReads,
   globalDependencyCovers,
@@ -16,6 +16,8 @@ import {
 import { memberDirs } from './check-typescript-resolution.mjs';
 import { readJsoncOrError } from './read-jsonc.mjs';
 
+const makeTempDir = createTempDirFactory(afterAll);
+
 const OK_ROOT = fileURLToPath(new URL('..', import.meta.url));
 const TASK = '@inkeep/open-knowledge-server#test';
 
@@ -25,7 +27,7 @@ function fixtureRootWithout(glob) {
   expect(inputs, `fixture precondition: ${glob} must be declared`).toContain(glob);
   turbo.tasks[TASK].inputs = inputs.filter((entry) => entry !== glob);
 
-  const root = mkdtempSync(join(tmpdir(), 'ok-server-inputs-'));
+  const root = makeTempDir('ok-server-inputs-');
   writeFileSync(join(root, 'turbo.json'), JSON.stringify(turbo, null, 2));
 
   for (const [target, readers] of escapingReads(OK_ROOT)) {
@@ -60,7 +62,7 @@ describe('check-server-test-inputs', () => {
   );
 
   function fixtureRootReading(testFile) {
-    const root = mkdtempSync(join(tmpdir(), 'ok-server-inputs-'));
+    const root = makeTempDir('ok-server-inputs-');
     mkdirSync(join(root, 'packages/server/src'), { recursive: true });
     mkdirSync(join(root, 'docs'), { recursive: true });
     writeFileSync(join(root, 'docs/guide.md'), '');

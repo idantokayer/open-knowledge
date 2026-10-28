@@ -88,6 +88,10 @@ msgstr "\"{docName}\" tidak ada."
 msgid "\"{docName}\" took too long. Check your connection."
 msgstr "\"{docName}\" terlalu lama. Periksa koneksi Anda."
 
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "\"{name}\""
+msgstr "\"{name}\""
+
 #: src/hooks/use-skill-origin.ts
 msgid "\"{name}\" is already up to date"
 msgstr "\"{name}\" sudah yang terbaru"
@@ -216,6 +220,11 @@ msgstr "{0, plural, other {# permintaan diblokir oleh kebijakan keamanan pratinj
 msgid "{0, plural, one {# result} other {# results}}"
 msgstr "{0, plural, other {# hasil}}"
 
+#. placeholder {0}: templates.length
+#: src/components/empty-state/CreateView.tsx
+msgid "{0, plural, one {# template available} other {# templates available}}"
+msgstr "{0, plural, other {# templat tersedia}}"
+
 #. placeholder {0}: folder.templateCount
 #: src/components/CreatedItemsList.tsx
 msgid "{0, plural, one {# template} other {# templates}}"
@@ -230,6 +239,11 @@ msgstr "{0, plural, other {# penggunaan}}"
 #: src/components/ProblemsPanel.tsx
 msgid "{0, plural, one {# warning} other {# warnings}}"
 msgstr "{0, plural, other {# peringatan}}"
+
+#. placeholder {0}: templates.length
+#: src/components/empty-state/CreateView.tsx
+msgid "{0, plural, one {At least # template found} other {At least # templates found}}"
+msgstr "{0, plural, other {Setidaknya # templat ditemukan}}"
 
 #. placeholder {0}: deleteTargets.length
 #: src/components/FileTree.tsx
@@ -453,11 +467,6 @@ msgstr "{0} berbagi folder ini."
 #: src/components/SkillsTree.tsx
 msgid "{0} skills selected"
 msgstr "{0} keterampilan dipilih"
-
-#. placeholder {0}: templates.length
-#: src/components/empty-state/CreateView.tsx
-msgid "{0} templates available"
-msgstr "{0} templat tersedia"
 
 #. placeholder {0}: formatBundleSize(operation.zipSizeBytes)
 #: src/components/BugReportSendToast.tsx
@@ -750,6 +759,10 @@ msgstr "{count, plural, other {Yakin ingin menghapus # berkas berikut?}}"
 msgid "{count, plural, one {Are you sure you want to delete the following # file/directory and its contents?} other {Are you sure you want to delete the following # files/directories and their contents?}}"
 msgstr "{count, plural, other {Yakin ingin menghapus # berkas/folder berikut beserta isinya?}}"
 
+#: src/components/ConsentDialogBody.tsx
+msgid "{count, plural, one {Found {formattedCount} markdown file} other {Found {formattedCount} markdown files}}"
+msgstr "{count, plural, other {Ditemukan {formattedCount} berkas markdown}}"
+
 #: src/components/ProblemsPanel.tsx
 msgid "{count, plural, one {Hands the # problem to your AI agent, including what has no automatic fix.} other {Hands all # problems to your AI agent, including what has no automatic fix.}}"
 msgstr "{count, plural, other {Menyerahkan # masalah ke agen AI Anda, termasuk yang tidak punya perbaikan otomatis.}}"
@@ -964,6 +977,14 @@ msgstr "{label} ({0})"
 msgid "{label} already loads \"{0}\" from the {1} plugin. Installing here puts a copy at {2} that {label} uses instead of the plugin's — it stops tracking plugin updates."
 msgstr "{label} sudah memuat \"{0}\" dari plugin {1}. Memasang di sini membuat salinan di {2} yang dipakai {label} alih-alih milik plugin — salinan itu berhenti mengikuti pembaruan plugin."
 
+#: src/components/InstanceBadge.tsx
+msgid "{label} build, v{version}. Its settings and data are kept separate from other OpenKnowledge apps."
+msgstr "Versi {label}, v{version}. Pengaturan dan datanya disimpan terpisah dari aplikasi OpenKnowledge lainnya."
+
+#: src/components/InstanceBadge.tsx
+msgid "{label} build. Its settings and data are kept separate from other OpenKnowledge apps."
+msgstr "Versi {label}. Pengaturan dan datanya disimpan terpisah dari aplikasi OpenKnowledge lainnya."
+
 #: src/components/settings/plugin-enabled-notice.ts
 msgid "{label} enabled"
 msgstr "{label} diaktifkan"
@@ -971,10 +992,6 @@ msgstr "{label} diaktifkan"
 #: src/components/file-tree-problem-indicators.ts
 msgid "{label} problems"
 msgstr "{label} masalah"
-
-#: src/components/InstanceBadge.tsx
-msgid "{label} uses isolated app data"
-msgstr "{label} menggunakan data aplikasi terisolasi"
 
 #: src/components/ActivityPanelBurstRow.tsx
 msgid "{laterEdits, plural, one {Removes # newer edit on this file.} other {Removes # newer edits on this file.}}"
@@ -1034,6 +1051,7 @@ msgid "{openedWorktreeCount, plural, one {worktree} other {worktrees}}"
 msgstr "{openedWorktreeCount, plural, one {worktree} other {worktree}}"
 
 #: src/lib/acp/image-attachment.ts
+#: src/lib/install-stale-tab-reload-prompt.ts
 msgid "{others, plural, one {# other} other {# others}}"
 msgstr "{others, plural, other {# lainnya}}"
 
@@ -1544,6 +1562,10 @@ msgstr "Templat bernama <0>{trimmedSlug}</0> sudah ada di sini. Menyimpan akan m
 msgid "A title, description, tags — anything that describes this folder."
 msgstr "Judul, deskripsi, tag — apa saja yang menggambarkan folder ini."
 
+#: src/components/settings/AccountSection.tsx
+msgid "A token added here only applies to HTTPS remotes, and this project's remote doesn't use HTTPS."
+msgstr "Token yang ditambahkan di sini hanya berlaku untuk remote HTTPS, dan remote proyek ini tidak memakai HTTPS."
+
 #: src/components/ShareBranchSwitchDialog.tsx
 msgid "A worktree folder for {shareBranch} already exists."
 msgstr "Folder worktree untuk {shareBranch} sudah ada."
@@ -1552,13 +1574,26 @@ msgstr "Folder worktree untuk {shareBranch} sudah ada."
 msgid "A worktree folder for that branch already exists."
 msgstr "Folder worktree untuk cabang itu sudah ada."
 
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "about"
+msgstr "tentang"
+
 #: src/lib/native-menu-catalog.ts
+#: src/lib/platform-labels.ts
 msgid "About"
 msgstr "Tentang"
 
 #: src/lib/native-menu-catalog.ts
+#: src/lib/platform-labels.ts
 msgid "About {appName}"
 msgstr "Tentang {appName}"
+
+#: src/components/HelpPopover.tsx
+#: src/components/settings/AboutSection.tsx
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "About & updates"
+msgstr "Tentang & pembaruan"
 
 #: src/editor/slash-command/items.tsx
 msgid "Above"
@@ -1596,9 +1631,8 @@ msgid "Accept their deletion"
 msgstr "Terima penghapusan mereka"
 
 #: src/components/settings/AccountSection.tsx
-#: src/components/settings/SettingsDialogShell.tsx
-msgid "Account"
-msgstr "Akun"
+msgid "Access token"
+msgstr "Token akses"
 
 #: src/components/TemplateRow.tsx
 msgid "Actions for {label}"
@@ -1676,6 +1710,10 @@ msgstr "Tambahkan properti"
 #: src/components/empty-state/CreateView.tsx
 msgid "Add a starter pack"
 msgstr "Tambahkan paket awal"
+
+#: src/components/settings/AccountSection.tsx
+msgid "Add an access token for a GitLab, Gitea, Bitbucket, Azure DevOps or self-hosted git server. Without one, git uses the credentials it already has saved for that host; with one, OpenKnowledge uses the token instead."
+msgstr "Tambahkan token akses untuk server GitLab, Gitea, Bitbucket, Azure DevOps, atau git yang di-host sendiri. Tanpa token, git memakai kredensial yang sudah tersimpan untuk host tersebut; dengan token, OpenKnowledge memakai token itu sebagai gantinya."
 
 #: src/components/settings/OkignoreSection.tsx
 msgid "Add another pattern"
@@ -1806,6 +1844,12 @@ msgstr "Tambahkan ke kamus"
 msgid "Add to prompt"
 msgstr "Tambahkan ke prompt"
 
+#: src/components/settings/AccountSection.tsx
+#: src/components/SyncStatusBadge.tsx
+#: src/hooks/use-sync-auth-prompt.ts
+msgid "Add token"
+msgstr "Tambah token"
+
 #: src/components/settings/frontmatter-schema-field-editor.tsx
 msgid "Add value"
 msgstr "Tambahkan nilai"
@@ -1815,6 +1859,10 @@ msgstr "Tambahkan nilai"
 #: src/components/SyncStatusBadge.tsx
 msgid "Added"
 msgstr "Ditambahkan"
+
+#: src/components/settings/AccountSection.tsx
+msgid "Adding"
+msgstr "Menambahkan"
 
 #: src/components/settings/AgentConnectionDialogs.tsx
 msgid "Adds a global OpenKnowledge MCP entry for this agent."
@@ -1905,8 +1953,7 @@ msgstr "Obrolan agen"
 msgid "Agent configuration file"
 msgstr "Berkas konfigurasi agen"
 
-#: src/components/settings/AgentConnectionsSection.tsx
-#: src/components/settings/SettingsDialogShell.tsx
+#: src/components/settings/settings-section-labels.ts
 msgid "Agent connections"
 msgstr "Koneksi agen"
 
@@ -2012,6 +2059,11 @@ msgstr "Hampir selesai. Berikut yang sudah dilakukan dan yang masih perlu dilaku
 msgid "Already at {assetContentPath} — reusing."
 msgstr "Sudah ada di {assetContentPath} — memakai ulang."
 
+#. Status under the unticked AI-tools checkbox; replacingToolList names the tools that already have an OpenKnowledge MCP entry, which stay as they are while the box is unticked
+#: src/components/McpConsentDialogBody.tsx
+msgid "Already connected to {replacingToolList}"
+msgstr "Sudah terhubung ke: {replacingToolList}"
+
 #: src/components/settings/applies-to-folder-picker.tsx
 msgid "Already covered by a picked parent folder"
 msgstr "Sudah tercakup oleh folder induk yang dipilih"
@@ -2111,9 +2163,17 @@ msgstr "Ada yang ingin Anda tambahkan? (opsional)"
 msgid "API key set"
 msgstr "Kunci API disetel"
 
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "App"
+msgstr "Aplikasi"
+
 #: src/components/InstanceBadge.tsx
 msgid "App instance: {label}"
 msgstr "Instans aplikasi: {label}"
+
+#: src/components/InstanceBadge.tsx
+msgid "App instance: {label}, v{version}"
+msgstr "Instans aplikasi: {label}, v{version}"
 
 #: src/components/CreatedItemsList.tsx
 msgid "Append-only log of what changed."
@@ -2331,6 +2391,10 @@ msgstr "Total lampiran harus di bawah 3 MB."
 msgid "Authenticated as {login}."
 msgstr "Diautentikasi sebagai {login}."
 
+#: src/components/SyncStatusBadge.tsx
+msgid "Authentication failed for this git host. Add a token for it in Settings, or replace the one stored."
+msgstr "Autentikasi gagal untuk host git ini. Tambahkan token untuknya di Pengaturan, atau ganti token yang tersimpan."
+
 #: src/editor/slash-command/component-items.tsx
 msgid "Authoritative content; mirrored verbatim everywhere it's referenced."
 msgstr "Konten otoritatif; dicerminkan apa adanya di mana pun ia dirujuk."
@@ -2395,6 +2459,10 @@ msgid "Auto-save"
 msgstr "Simpan otomatis"
 
 #: src/components/settings/SyncSection.tsx
+msgid "Auto-sync is on, but there's no remote to sync with yet. It starts as soon as a remote is connected."
+msgstr "Sinkronisasi otomatis aktif, tetapi belum ada remote untuk disinkronkan. Sinkronisasi akan dimulai begitu remote terhubung."
+
+#: src/components/settings/SyncSection.tsx
 msgid "Auto-sync is paused — sign in to resume."
 msgstr "Sinkronisasi otomatis dijeda — masuk untuk melanjutkan."
 
@@ -2435,6 +2503,14 @@ msgstr "Otomatis"
 #: src/components/settings/NetworkAccessSection.tsx
 msgid "Automatic picks a free port each start. Choose a fixed port to keep the same address across restarts."
 msgstr "Otomatis memilih port bebas setiap kali dimulai. Pilih port tetap untuk mempertahankan alamat yang sama di seluruh mulai ulang."
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "Automatic updates"
+msgstr "Pembaruan otomatis"
+
+#: src/components/settings/AboutSection.tsx
+msgid "Automatic updates are not available right now."
+msgstr "Pembaruan otomatis saat ini tidak tersedia."
 
 #: src/components/PublishToGitHubDialog.tsx
 msgid "Available"
@@ -2531,6 +2607,11 @@ msgstr "Judul bagian besar."
 #: src/components/empty-state/use-create-suggestions.ts
 msgid "Bird wiki"
 msgstr "Wiki burung"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "Bitbucket"
+msgstr "Bitbucket"
 
 #: src/components/NewItemDialog.tsx
 msgid "Blank note"
@@ -2879,6 +2960,10 @@ msgid "Chat name"
 msgstr "Nama obrolan"
 
 #: src/components/command-palette-commands.ts
+#: src/components/HelpPopover.tsx
+#: src/components/settings/AboutSection.tsx
+#: src/components/settings/SettingsDialogShell.tsx
+#: src/components/UpdateNotices.shared.ts
 msgid "Check for updates"
 msgstr "Periksa pembaruan"
 
@@ -2930,6 +3015,7 @@ msgstr "Mencari agen"
 msgid "Checking for Slidev"
 msgstr "Mencari Slidev"
 
+#: src/components/settings/AboutSection.tsx
 #: src/components/SyncStatusBadge.tsx
 msgid "Checking for updates"
 msgstr "Memeriksa pembaruan"
@@ -2939,6 +3025,7 @@ msgstr "Memeriksa pembaruan"
 msgid "Checking for updates on GitHub"
 msgstr "Memeriksa pembaruan di GitHub"
 
+#: src/components/settings/SettingsDialogShell.tsx
 #: src/components/UpdateNotices.shared.ts
 msgid "Checking for updates…"
 msgstr "Memeriksa pembaruan…"
@@ -3058,8 +3145,8 @@ msgid "Choose where to send this message"
 msgstr "Pilih ke mana pesan ini dikirim"
 
 #: src/components/settings/SharingSection.tsx
-msgid "Choose whether this project's OpenKnowledge setup, including its AI-tool connections, is saved with the project so teammates get it too, or kept only on your computer."
-msgstr "Pilih apakah penyiapan OpenKnowledge proyek ini, termasuk koneksi alat AI-nya, disimpan bersama proyek agar rekan tim juga mendapatkannya, atau disimpan hanya di komputer Anda."
+msgid "Choose whether this project's OpenKnowledge setup, including its AI-tool connections and the Shared default sync mode, is saved with the project so teammates get it too, or kept only on your computer."
+msgstr "Pilih apakah penyiapan OpenKnowledge proyek ini, termasuk koneksi alat AI-nya dan mode sinkronisasi Bawaan bersama, disimpan bersama proyek agar rekan tim juga mendapatkannya, atau disimpan hanya di komputer Anda."
 
 #: src/components/settings/AgentConnectionsSection.tsx
 msgid "Choose which agents appear in agent menus across the app, and set them up to read and update your documents."
@@ -3297,6 +3384,10 @@ msgstr "Tutup terminal"
 #: src/components/acp/ThreadHistoryPanel.tsx
 msgid "Close this chat's tab to delete it"
 msgstr "Tutup tab obrolan ini untuk menghapusnya"
+
+#: src/editor/image-upload/upload-admission.ts
+msgid "Close this preview, then open the folder to upload files"
+msgstr "Tutup pratinjau ini, lalu buka folder untuk mengunggah file"
 
 #: src/components/NoteWindowDeletedState.tsx
 msgid "Close window"
@@ -3601,8 +3692,8 @@ msgid "Connect"
 msgstr "Hubungkan"
 
 #: src/components/settings/AccountSection.tsx
-msgid "Connect a GitHub account to browse and sync your repositories."
-msgstr "Hubungkan akun GitHub untuk menelusuri dan menyinkronkan repositori Anda."
+msgid "Connect a GitHub account to browse and publish GitHub repositories."
+msgstr "Hubungkan akun GitHub untuk menjelajahi dan menerbitkan repositori GitHub."
 
 #: src/components/settings/SyncSection.tsx
 msgid "Connect an existing repository"
@@ -3660,7 +3751,6 @@ msgid "Connected — this endpoint returns {0}-dimension vectors."
 msgstr "Terhubung — endpoint ini mengembalikan vektor berdimensi {0}."
 
 #: src/components/AuthModal.tsx
-#: src/components/settings/AccountSection.tsx
 msgid "Connected as @{login}"
 msgstr "Terhubung sebagai @{login}"
 
@@ -3671,6 +3761,10 @@ msgstr "Terhubung sebagai <0>@{signedInLogin}</0>"
 #: src/components/settings/SyncSection.tsx
 msgid "Connected to"
 msgstr "Terhubung ke"
+
+#: src/components/settings/AccountSection.tsx
+msgid "Connected to {host} as @{login}"
+msgstr "Terhubung ke {host} sebagai @{login}"
 
 #: src/components/AuthModal.tsx
 msgid "Connected to GitHub"
@@ -3694,6 +3788,7 @@ msgid "Connection dropped"
 msgstr "Koneksi terputus"
 
 #: src/components/AuthModal.tsx
+#: src/components/settings/AccountSection.tsx
 #: src/lib/transports/auth-transport.ts
 msgid "Connection error — try again"
 msgstr "Galat koneksi — coba lagi"
@@ -4409,6 +4504,10 @@ msgstr "Endpoint tidak bisa dihubungi. Periksa URL-nya dan pastikan servernya me
 msgid "Couldn't reach the Open Knowledge server to upload {fileName}."
 msgstr "Server Open Knowledge tidak bisa dihubungi untuk mengunggah {fileName}."
 
+#: src/components/settings/SyncSection.tsx
+msgid "Couldn't reach the OpenKnowledge server, so sync options are hidden. They appear here as soon as the sync status loads; closing and reopening Settings also retries."
+msgstr "Tidak dapat menghubungi server OpenKnowledge, jadi opsi sinkronisasi disembunyikan. Opsi akan muncul di sini begitu status sinkronisasi dimuat; menutup lalu membuka kembali Pengaturan juga akan mencoba lagi."
+
 #: src/components/acp/ThreadView.tsx
 #: src/editor/use-composer-attachments.ts
 msgid "Couldn't read {fileName}."
@@ -4557,6 +4656,10 @@ msgstr "Kuncinya tidak bisa disimpan — silakan coba lagi."
 #: src/components/DiffViewBoundary.tsx
 msgid "Couldn't save the resolution for {filePath}."
 msgstr "Penyelesaian untuk {filePath} tidak bisa disimpan."
+
+#: src/components/settings/AboutSection.tsx
+msgid "Couldn't save this setting. Try again."
+msgstr "Pengaturan ini tidak dapat disimpan. Coba lagi."
 
 #: src/components/McpConsentDialogBody.tsx
 msgid "Couldn't save your theme preference."
@@ -5319,6 +5422,8 @@ msgstr "Struktur dokumen"
 msgid "Document the architecture of this repo: create an overview page that links to a page per major module describing its responsibilities and entry points."
 msgstr "Dokumentasikan arsitektur repo ini: buat halaman ikhtisar yang menaut ke satu halaman per modul utama yang menjelaskan tanggung jawab dan titik masuknya."
 
+#: src/components/AppMenubar.tsx
+#: src/components/command-palette-commands.ts
 #: src/components/settings/markdownlint-rule-browser.tsx
 msgid "Documentation"
 msgstr "Dokumentasi"
@@ -5378,6 +5483,10 @@ msgstr "Klik dua kali untuk menyunting"
 #: src/components/acp/ThreadView.tsx
 msgid "Download {0}"
 msgstr "Unduh {0}"
+
+#: src/components/settings/AboutSection.tsx
+msgid "Download and install updates automatically"
+msgstr "Unduh dan pasang pembaruan secara otomatis"
 
 #: src/components/HelpPopover.tsx
 msgid "Download app"
@@ -5933,6 +6042,10 @@ msgstr "Masukkan bilangan bulat antara {minimum} dan {maximum}."
 msgid "Enter at least 3 characters to search by meaning."
 msgstr "Masukkan minimal 3 karakter untuk mencari berdasarkan makna."
 
+#: src/components/settings/AccountSection.tsx
+msgid "Enter the host name git connects to, with an optional :port and no scheme or path, for example git.example.com."
+msgstr "Masukkan nama host yang dihubungi git, dengan :port opsional dan tanpa skema atau path, misalnya git.example.com."
+
 #: src/components/settings/NetworkAccessSection.tsx
 msgid "Enter the public origin your tunnel serves, for example https://notes.example.com"
 msgstr "Masukkan origin publik yang dilayani tunnel Anda, misalnya https://notes.example.com"
@@ -5997,6 +6110,18 @@ msgstr "Papan Excalidraw gagal dimuat."
 #: src/components/ExcalidrawDocEditor.tsx
 msgid "Excalidraw canvas"
 msgstr "Kanvas Excalidraw"
+
+#: src/components/LinksPanel.tsx
+msgid "Excluded"
+msgstr "Dikecualikan"
+
+#: src/components/LinksPanel.tsx
+msgid "Excluded file {identity}. Go to reference."
+msgstr "File {identity} dikecualikan. Buka referensi."
+
+#: src/components/LinksPanel.tsx
+msgid "Excluded image {identity}. Go to reference."
+msgstr "Gambar {identity} dikecualikan. Buka referensi."
 
 #: src/components/NewWorktreeDialog.tsx
 msgid "Existing branch <0>{trimmed}</0> will be checked out into its own window, under <1>.ok/worktrees/</1>."
@@ -6408,6 +6533,7 @@ msgid "Failed to start sign-in — try again"
 msgstr "Gagal memulai proses masuk — coba lagi"
 
 #: src/components/AuthModal.tsx
+#: src/components/settings/AccountSection.tsx
 #: src/lib/transports/auth-transport.ts
 msgid "Failed to store the token — try again"
 msgstr "Gagal menyimpan token — coba lagi"
@@ -6878,8 +7004,18 @@ msgstr "Mengambil tautan yang membuka proyek ini atau sebuah dokumen di aplikasi
 
 #: src/components/settings/SettingsDialogShell.tsx
 msgctxt "settings search keyword"
+msgid "gh"
+msgstr "gh"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
 msgid "GHES"
 msgstr "GHES"
+
+#: src/components/settings/AccountSection.tsx
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "Git"
+msgstr "Git"
 
 #: src/components/ExploreSkills.tsx
 msgid "Git & PRs"
@@ -6888,6 +7024,10 @@ msgstr "Git & PR"
 #: src/components/ShareFreshnessWarning.tsx
 msgid "Git can't track this folder — it's empty or contains only ignored files. The link won't work until you add a tracked document."
 msgstr "Git tidak bisa melacak folder ini — folder ini kosong atau hanya berisi berkas yang diabaikan. Tautannya tidak akan berfungsi sampai Anda menambahkan dokumen yang dilacak."
+
+#: src/hooks/use-sync-auth-prompt.ts
+msgid "Git couldn't authenticate with this host. Check the SSH key or saved credentials git uses for it."
+msgstr "git tidak dapat mengautentikasi ke host ini. Periksa kunci SSH atau kredensial tersimpan yang dipakai git untuk host tersebut."
 
 #: src/components/RecentProjectsMenu.tsx
 msgid "Git has locked this worktree, but it can still be opened."
@@ -6927,9 +7067,19 @@ msgstr "Sinkronisasi git"
 msgid "Git syncing is paused because a Git operation or unresolved conflicts need attention. Your edits still save locally. Finish the operation or resolve the conflicts in your terminal, then retry sync."
 msgstr "Sinkronisasi Git dijeda karena ada operasi Git atau konflik yang belum terselesaikan yang perlu ditangani. Perubahan Anda tetap disimpan secara lokal. Selesaikan operasi atau konflik tersebut di terminal, lalu coba sinkronkan lagi."
 
+#: src/components/settings/AccountSection.tsx
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "GitHub"
+msgstr "GitHub"
+
 #: src/components/SyncStatusBadge.tsx
 msgid "GitHub authentication failed. Try signing in again."
 msgstr "Autentikasi GitHub gagal. Coba masuk lagi."
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "GitHub CLI"
+msgstr "GitHub CLI"
 
 #: src/lib/share/publish-wizard.ts
 msgid "GitHub connection expired. Connect again to continue."
@@ -6948,10 +7098,6 @@ msgstr "Host GitHub Enterprise Server"
 msgid "GitHub sign-in is missing or expired. Reconnect to resume syncing."
 msgstr "Status masuk GitHub tidak ada atau kedaluwarsa. Sambungkan ulang untuk melanjutkan sinkronisasi."
 
-#: src/components/settings/AccountSection.tsx
-msgid "GitHub sign-in isn't available for this project"
-msgstr "Masuk ke GitHub tidak tersedia untuk proyek ini"
-
 #: src/components/ImportSkillForm.tsx
 msgid "GitHub, a git URL, or a local path."
 msgstr "GitHub, sebuah URL git, atau jalur lokal."
@@ -6959,6 +7105,11 @@ msgstr "GitHub, sebuah URL git, atau jalur lokal."
 #: src/components/settings/EnterpriseHostsSection.tsx
 msgid "github.com is always recognized, so it doesn't need to be added."
 msgstr "github.com selalu dikenali, jadi tidak perlu ditambahkan."
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "GitLab"
+msgstr "GitLab"
 
 #: src/components/settings/SavedThemesTiles.tsx
 msgid "Give it a name before editing its colors."
@@ -7314,6 +7465,10 @@ msgstr "Deretan pil mendatar + panel aktif di bawahnya; klik sebuah pil untuk be
 msgid "Horizontal rule that divides sections."
 msgstr "Garis mendatar yang memisahkan bagian."
 
+#: src/components/settings/AccountSection.tsx
+msgid "Host"
+msgstr "Host"
+
 #: src/components/settings/NetworkAccessSection.tsx
 msgid "Hosting is on. The server is running on port {boundPort}. Reach it through your tunnel."
 msgstr "Hosting aktif. Server berjalan di port {boundPort}. Akses melalui tunnel Anda."
@@ -7484,6 +7639,10 @@ msgstr "Target gambar \"{shown}\" tidak dapat dicocokkan dengan file lokal proye
 #: src/editor/localized-validation-message.ts
 msgid "Image target \"{shown}\" does not resolve to an existing file."
 msgstr "Target gambar \"{shown}\" tidak merujuk ke file yang ada."
+
+#: src/editor/localized-validation-message.ts
+msgid "Image target \"{shown}\" exists but is excluded by .gitignore or .okignore. Re-include it, or its folder, with a \"!\" rule in .okignore."
+msgstr "Target gambar \"{shown}\" ada, tetapi dikecualikan oleh .gitignore atau .okignore. Sertakan kembali file itu, atau foldernya, dengan aturan \"!\" di .okignore."
 
 #: src/components/ReportBugDialogBody.tsx
 msgid "Images aren't redacted."
@@ -7971,8 +8130,24 @@ msgid "Invalid YAML"
 msgstr "YAML tidak valid"
 
 #: src/components/ReportBugDialogBody.tsx
+msgid "It also adds any display-connection errors OpenKnowledge wrote to your user journal in the past week, each message cut to 200 characters."
+msgstr "Ini juga menambahkan galat koneksi layar yang ditulis OpenKnowledge ke jurnal pengguna Anda dalam seminggu terakhir, dengan setiap pesan dipotong menjadi 200 karakter."
+
+#: src/components/ReportBugDialogBody.tsx
+msgid "It also adds the crash and hang records Windows logged for OpenKnowledge in the past week, without file paths, and the times of every shutdown, restart, power loss, and low-memory warning on this computer in that week, whatever caused them."
+msgstr "Ini juga menambahkan catatan crash dan macet yang dicatat Windows untuk OpenKnowledge dalam seminggu terakhir, tanpa jalur file, serta waktu setiap pematian, mulai ulang, listrik padam, dan peringatan memori rendah di komputer ini selama minggu itu, apa pun penyebabnya."
+
+#: src/components/ReportBugDialogBody.tsx
 msgid "It also adds the crash reports macOS recorded for OpenKnowledge and its helper processes, never another app's report, though ours do name the processes they were running alongside. Each one carries machine details macOS puts in every report: your account uid, the Mac model, and the name of the process that launched the app. On a managed machine, that launching process can be internal tooling. The identifiers that would link the bug reports you file to each other are replaced first, so a collected report is not byte-identical to the one macOS wrote."
 msgstr "Juga menambahkan laporan kerusakan yang dicatat macOS untuk OpenKnowledge dan proses pembantunya, tidak pernah laporan aplikasi lain, meskipun laporan kami menyebutkan proses-proses yang berjalan berdampingan dengannya. Masing-masing memuat detail mesin yang dicantumkan macOS di setiap laporan: uid akun Anda, model Mac, dan nama proses yang meluncurkan aplikasi. Pada mesin terkelola, proses peluncur itu bisa berupa perkakas internal. Pengidentifikasi yang akan menghubungkan laporan bug yang Anda kirim satu sama lain diganti terlebih dahulu, sehingga laporan yang dikumpulkan tidak identik byte per byte dengan yang ditulis macOS."
+
+#: src/components/ReportBugDialogBody.tsx
+msgid "It also adds the low-memory reports macOS wrote in the past week that list OpenKnowledge's processes, with each one's memory use and whether macOS ended it."
+msgstr "Ini juga menambahkan laporan memori rendah yang ditulis macOS dalam seminggu terakhir yang mencantumkan proses OpenKnowledge, beserta penggunaan memori masing-masing dan apakah macOS menghentikannya."
+
+#: src/components/ReportBugDialogBody.tsx
+msgid "It also adds the out-of-memory kills of OpenKnowledge that the system journal recorded in the past week, without the machine name, account id, or folder paths."
+msgstr "Ini juga menambahkan penghentian OpenKnowledge karena kehabisan memori yang dicatat jurnal sistem dalam seminggu terakhir, tanpa nama mesin, ID akun, atau jalur folder."
 
 #. placeholder {0}: prompt.cwd
 #. placeholder {1}: prompt.agentName
@@ -8005,6 +8180,8 @@ msgstr "Miring"
 msgid "Item {0}"
 msgstr "Item {0}"
 
+#: src/components/AppMenubar.tsx
+#: src/components/command-palette-commands.ts
 #: src/components/SubscribeCard.tsx
 msgid "Join us on Discord"
 msgstr "Gabung dengan kami di Discord"
@@ -8265,6 +8442,10 @@ msgstr "Target tautan \"{shown}\" tidak merujuk ke dokumen yang ada."
 msgid "Link target \"{shown}\" does not resolve to an existing file."
 msgstr "Target tautan \"{shown}\" tidak merujuk ke file yang ada."
 
+#: src/editor/localized-validation-message.ts
+msgid "Link target \"{shown}\" exists but is excluded by .gitignore or .okignore. Re-include it, or its folder, with a \"!\" rule in .okignore."
+msgstr "Target tautan \"{shown}\" ada, tetapi dikecualikan oleh .gitignore atau .okignore. Sertakan kembali file itu, atau foldernya, dengan aturan \"!\" di .okignore."
+
 #: src/lib/keyboard-shortcuts.ts
 msgid "Link the selected text, or edit the link under the caret."
 msgstr "Menautkan teks yang dipilih, atau menyunting tautan di bawah kursor."
@@ -8452,6 +8633,10 @@ msgstr "Memuat keterampilan"
 msgid "Loading starter packs"
 msgstr "Memuat paket awal"
 
+#: src/components/settings/SyncSection.tsx
+msgid "Loading sync status"
+msgstr "Memuat status sinkronisasi"
+
 #: src/components/CommandPalette.tsx
 #: src/editor/tag-suggestion/TagSuggestionMenu.tsx
 msgid "Loading tags"
@@ -8607,8 +8792,8 @@ msgid "Manage skill folders"
 msgstr "Kelola folder keterampilan"
 
 #: src/components/settings/AccountSection.tsx
-msgid "Manage the GitHub account OpenKnowledge uses to browse and sync your repositories."
-msgstr "Kelola akun GitHub yang dipakai OpenKnowledge untuk menelusuri dan menyinkronkan repositori Anda."
+msgid "Manage the accounts and access tokens OpenKnowledge uses to connect to your git hosts."
+msgstr "Kelola akun dan token akses yang dipakai OpenKnowledge untuk terhubung ke host git Anda."
 
 #: src/components/settings/AgentConnectionDialogs.tsx
 #: src/components/settings/AgentConnectionsSection.tsx
@@ -8752,6 +8937,12 @@ msgstr "Sumber cermin <0>api-spec</0>"
 #: src/components/LinksPanel.tsx
 msgid "Missing"
 msgstr "Hilang"
+
+#. placeholder {0}: error.slots.length
+#. placeholder {1}: error.slots.join(', ')
+#: src/components/settings/CustomThemeEditor.tsx
+msgid "Missing {0} slot(s): {1}"
+msgstr "Slot warna yang belum ada ({0}): {1}"
 
 #: src/components/FeedbackForm.tsx
 msgid "Missing a feature"
@@ -9339,10 +9530,12 @@ msgstr "Belum ada agen yang disiapkan — pilih satu dari menu kirim."
 msgid "no agents — saved, not installed anywhere"
 msgstr "tanpa agen — disimpan, tidak dipasang di mana pun"
 
+#. Composer hint when no agent is set up; agentConnectionsLabel is the Settings sidebar pane name
+#. Composer hint when no agent is set up; agentConnectionsLabel is the Settings sidebar pane name
 #: src/components/BottomComposer.tsx
 #: src/components/empty-state/CreatePromptComposer.tsx
-msgid "No agents are set up yet — add an in-app agent in Agent connections to attach files."
-msgstr "Belum ada agen yang disiapkan — untuk melampirkan berkas, tambahkan agen dalam aplikasi lewat Koneksi agen."
+msgid "No agents are set up yet — add an in-app agent in {agentConnectionsLabel} to attach files."
+msgstr "Belum ada agen yang disiapkan — untuk melampirkan berkas, tambahkan agen dalam aplikasi lewat {agentConnectionsLabel}."
 
 #: src/components/settings/AgentConnectionsSection.tsx
 msgid "No agents available."
@@ -9365,10 +9558,10 @@ msgstr "Tidak ada agen yang cocok dengan pencarian Anda."
 msgid "No AI agents installed"
 msgstr "Tidak ada agen AI yang terpasang"
 
-#. Shown in place of the AI-tools checkbox when no AI tool was detected
+#. Shown in place of the AI-tools checkbox when no AI tool was detected; agentConnectionsLabel is the Settings sidebar pane name
 #: src/components/McpConsentDialogBody.tsx
-msgid "No AI tools detected yet. Once you install one, connect it from Settings > AI tools & CLI."
-msgstr "Belum ada alat AI yang terdeteksi. Setelah Anda memasang satu, hubungkan dari Pengaturan > Alat AI & CLI."
+msgid "No AI tools detected yet. Once you install one, connect it from Settings > {agentConnectionsLabel}."
+msgstr "Belum ada alat AI yang terdeteksi. Setelah Anda memasang satu, hubungkan dari Pengaturan > {agentConnectionsLabel}."
 
 #: src/components/ProjectAiToolsField.tsx
 msgid "No AI tools detected yet. Once you install one, connect it from Settings > This project."
@@ -9437,6 +9630,10 @@ msgstr "Tidak ada perubahan isi pada versi ini."
 #: src/components/TimelineDiffPane.tsx
 msgid "No content changes in this version"
 msgstr "Tidak ada perubahan isi pada versi ini"
+
+#: src/components/SyncStatusBadge.tsx
+msgid "No credential is stored for this git host. Add a token in Settings, or let git use the credentials it already has."
+msgstr "Tidak ada kredensial yang tersimpan untuk host git ini. Tambahkan token di Pengaturan, atau biarkan git memakai kredensial yang sudah dimilikinya."
 
 #: src/components/GraphPanel.tsx
 msgid "No disconnected pages. Pages appear here only when they have no incoming and no outgoing graph edges."
@@ -9744,6 +9941,15 @@ msgstr "Tidak satu pun masalah ini punya perbaikan otomatis. Coba Perbaiki semua
 msgid "Not a base16 theme"
 msgstr "Bukan tema base16"
 
+#. placeholder {0}: error.slots.join(', ')
+#: src/components/settings/CustomThemeEditor.tsx
+msgid "Not a hex color: {0}"
+msgstr "Bukan warna heksa: {0}"
+
+#: src/components/SkillConsentRow.tsx
+msgid "Not added to any AI tool yet."
+msgstr "Belum ditambahkan ke alat AI mana pun."
+
 #: src/components/acp/ThreadView.tsx
 msgid "Not answered"
 msgstr "Belum dijawab"
@@ -9801,6 +10007,7 @@ msgstr "Belum terpasang di proyek ini."
 #: src/components/ReportBugDialogBody.tsx
 #: src/components/settings/SkillsStudioIntroDialog.tsx
 #: src/lib/install-server-drift-listener.ts
+#: src/lib/install-stale-tab-reload-prompt.ts
 msgid "Not now"
 msgstr "Nanti saja"
 
@@ -10193,6 +10400,10 @@ msgid "Open it there"
 msgstr "Buka di sana"
 
 #: src/components/settings/LintingSection.tsx
+msgid "Open Knowledge could not reach the project server to check index maintenance. The status updates when the project reconnects."
+msgstr "Open Knowledge tidak dapat menjangkau server proyek untuk memeriksa pemeliharaan indeks. Status akan diperbarui saat proyek tersambung kembali."
+
+#: src/components/settings/LintingSection.tsx
 msgid "Open Knowledge creates and maintains a navigation file named index.md in every folder that contains Markdown."
 msgstr "Open Knowledge membuat dan memelihara file navigasi bernama index.md di setiap folder yang berisi Markdown."
 
@@ -10390,6 +10601,10 @@ msgstr "Membuka..."
 msgid "OpenKnowledge"
 msgstr "OpenKnowledge"
 
+#: src/components/AuthModal.tsx
+msgid "OpenKnowledge can't sign in to GitHub for this project."
+msgstr "OpenKnowledge tidak dapat masuk ke GitHub untuk proyek ini."
+
 #: src/lib/acp/tool-call-display.ts
 msgid "OpenKnowledge checked {subject}"
 msgstr "OpenKnowledge memeriksa {subject}"
@@ -10398,13 +10613,13 @@ msgstr "OpenKnowledge memeriksa {subject}"
 msgid "OpenKnowledge checked the project"
 msgstr "OpenKnowledge memeriksa proyek"
 
+#: src/components/settings/AboutSection.tsx
+msgid "OpenKnowledge checks for and downloads updates in the background."
+msgstr "OpenKnowledge memeriksa dan mengunduh pembaruan di latar belakang."
+
 #: src/components/settings/AgentConnectionDialogs.tsx
 msgid "OpenKnowledge could not find this agent on this machine."
 msgstr "OpenKnowledge tidak menemukan agen ini di mesin ini."
-
-#: src/components/settings/AccountSection.tsx
-msgid "OpenKnowledge couldn't find a host name in this project's git remote, so it can't tell which GitHub server to sign in to."
-msgstr "OpenKnowledge tidak menemukan nama host di remote git proyek ini, jadi tidak dapat mengetahui server GitHub mana yang harus dimasuki."
 
 #: src/lib/worktree-create-error.ts
 msgid "OpenKnowledge couldn't finish setting up this project. The worktree was created but not opened."
@@ -10450,6 +10665,10 @@ msgstr "OpenKnowledge tidak mengenali entri ini, dan tidak dapat menggantinya de
 msgid "OpenKnowledge does not recognize this entry. Turning it on replaces it."
 msgstr "OpenKnowledge tidak mengenali entri ini. Mengaktifkannya akan menggantinya."
 
+#: src/components/settings/AboutSection.tsx
+msgid "OpenKnowledge doesn't check for or download updates on its own. Check for updates still works when you want a newer version."
+msgstr "OpenKnowledge tidak memeriksa atau mengunduh pembaruan dengan sendirinya. Periksa pembaruan tetap berfungsi saat Anda menginginkan versi yang lebih baru."
+
 #: src/lib/acp/tool-call-display.ts
 msgid "OpenKnowledge edited {subject}"
 msgstr "OpenKnowledge menyunting {subject}"
@@ -10461,6 +10680,10 @@ msgstr "OpenKnowledge menyunting sebuah dokumen"
 #: src/uninstall/UninstallResultScreen.tsx
 msgid "OpenKnowledge files were removed"
 msgstr "File OpenKnowledge telah dihapus"
+
+#: src/hooks/use-sync-auth-prompt.ts
+msgid "OpenKnowledge has no credential stored for this host. Add a token in Settings, or let git use the credentials it already has."
+msgstr "OpenKnowledge tidak menyimpan kredensial apa pun untuk host ini. Tambahkan token di Pengaturan, atau biarkan git memakai kredensial yang sudah dimilikinya."
 
 #: src/lib/acp/tool-call-display.ts
 msgid "OpenKnowledge imported {source}"
@@ -10491,12 +10714,12 @@ msgid "OpenKnowledge is set up at the repository root here, so the pack goes ins
 msgstr "Di sini OpenKnowledge disiapkan di root repositori, jadi paket ditempatkan di dalam <0>{sanitized}</0> alih-alih di puncak repositori."
 
 #: src/components/settings/AccountSection.tsx
-msgid "OpenKnowledge is using a GitHub account provided by the gh CLI. There's no separate OpenKnowledge credential to disconnect."
-msgstr "OpenKnowledge memakai akun GitHub yang disediakan CLI gh. Tidak ada kredensial OpenKnowledge terpisah yang perlu diputus."
-
-#: src/components/settings/AccountSection.tsx
 msgid "OpenKnowledge is using this GitHub account."
 msgstr "OpenKnowledge memakai akun GitHub ini."
+
+#: src/components/settings/SettingsDialogBody.tsx
+msgid "OpenKnowledge keeps retrying and shows them as soon as the file can be read."
+msgstr "OpenKnowledge terus mencoba lagi dan akan menampilkannya segera setelah berkas dapat dibaca."
 
 #: src/components/settings/AgentConnectionDialogs.tsx
 msgid "OpenKnowledge left this file alone because it could not parse it safely. Fix the file by hand, then try again."
@@ -10538,6 +10761,14 @@ msgstr "OpenKnowledge memindahkan sebuah dokumen"
 #: src/components/command-palette-commands.ts
 msgid "OpenKnowledge on GitHub"
 msgstr "OpenKnowledge di GitHub"
+
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "OpenKnowledge on this computer changed to a different build, but this tab is still running the old one."
+msgstr "OpenKnowledge di komputer ini berganti ke build lain, tetapi tab ini masih menjalankan yang lama."
+
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "OpenKnowledge on this computer is now v{serverVersion}, but this tab is still running v{tabVersion}."
+msgstr "OpenKnowledge di komputer ini sekarang v{serverVersion}, tetapi tab ini masih menjalankan v{tabVersion}."
 
 #: src/lib/acp/tool-call-display.ts
 msgid "OpenKnowledge opened the live preview"
@@ -10689,6 +10920,11 @@ msgstr "lainnya"
 #: src/components/FeedbackForm.tsx
 msgid "Other"
 msgstr "Lainnya"
+
+#: src/components/settings/AccountSection.tsx
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "Other Git hosts"
+msgstr "Host Git lainnya"
 
 #: src/components/settings/SharingSection.tsx
 msgid "Other OK paths are tracked upstream:"
@@ -11242,6 +11478,10 @@ msgstr "Detail proyek"
 msgid "Project folder created, but git init failed. Try again."
 msgstr "Folder proyek dibuat, tetapi git init gagal. Coba lagi."
 
+#: src/components/ConsentDialogBody.tsx
+msgid "Project folder: <0>{projectDir}</0>"
+msgstr "Folder proyek: <0>{projectDir}</0>"
+
 #: src/components/settings/AgentConnectionDialogs.tsx
 msgid "Project MCP server"
 msgstr "Server MCP proyek"
@@ -11315,6 +11555,10 @@ msgstr "Nilai properti"
 #: src/components/SyncStatusBadge.tsx
 msgid "Protected branch — cannot push"
 msgstr "Cabang terlindungi — tidak bisa push"
+
+#: src/components/settings/AccountSection.tsx
+msgid "Provided by the GitHub CLI (<0>gh</0>) on this computer. To switch accounts or sign out, run <1>gh auth</1> in a terminal."
+msgstr "Disediakan oleh GitHub CLI (<0>gh</0>) di komputer ini. Untuk berganti akun atau keluar, jalankan <1>gh auth</1> di terminal."
 
 #: src/components/TemplateForm.tsx
 msgid "provisional"
@@ -11624,6 +11868,14 @@ msgstr "Perlu menyambung ulang"
 msgid "Reconnect required to keep syncing."
 msgstr "Perlu menyambung ulang untuk melanjutkan sinkronisasi."
 
+#: src/components/SyncStatusBadge.tsx
+msgid "Reconnect required to keep syncing. Add a token for this host in Settings, or replace the one stored."
+msgstr "Perlu menyambung ulang untuk melanjutkan sinkronisasi. Tambahkan token untuk host ini di Pengaturan, atau ganti token yang tersimpan."
+
+#: src/components/SyncStatusBadge.tsx
+msgid "Reconnect required to keep syncing. Check the SSH key or saved credentials git uses for this host."
+msgstr "Perlu menyambung ulang untuk melanjutkan sinkronisasi. Periksa kunci SSH atau kredensial tersimpan yang dipakai git untuk host ini."
+
 #: src/presence/use-sync-toasts.ts
 msgid "Reconnected"
 msgstr "Tersambung kembali"
@@ -11702,6 +11954,7 @@ msgstr "Jalur Relatif"
 msgid "Relaunching to install the update…"
 msgstr "Memulai ulang untuk memasang pembaruannya…"
 
+#: src/components/settings/AboutSection.tsx
 #: src/components/settings/SettingsDialogShell.tsx
 #: src/components/SubscribeCard.tsx
 msgid "Release notes"
@@ -11721,10 +11974,15 @@ msgstr "Relevansi"
 #: src/components/settings/SettingsDialogErrorBoundary.tsx
 #: src/components/TerminalGate.tsx
 #: src/components/TerminalStartingNotice.tsx
+#: src/lib/install-stale-tab-reload-prompt.ts
 #: src/lib/locale-load-failure-notice.ts
 #: src/lib/native-menu-catalog.ts
 msgid "Reload"
 msgstr "Muat ulang"
+
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "Reload this tab to bring it up to date. Your edits are saved before it reloads."
+msgstr "Muat ulang tab ini untuk memperbaruinya. Suntingan Anda disimpan sebelum tab dimuat ulang."
 
 #: src/components/NewWorktreeDialog.tsx
 msgid "remote"
@@ -11971,6 +12229,7 @@ msgid "Renaming changes the file on disk and the id agents use to pick this temp
 msgstr "Mengganti nama mengubah berkas di disk dan id yang dipakai agen untuk memilih templat ini."
 
 #: src/editor/utils/severity.ts
+#: src/lib/rendered-diff/diff-jsx-block.tsx
 msgid "render error"
 msgstr "galat render"
 
@@ -12567,6 +12826,10 @@ msgstr "Menyimpan"
 msgid "Saving changes…"
 msgstr "Menyimpan perubahan…"
 
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "Saving your edits before reloading…"
+msgstr "Menyimpan suntingan Anda sebelum memuat ulang…"
+
 #: src/components/settings/LintingSection.tsx
 msgid "schema {deleteTarget}"
 msgstr "skema {deleteTarget}"
@@ -13085,10 +13348,6 @@ msgstr "Setel identitas"
 #: src/components/settings/plugin-enabled-notice.ts
 msgid "Set it up on its own page under Plugins."
 msgstr "Siapkan di halamannya sendiri di bawah Plugin."
-
-#: src/components/settings/SyncSection.tsx
-msgid "Set the sync default for users opening this project for the first time. This setting is committed to your repository."
-msgstr "Setel sinkronisasi bawaan untuk pengguna yang membuka proyek ini pertama kali. Pengaturan ini disimpan di repositori Anda."
 
 #: src/components/command-palette-commands.ts
 msgid "Set up OpenKnowledge integrations"
@@ -13659,6 +13918,14 @@ msgstr "Beberapa pemeriksaan gagal, tetapi masih bisa di-merge"
 msgid "Some dropped files could not be inserted safely."
 msgstr "Beberapa file yang dilepas tidak dapat disisipkan dengan aman."
 
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "Some edits haven't reached the server yet, so the tab didn't reload. Open {docs} to save them, then reload."
+msgstr "Beberapa suntingan belum sampai ke server, jadi tab tidak dimuat ulang. Buka {docs} untuk menyimpannya, lalu muat ulang."
+
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "Some edits haven't reached the server yet, so the tab didn't reload. Your edits are still here."
+msgstr "Beberapa suntingan belum sampai ke server, jadi tab tidak dimuat ulang. Suntingan Anda masih ada di sini."
+
 #: src/components/SyncStatusBadge.tsx
 msgid "Some files are not listed — the working tree has too many changes."
 msgstr "Sebagian file tidak ditampilkan: working tree memiliki terlalu banyak perubahan."
@@ -13674,6 +13941,10 @@ msgstr "Beberapa tema tersimpan tidak ditampilkan karena folder tema melewati ba
 #: src/components/SkillBulkDeleteDialog.tsx
 msgid "Some skills were deleted with a warning"
 msgstr "Beberapa keterampilan dihapus dengan peringatan"
+
+#: src/components/empty-state/CreateView.tsx
+msgid "Some templates may not be listed because this knowledge base has too many folders to scan. To see a folder's templates, open its menu in the file tree and choose New from template."
+msgstr "Beberapa templat mungkin tidak tercantum karena basis pengetahuan ini memiliki terlalu banyak folder untuk dipindai. Untuk melihat templat sebuah folder, buka menunya di pohon berkas lalu pilih \"Baru dari templat\"."
 
 #: src/components/DiffViewBoundary.tsx
 msgid "Someone may have already resolved {filePath} — check the document's current content before redoing your edit."
@@ -14150,6 +14421,10 @@ msgstr "Sinkronisasi worktree ini disetel ke Manual, diwarisi dari {project}. Ub
 msgid "Sync is taking longer than usual — your changes are safe on this device."
 msgstr "Sinkronisasi memakan waktu lebih lama dari biasanya — perubahan Anda aman di perangkat ini."
 
+#: src/components/settings/SettingsDialogBody.tsx
+msgid "Sync keeps this computer's copy up to date with your Git remote. The shared settings below decide what teammates get when they open the project."
+msgstr "Sinkronisasi menjaga salinan di komputer ini tetap mutakhir dengan remote Git Anda. Pengaturan bersama di bawah menentukan apa yang didapat rekan tim saat mereka membuka proyek."
+
 #: src/components/SyncStatusBadge.tsx
 msgid "Sync mode"
 msgstr "Mode sinkronisasi"
@@ -14439,6 +14714,15 @@ msgstr "Itu tidak berhasil. Periksa log server lalu coba lagi."
 msgid "That document didn't open in time. Try again once it has synced."
 msgstr "Dokumen itu tidak terbuka tepat waktu. Coba lagi setelah tersinkronisasi."
 
+#. placeholder {0}: error.line
+#: src/components/settings/CustomThemeEditor.tsx
+msgid "That doesn’t parse as YAML or JSON — check line {0}."
+msgstr "Ini tidak dapat diurai sebagai YAML atau JSON — periksa baris {0}."
+
+#: src/components/settings/CustomThemeEditor.tsx
+msgid "That doesn’t parse as YAML or JSON."
+msgstr "Ini tidak dapat diurai sebagai YAML atau JSON."
+
 #: src/components/settings/SearchSection.tsx
 msgid "That endpoint can't be used. Enter an https:// URL — http:// is only allowed for loopback endpoints."
 msgstr "Endpoint itu tidak bisa dipakai. Masukkan URL https:// — http:// hanya diizinkan untuk endpoint loopback."
@@ -14467,6 +14751,10 @@ msgstr "Bahasa itu tidak tersedia untuk pemeriksaan ejaan."
 #: src/components/acp/ThreadView.tsx
 msgid "That message already went out — your edit wasn't applied."
 msgstr "Pesan itu sudah terkirim — hasil suntinganmu tidak diterapkan."
+
+#: src/components/settings/CustomThemeEditor.tsx
+msgid "That parsed, but it isn’t a base16 theme."
+msgstr "Berhasil diurai, tetapi ini bukan tema base16."
 
 #. placeholder {0}: item.displayName
 #: src/components/acp/ThreadView.tsx
@@ -14594,6 +14882,10 @@ msgstr "Percakapan tidak dapat ditambahkan ke laporan ini."
 #: src/lib/skills-api.ts
 msgid "The copy of \"{name}\" kept in {scopeLabel} is a redundant duplicate: the original was verified unchanged. Remove that copy, then retry the move."
 msgstr "Salinan “{name}” yang disimpan di {scopeLabel} adalah duplikat yang tidak diperlukan: aslinya sudah diverifikasi tidak berubah. Hapus salinan itu, lalu coba pemindahan lagi."
+
+#: src/components/ReportBugDialogBody.tsx
+msgid "The crash dump couldn't be added to this report."
+msgstr "Crash dump tidak dapat ditambahkan ke laporan ini."
 
 #: src/components/SyncStatusBadge.tsx
 msgid "The default branch is protected — pushes need a pull request."
@@ -14774,6 +15066,10 @@ msgstr "Permintaan untuk mengaktifkan alat Open Knowledge kedaluwarsa. Utas ini 
 msgid "The schema file does not exist or failed to load — adding a field creates it."
 msgstr "Berkas skemanya tidak ada atau gagal dimuat — menambahkan sebuah bidang akan membuatnya."
 
+#: src/components/settings/SyncSection.tsx
+msgid "The server couldn't read this project's sync status, so sync options are hidden. They appear here as soon as the sync status loads; closing and reopening Settings also retries."
+msgstr "Server tidak dapat membaca status sinkronisasi proyek ini, jadi opsi sinkronisasi disembunyikan. Opsi akan muncul di sini begitu status sinkronisasi dimuat; menutup lalu membuka kembali Pengaturan juga akan mencoba lagi."
+
 #: src/components/ConnectingBanner.tsx
 msgid "the server responded but server.lock has no port yet"
 msgstr "server merespons tetapi server.lock belum memiliki port"
@@ -14814,6 +15110,14 @@ msgstr "Daftar skill tidak cocok dengan skemanya."
 #: src/components/SkillInstallMenu.tsx
 msgid "The source folder itself does not move."
 msgstr "Folder sumbernya sendiri tidak berpindah."
+
+#: src/components/SyncStatusBadge.tsx
+msgid "The stored token is missing the permissions this host needs to push."
+msgstr "Token yang tersimpan tidak memiliki izin yang dibutuhkan host ini untuk melakukan push."
+
+#: src/components/settings/SyncSection.tsx
+msgid "The sync mode teammates start with the first time they open this project. It's saved in the project's OpenKnowledge settings, so it only reaches them when Config sharing below is set to Shared."
+msgstr "Mode sinkronisasi yang digunakan rekan tim saat pertama kali membuka proyek ini. Mode ini disimpan di pengaturan OpenKnowledge proyek, jadi hanya sampai ke mereka jika Berbagi konfigurasi di bawah diatur ke Dibagikan."
 
 #: src/components/TemplateProperties.tsx
 msgid "The template's filename (without `.md`)."
@@ -14872,6 +15176,10 @@ msgstr "Executable terminal.shell di .ok/local/config.yml tidak ditemukan. Shell
 #: src/components/AuthModal.tsx
 msgid "The token needs the repo and read:user scopes."
 msgstr "Token itu memerlukan cakupan repo dan read:user."
+
+#: src/components/settings/AccountSection.tsx
+msgid "The username git sends with the token. Some hosts expect a fixed value: type <0>x-bitbucket-api-token-auth</0> for a Bitbucket API token, <1>x-token-auth</1> for a Bitbucket repository or workspace access token, or <2>oauth2</2> for GitLab. For Gitea, use your Gitea username. Azure DevOps accepts any value."
+msgstr "Nama pengguna yang dikirim git bersama token. Beberapa host mengharapkan nilai tetap: ketik <0>x-bitbucket-api-token-auth</0> untuk token API Bitbucket, <1>x-token-auth</1> untuk token akses repositori atau workspace Bitbucket, atau <2>oauth2</2> untuk GitLab. Untuk Gitea, gunakan nama pengguna Gitea Anda. Azure DevOps menerima nilai apa pun."
 
 #: src/lib/tab-session-restore-recovery-notice.ts
 msgid "The workspace opened without it so the app could start."
@@ -15063,9 +15371,10 @@ msgstr "Cabang ini sedang dipakai di:"
 msgid "This branch redirects an OpenKnowledge setup path outside the worktree. The worktree was created but not opened."
 msgstr "Branch ini mengarahkan jalur penyiapan OpenKnowledge ke luar worktree. Worktree dibuat, tetapi tidak dibuka."
 
+#. Toast after first-launch setup ends without connecting AI tools; agentConnectionsLabel is the Settings sidebar pane name
 #: src/components/McpConsentDialogBody.tsx
-msgid "This can be configured in Settings > AI tools & CLI"
-msgstr "Ini bisa diatur di Pengaturan > Alat AI & CLI"
+msgid "This can be configured in Settings > {agentConnectionsLabel}"
+msgstr "Ini bisa diatur di Pengaturan > {agentConnectionsLabel}"
 
 #: src/components/RecentProjectsMenu.tsx
 msgid "This checkout path cannot be read."
@@ -15273,10 +15582,6 @@ msgstr "Daftar ini mungkin tidak mutakhir — terakhir dibaca {staleRelative}."
 msgid "This list may be out of date."
 msgstr "Daftar ini mungkin tidak mutakhir."
 
-#: src/components/ConsentDialogBody.tsx
-msgid "This looks like a drive root (e.g., C:\\). Scaffolding here will scan an entire drive."
-msgstr "Ini tampak seperti akar sebuah drive (mis. C:\\). Menyusun proyek di sini akan memindai seluruh drive."
-
 #: src/components/settings/AgentConnectionDialogs.tsx
 #: src/components/settings/ScopeBadge.tsx
 #: src/components/SkillScopeSegment.tsx
@@ -15286,6 +15591,10 @@ msgstr "Mesin ini"
 #: src/uninstall/UninstallProgressScreen.tsx
 msgid "This may take a moment. Your markdown content is kept."
 msgstr "Ini mungkin makan waktu sebentar. Konten markdown Anda dipertahankan."
+
+#: src/components/settings/SyncSection.tsx
+msgid "This mode comes from the project's Shared default below. Pick a mode to choose your own for this computer."
+msgstr "Mode ini berasal dari Bawaan bersama proyek di bawah. Pilih mode untuk menentukan pilihan Anda sendiri di komputer ini."
 
 #. placeholder {0}: scopeLabels[scope]
 #. placeholder {1}: scopeLabels[toScope]
@@ -15401,10 +15710,6 @@ msgstr "Proyek ini bukan repositori git, jadi worktree tidak tersedia."
 msgid "This project lives only on this computer. Connect it to GitHub to back it up and share it with other people."
 msgstr "Proyek ini hanya ada di komputer ini. Hubungkan ke GitHub untuk mencadangkannya dan membagikannya dengan orang lain."
 
-#: src/components/settings/AccountSection.tsx
-msgid "This project's git remote is on {host}, which OpenKnowledge doesn't recognize as a GitHub host. If {host} runs GitHub Enterprise Server, add it to GitHub Enterprise Server hosts below, then restart OpenKnowledge."
-msgstr "Remote git proyek ini berada di {host}, yang tidak dikenali OpenKnowledge sebagai host GitHub. Jika {host} menjalankan GitHub Enterprise Server, tambahkan ke Host GitHub Enterprise Server di bawah, lalu mulai ulang OpenKnowledge."
-
 #: src/components/DocumentErrorBoundary.tsx
 msgid "This project's running server doesn't support live editing. Restart OpenKnowledge to fix."
 msgstr "Server proyek ini yang sedang berjalan tidak mendukung penyuntingan langsung. Mulai ulang OpenKnowledge untuk memperbaikinya."
@@ -15476,6 +15781,14 @@ msgstr "Sumber ini memuat beberapa keterampilan — pilih satu, lalu Impor."
 msgid "This source bundles several skills — choose the one to import."
 msgstr "Sumber ini memuat beberapa keterampilan — pilih yang akan diimpor."
 
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "This tab couldn't confirm that your edits are saved, so it didn't reload. Your edits are still here."
+msgstr "Tab ini tidak dapat memastikan suntingan Anda sudah tersimpan, jadi tidak dimuat ulang. Suntingan Anda masih ada di sini."
+
+#: src/lib/install-stale-tab-reload-prompt.ts
+msgid "This tab is still reconnecting to OpenKnowledge, so it didn't reload. Try again in a moment."
+msgstr "Tab ini masih menyambung ulang ke OpenKnowledge, jadi tidak dimuat ulang. Coba lagi sebentar lagi."
+
 #: src/components/TemplateDeleteDialog.tsx
 msgid "This template lives in a parent folder — deleting it affects every folder beneath it that doesn't define its own version."
 msgstr "Templat ini berada di folder induk — menghapusnya memengaruhi setiap folder di bawahnya yang tidak menentukan versinya sendiri."
@@ -15496,11 +15809,16 @@ msgstr "Berkas tema ini tidak dapat dibaca"
 msgid "This theme file is too large"
 msgstr "Berkas tema ini terlalu besar"
 
+#: src/components/UpdateNotices.shared.ts
+msgid "This update is no longer ready to install."
+msgstr "Pembaruan ini tidak lagi siap dipasang."
+
 #: src/components/ShareReceiveDialog.tsx
 msgid "This usually means one of:"
 msgstr "Biasanya ini berarti salah satu dari:"
 
 #: src/components/AuthModal.tsx
+#: src/components/settings/AccountSection.tsx
 msgid "This window can't store a token — open Settings from the main app window."
 msgstr "Jendela ini tidak bisa menyimpan token — buka Pengaturan dari jendela utama aplikasi."
 
@@ -15534,6 +15852,10 @@ msgstr "judul"
 #: src/editor/extensions/CodeBlockView.tsx
 msgid "Title"
 msgstr "Judul"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgid "To connect AI tools without a project, use File > Set up OpenKnowledge integrations…"
+msgstr "Untuk menghubungkan alat AI tanpa proyek, gunakan Berkas > Siapkan integrasi OpenKnowledge…"
 
 #: src/editor/slash-command/items.tsx
 msgid "To do"
@@ -15654,6 +15976,15 @@ msgstr "Menyalakan atau mematikan format garis bawah."
 msgid "Toggles the pattern {0}/**"
 msgstr "Mengaktifkan atau menonaktifkan pola {0}/**"
 
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "token"
+msgstr "token"
+
+#: src/components/settings/AccountSection.tsx
+msgid "Token stored for {login} on {host}. To remove it, run <0>ok auth signout --host {host}</0>."
+msgstr "Token disimpan untuk {login} di {host}. Untuk menghapusnya, jalankan <0>ok auth signout --host {host}</0>."
+
 #: src/components/SkillBundlePreview.tsx
 #: src/components/SkillProperties.tsx
 msgid "tokens"
@@ -15739,6 +16070,10 @@ msgstr "Mengubah {display} kembali menjadi direktori nyata yang memuat satu syml
 msgid "Turn it off any time in Settings."
 msgstr "Matikan kapan saja di Pengaturan."
 
+#: src/components/settings/SyncSection.tsx
+msgid "Turn off auto-sync"
+msgstr "Matikan sinkronisasi otomatis"
+
 #: src/components/NotInSidebarIndicator.tsx
 msgid "Turn off Only markdown files"
 msgstr "Matikan Hanya berkas markdown"
@@ -15771,6 +16106,22 @@ msgstr "Mematikannya"
 #: src/components/acp/working-status.ts
 msgid "Turning it over…"
 msgstr "Membolak-balikkannya…"
+
+#: src/components/settings/LintingSection.tsx
+msgid "Turning off index maintenance failed because Open Knowledge could not reach the project server. Try again when the project reconnects."
+msgstr "Gagal menonaktifkan pemeliharaan indeks karena Open Knowledge tidak dapat menjangkau server proyek. Coba lagi saat proyek tersambung kembali."
+
+#: src/components/settings/LintingSection.tsx
+msgid "Turning off index maintenance failed because Open Knowledge could not update the Git merge rule. Check Git and .gitattributes, then try again."
+msgstr "Gagal menonaktifkan pemeliharaan indeks karena Open Knowledge tidak dapat memperbarui aturan penggabungan Git. Periksa Git dan .gitattributes, lalu coba lagi."
+
+#: src/components/settings/LintingSection.tsx
+msgid "Turning off index maintenance failed because the Open Knowledge section of .gitattributes was edited or is incomplete. Remove that section, then try again."
+msgstr "Gagal menonaktifkan pemeliharaan indeks karena bagian Open Knowledge di .gitattributes telah diedit atau tidak lengkap. Hapus bagian tersebut, lalu coba lagi."
+
+#: src/components/settings/LintingSection.tsx
+msgid "Turning off index maintenance failed because the project setting could not be saved. Check the project file permissions, then try again."
+msgstr "Gagal menonaktifkan pemeliharaan indeks karena pengaturan proyek tidak dapat disimpan. Periksa izin file proyek, lalu coba lagi."
 
 #. placeholder {0}: skill.name
 #: src/components/SkillForkDialog.tsx
@@ -15916,6 +16267,7 @@ msgid "Unknown component: {componentName} — source editable below"
 msgstr "Komponen tidak dikenal: {componentName} — sumber bisa disunting di bawah"
 
 #: src/editor/extensions/RawMdxFallbackCMView.tsx
+#: src/lib/rendered-diff/diff-jsx-block.tsx
 msgid "Unknown component: {unregisteredComponentName}"
 msgstr "Komponen tidak dikenal: {unregisteredComponentName}"
 
@@ -16000,6 +16352,11 @@ msgstr "Tidak dilacak"
 #: src/components/SyncStatusBadge.tsx
 msgid "Up to date"
 msgstr "Sudah mutakhir"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "update"
+msgstr "pembaruan"
 
 #: src/components/SkillOriginInline.tsx
 #: src/components/SkillPreviewTab.tsx
@@ -16240,6 +16597,10 @@ msgstr "Pengguna"
 msgid "User plugins are personal to this device — turn them on or off here. Each enabled plugin gets its own page under Plugins in the settings sidebar."
 msgstr "Plugin pengguna bersifat pribadi untuk perangkat ini — nyalakan atau matikan di sini. Setiap plugin yang aktif mendapat halamannya sendiri di bawah Plugin pada bilah sisi pengaturan."
 
+#: src/components/settings/AccountSection.tsx
+msgid "Username"
+msgstr "Nama pengguna"
+
 #: src/components/settings/SearchSection.tsx
 msgid "Using the <0>OK_EMBEDDINGS_API_KEY</0> environment variable (managed outside OpenKnowledge)."
 msgstr "Memakai variabel lingkungan <0>OK_EMBEDDINGS_API_KEY</0> (dikelola di luar OpenKnowledge)."
@@ -16264,6 +16625,11 @@ msgstr "Nilai wajib diisi"
 #: src/components/FrontmatterRow.tsx
 msgid "Values for {keyName}"
 msgstr "Nilai untuk {keyName}"
+
+#: src/components/settings/SettingsDialogShell.tsx
+msgctxt "settings search keyword"
+msgid "version"
+msgstr "versi"
 
 #: src/components/CommandPalette.tsx
 msgid "via {viaTags}"
@@ -16757,14 +17123,6 @@ msgstr "Anda memilih ~/Documents. OpenKnowledge akan mengindeks setiap berkas ma
 msgid "You picked ~/Downloads. Files there are usually transient — consider a stable folder instead."
 msgstr "Anda memilih ~/Downloads. Berkas di sana biasanya sementara — pertimbangkan folder yang lebih tetap."
 
-#: src/components/ConsentDialogBody.tsx
-msgid "You picked the filesystem root (/). Scaffolding here will scan every file on this machine — make sure that's what you want."
-msgstr "Anda memilih akar sistem berkas (/). Menyusun proyek di sini akan memindai setiap berkas di komputer ini — pastikan itu memang yang Anda mau."
-
-#: src/components/ConsentDialogBody.tsx
-msgid "You picked your home directory. OpenKnowledge will index everything in your home tree — large and may surface personal files."
-msgstr "Anda memilih direktori beranda Anda. OpenKnowledge akan mengindeks semua yang ada di pohon beranda Anda — besar dan bisa memunculkan berkas pribadi."
-
 #: src/components/OnboardingCard.tsx
 msgid "You're all set up!"
 msgstr "Semuanya sudah siap!"
@@ -16885,6 +17243,10 @@ msgstr "Kueri pencarian Anda dan teks lengkap halaman yang cocok dikirim ke peny
 #: src/components/PublishToGitHubDialog.tsx
 msgid "Your share link is ready below."
 msgstr "Tautan berbagi Anda sudah siap di bawah."
+
+#: src/components/settings/SettingsDialogBody.tsx
+msgid "Your user settings could not be read"
+msgstr "Pengaturan pengguna Anda tidak dapat dibaca"
 
 #: src/components/ImportSkillForm.tsx
 msgid "Zip file"

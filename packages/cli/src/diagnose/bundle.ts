@@ -37,12 +37,17 @@ import {
 import { redactContent } from '../commands/bug-report-redact.ts';
 import { PACKAGE_VERSION } from '../constants.ts';
 import { defaultReadLanguage, type LanguageMetadata } from '../report-language.ts';
-import { isRotatedLogPath, redactStagedBundle } from './bundle-redact.ts';
+import { contentDirSpellings, isRotatedLogPath, redactStagedBundle } from './bundle-redact.ts';
 import {
   type DiagnosticReportCollection,
   prepareDiagnosticReportText,
   renderDiagnosticReportsStatus,
 } from './diagnostic-reports.ts';
+import {
+  OS_TERMINATION_EVIDENCE_PATH,
+  type OsTerminationEvidence,
+  renderOsTerminationEvidence,
+} from './os-termination-evidence.ts';
 
 type BundleSchemaVersion = 2;
 
@@ -111,6 +116,7 @@ export interface CollectBundleOpts {
   userLogFiles?: string[];
   userStateFiles?: string[];
   diagnosticReports?: DiagnosticReportCollection;
+  osTerminationEvidence?: OsTerminationEvidence;
   deps?: CollectBundleDeps;
 }
 
@@ -625,6 +631,10 @@ export async function collectBundle(opts: CollectBundleOpts): Promise<CollectedB
       join(stagingDir, 'state', 'diagnostic-reports-status.txt'),
       `${diagnosticReportsStatus}\n`,
     );
+    writeFileSync(
+      join(stagingDir, OS_TERMINATION_EVIDENCE_PATH),
+      renderOsTerminationEvidence(opts.osTerminationEvidence),
+    );
 
     if (opts.processDir && existsSync(opts.processDir)) {
       const processDest = join(stagingDir, 'process');
@@ -710,9 +720,11 @@ export async function collectBundle(opts: CollectBundleOpts): Promise<CollectedB
 
     writeFileSync(join(stagingDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 
+    const spellings = contentDirSpellings(contentDir);
     const contentDirVisible = stagedFiles.some((absPath) => {
       try {
-        return readFileSync(absPath, 'utf-8').includes(contentDir);
+        const text = readFileSync(absPath, 'utf-8');
+        return spellings.some((spelling) => text.includes(spelling));
       } catch {
         return false;
       }

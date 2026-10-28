@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { StringDecoder } from 'node:string_decoder';
 import { pathToFileURL } from 'node:url';
@@ -21,7 +21,6 @@ export const RETRY_ON_STOP_OUTCOMES = Object.freeze(['ineligible']);
 
 const MAX_CAPTURE_BYTES = 16_384;
 const MIN_PROJECTED_ATTEMPT_MS = 1_000;
-const DEFAULT_ATTEMPT_TIMEOUT_MS = 15 * 60 * 1000;
 const DEFAULT_CLEANUP_GRACE_MS = 5_000;
 const DEFAULT_CLEANUP_RESERVE_MS = 15_000;
 const DEFAULT_POLL_INTERVAL_MS = 25;
@@ -228,6 +227,7 @@ class AttemptResult {
     spawnError = null,
     cleanup = { ok: true, reason: 'clean' },
     evidence = new FailureEvidence(),
+    liveProcesses = undefined,
   } = {}) {
     this.code = code;
     this.closeSignal = closeSignal;
@@ -238,6 +238,7 @@ class AttemptResult {
     this.spawnError = spawnError;
     this.cleanup = cleanup;
     this.evidence = evidence;
+    this.liveProcesses = liveProcesses;
   }
 }
 
@@ -335,11 +336,23 @@ function emitDiagnostic(log, label, evidence) {
   log('::endgroup::');
 }
 
+function emitLiveProcesses(log, label, reason, snapshot) {
+  if (snapshot === undefined) return;
+  if (snapshot.unavailable) {
+    log(`${label} took no process snapshot at ${reason}: ${snapshot.unavailable}`);
+    return;
+  }
+  log(`::group::${label} processes still running at ${reason}`);
+  if (snapshot.processes.length === 0) log('| (none left in the attempt process group)');
+  for (const { pid, elapsed, program } of snapshot.processes) {
+    log(`| pid=${pid} elapsed=${elapsed} ${program.replaceAll('##[', '# #[')}`);
+  }
+  log('::endgroup::');
+}
+
 function projectedAttemptMs(durationMs, attemptTimeoutMs) {
-  return Math.min(
-    attemptTimeoutMs,
-    Math.max(MIN_PROJECTED_ATTEMPT_MS, Math.ceil(durationMs * 1.25)),
-  );
+  const projected = Math.max(MIN_PROJECTED_ATTEMPT_MS, Math.ceil(durationMs * 1.25));
+  return attemptTimeoutMs === undefined ? projected : Math.min(attemptTimeoutMs, projected);
 }
 
 function logDecision({
@@ -429,6 +442,37 @@ function hasExited(leader) {
   return leader.exitCode !== null || leader.signalCode !== null;
 }
 
+function defaultListProcesses() {
+  const result = spawnSync('ps', ['-A', '-o', 'pgid=,pid=,etime=,comm='], {
+    encoding: 'utf8',
+    timeout: 2_000,
+  });
+  if (result.error) return { unavailable: `ps failed: ${result.error.message}` };
+  if (result.status !== 0) {
+    return { unavailable: `ps exited ${result.status ?? result.signal}` };
+  }
+  return { table: result.stdout };
+}
+
+export function processesInGroup(listing, pgid) {
+  if (typeof listing?.table !== 'string') {
+    return { unavailable: listing?.unavailable ?? 'no process table' };
+  }
+  const table = listing.table;
+  const processes = [];
+  for (const line of table.split('\n')) {
+    const match = /^\s*(\d+)\s+(\d+)\s+(\S+)\s+(.*)$/.exec(line);
+    if (match && Number(match[1]) === pgid) {
+      processes.push({
+        pid: Number(match[2]),
+        elapsed: match[3],
+        program: match[4].trim().split('/').pop(),
+      });
+    }
+  }
+  return { processes };
+}
+
 function defaultTaskkill(args) {
   return new Promise((resolve) => {
     const child = spawn('taskkill', args, { stdio: 'ignore', windowsHide: true });
@@ -450,6 +494,7 @@ export function createOwnedTreeController({
   taskkillFn = defaultTaskkill,
   sleepFn = delay,
   pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
+  listProcessesFn = defaultListProcesses,
 } = {}) {
   if (platform === 'win32') {
     const closedOrOutlived = async (graceMs, waitForClose) =>
@@ -488,6 +533,9 @@ export function createOwnedTreeController({
       : { ok: false, reason: 'close-not-observed' };
   };
   return {
+    describe(leader) {
+      return processesInGroup(listProcessesFn(), leader.pid);
+    },
     async cleanup(leader, { graceMs, cleanupReserveMs, waitForClose }) {
       const { pid } = leader;
       if (hasExited(leader)) {
@@ -611,9 +659,14 @@ async function runAttempt({
   let timeoutId;
   let deadlineId;
   let cancelListener;
-  const timeoutPromise = new Promise((resolve) => {
-    timeoutId = setTimeout(() => resolve({ kind: 'attempt-timeout' }), attemptTimeoutMs);
-  });
+  const timeoutPromises =
+    attemptTimeoutMs === undefined
+      ? []
+      : [
+          new Promise((resolve) => {
+            timeoutId = setTimeout(() => resolve({ kind: 'attempt-timeout' }), attemptTimeoutMs);
+          }),
+        ];
   const remainingToDeadline = Math.max(0, deadlineEpochMs - cleanupReserveMs - nowFn());
   const deadlinePromise = new Promise((resolve) => {
     deadlineId = setTimeout(() => resolve({ kind: 'deadline' }), remainingToDeadline);
@@ -627,7 +680,7 @@ async function runAttempt({
 
   const outcome = await Promise.race([
     closePromise,
-    timeoutPromise,
+    ...timeoutPromises,
     deadlinePromise,
     cancellationPromise,
   ]);
@@ -636,6 +689,12 @@ async function runAttempt({
   cancellationSignal.removeEventListener('abort', cancelListener);
 
   const waitForClose = (timeoutMs) => waitForPromise(closePromise, timeoutMs);
+  const liveProcesses =
+    child.pid && (outcome.kind === 'attempt-timeout' || outcome.kind === 'deadline')
+      ? (treeController.describe?.(child) ?? {
+          unavailable: `process listing is not supported on ${platform}`,
+        })
+      : undefined;
   let cleanup = { ok: true, reason: 'clean' };
   if (child.pid) {
     cleanup = await treeController.cleanup(child, {
@@ -661,6 +720,7 @@ async function runAttempt({
     spawnError,
     cleanup,
     evidence,
+    liveProcesses,
   });
 }
 
@@ -722,7 +782,7 @@ export async function runWithRetry({
   shell = false,
   maxAttempts = DEFAULT_MAX_ATTEMPTS,
   deadlineEpochMs = Date.now() + 60 * 60 * 1000,
-  attemptTimeoutMs = DEFAULT_ATTEMPT_TIMEOUT_MS,
+  attemptTimeoutMs,
   cleanupReserveMs = DEFAULT_CLEANUP_RESERVE_MS,
   cleanupGraceMs = DEFAULT_CLEANUP_GRACE_MS,
   pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
@@ -831,6 +891,7 @@ export async function runWithRetry({
           signal: stopped.signal,
           detail: stopped.reason === 'deadline' ? 'phase=mid-attempt' : undefined,
         });
+        emitLiveProcesses(log, label, stopped.reason, result.liveProcesses);
         return finishFailure(stopped, result);
       }
       if (result.code === 0) {
@@ -1076,15 +1137,14 @@ export function parseArgs(argv) {
   if (!Number.isSafeInteger(deadlineEpochMs) || deadlineEpochMs <= 0) {
     throw new Error('--deadline-epoch-ms must be a positive integer');
   }
-  const attemptTimeoutMs = parseDuration(
-    flagValue(flags, '--attempt-timeout', true),
-    '--attempt-timeout',
-  );
+  const attemptTimeout = flagValue(flags, '--attempt-timeout');
   const parsed = {
     label: flagValue(flags, '--label') ?? 'command',
     maxAttempts,
     deadlineEpochMs,
-    attemptTimeoutMs,
+    ...(attemptTimeout === undefined
+      ? {}
+      : { attemptTimeoutMs: parseDuration(attemptTimeout, '--attempt-timeout') }),
     retryWarning: flagValue(flags, '--retry-warning') ?? '',
     shell,
     command,

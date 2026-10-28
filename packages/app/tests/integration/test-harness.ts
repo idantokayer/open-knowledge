@@ -1,5 +1,12 @@
 import { execFile } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  writeFileSync,
+} from 'node:fs';
 import { createServer as createHttpServer } from 'node:http';
 import { createServer as createNetServer, type Socket } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -43,6 +50,8 @@ import {
 import { getSchema } from '@tiptap/core';
 import { yXmlFragmentToProseMirrorRootNode } from '@tiptap/y-tiptap';
 import * as Y from 'yjs';
+import { configureTestGitRepository } from '../../../../test-support/configure-git-fixture.test-helper.ts';
+import { testAuthorityRegistryPath } from '../../../../test-support/server-authority-registry.test-helper.ts';
 import {
   ORIGIN_TEXT_TO_TREE,
   ORIGIN_TREE_TO_TEXT,
@@ -74,6 +83,7 @@ export interface TestServer {
 }
 
 export interface CreateTestServerOptions {
+  authorityRegistryPath?: string;
   ingressPolicy?: ServerOptions['ingressPolicy'];
   debounce?: ServerOptions['debounce'];
   maxDebounce?: ServerOptions['maxDebounce'];
@@ -139,11 +149,15 @@ export async function createTestServer(options: CreateTestServerOptions = {}): P
       mkdirSync(join(contentDir, '.claude', 'skills'), { recursive: true });
     }
 
-    await ensureProjectGit(contentDir);
+    const gitSetup = await ensureProjectGit(contentDir);
+    if (gitSetup.didInit || existsSync(join(contentDir, '.git', 'config'))) {
+      configureTestGitRepository(contentDir);
+    }
   }
 
   const port = await getFreePort();
   const srv = createServer({
+    authorityRegistryPath: options.authorityRegistryPath ?? testAuthorityRegistryPath,
     contentDir,
     projectDir,
     ingressPolicy: options.ingressPolicy,
@@ -246,6 +260,7 @@ export interface TestClient {
 export interface CreateTestClientOptions {
   skipInvariantWatcher?: boolean;
   syncControl?: boolean;
+  resetOnCleanup?: boolean;
 }
 
 export async function createTestClient(
@@ -314,9 +329,11 @@ export async function createTestClient(
     cleanup: async () => {
       watcherDetach?.();
       observerCleanup();
-      try {
-        await testReset(port, resolvedDocName);
-      } catch {}
+      if (options?.resetOnCleanup !== false) {
+        try {
+          await testReset(port, resolvedDocName);
+        } catch {}
+      }
       provider.destroy();
       doc.destroy();
     },
@@ -1007,20 +1024,21 @@ export async function assertAllConverged(
   throw new ClientConvergenceError(details);
 }
 
-export interface RestartableServer {
+export type { RestartableServer } from './restartable-server.test-helper.ts';
+export { createRestartableServer } from './restartable-server.test-helper.ts';
+
+export interface InspectableServer {
   port: number;
   contentDir: string;
   instance: ServerInstance;
   killNetwork(): void;
   shutdown(): Promise<void>;
-  killAndRestartOnSamePort(opts: { downtimeMs: number }): Promise<RestartableServer>;
 }
 
-export interface CreateRestartableServerOptions extends CreateTestServerOptions {
+export interface CreateInspectableServerOptions extends CreateTestServerOptions {
   port?: number;
   gitEnabled?: boolean;
   commitDebounceMs?: number;
-  _retired?: RestartableServer[];
 }
 
 export async function waitForPortFree(port: number, timeoutMs = 2500): Promise<void> {
@@ -1047,9 +1065,9 @@ export async function waitForPortFree(port: number, timeoutMs = 2500): Promise<v
   );
 }
 
-export async function createRestartableServer(
-  options: CreateRestartableServerOptions = {},
-): Promise<RestartableServer> {
+export async function createInspectableServer(
+  options: CreateInspectableServerOptions = {},
+): Promise<InspectableServer> {
   const contentDir =
     options.contentDir !== undefined
       ? realpathSync(options.contentDir)
@@ -1060,9 +1078,11 @@ export async function createRestartableServer(
   }
 
   await ensureProjectGit(contentDir);
+  configureTestGitRepository(contentDir);
 
   const port = options.port ?? (await getFreePort());
   const srv = createServer({
+    authorityRegistryPath: options.authorityRegistryPath ?? testAuthorityRegistryPath,
     contentDir,
     quiet: true,
     debounce: options.debounce ?? 200,
@@ -1129,7 +1149,6 @@ export async function createRestartableServer(
   };
   await listenWithRetry();
 
-  const retired: RestartableServer[] = [...(options._retired ?? [])];
   let networkKilled = false;
 
   const killNetwork = (): void => {
@@ -1162,40 +1181,25 @@ export async function createRestartableServer(
     } catch (err) {
       console.warn('[restartable-server] srv.destroy() failed:', err);
     }
-    for (const prev of retired) {
-      try {
-        await prev.shutdown();
-      } catch {}
-    }
     if (!options.keepContentDir) {
       removeAllStrictDuringTeardown(contentDir);
     }
   };
 
-  const handle: RestartableServer = {
+  const handle: InspectableServer = {
     port,
     contentDir,
     instance: srv,
     killNetwork,
     shutdown,
-    killAndRestartOnSamePort: async ({ downtimeMs }) => {
-      killNetwork();
-      await wait(downtimeMs);
-      await waitForPortFree(port, Math.max(2500, downtimeMs + 500));
-      return createRestartableServer({
-        ...options,
-        port,
-        contentDir,
-        keepContentDir: true,
-        _retired: [handle, ...retired],
-      });
-    },
   };
 
   return handle;
 }
 
 interface SystemDocSubscriberHandle {
+  provider: HocuspocusProvider;
+  whenRefreshed: () => Promise<void>;
   dispose: () => Promise<void>;
 }
 
@@ -1228,14 +1232,17 @@ export function attachSystemDocSubscriber(
     },
   });
 
+  let pendingRefresh = Promise.resolve();
   const onReconnectSynced = createSyncedReconnectGate(() => {
-    void refreshServerInfo(pool, baseUrl);
+    pendingRefresh = refreshServerInfo(pool, baseUrl);
   });
   provider.on('synced', () => {
     onReconnectSynced();
   });
 
   return {
+    provider,
+    whenRefreshed: () => pendingRefresh,
     dispose: async () => {
       provider.destroy();
       doc.destroy();
@@ -1307,7 +1314,7 @@ export interface MultiClientContext {
 }
 
 export async function createMultiClientContext(opts: {
-  server: RestartableServer;
+  server: { port: number };
   docName: string;
   clientCount: number;
   recycleDebounceMs?: number;
@@ -1434,10 +1441,12 @@ export async function createSyncWiredTestServer(
 
   const originDir = realpathSync(mkdtempSync(join(tmpdir(), 'ok-sync-origin-')));
   await runGit(originDir, ['init', '--bare']);
+  configureTestGitRepository(originDir);
   await runGit(originDir, ['symbolic-ref', 'HEAD', 'refs/heads/main']);
 
   const authorDir = realpathSync(mkdtempSync(join(tmpdir(), 'ok-sync-author-')));
   await runGit(authorDir, ['init', '--initial-branch=main']);
+  configureTestGitRepository(authorDir);
   await runGit(authorDir, ['config', 'user.email', 'author@example.com']);
   await runGit(authorDir, ['config', 'user.name', 'Upstream Author']);
   await runGit(authorDir, ['remote', 'add', 'origin', originDir]);
@@ -1449,6 +1458,7 @@ export async function createSyncWiredTestServer(
   const cloneParent = realpathSync(mkdtempSync(join(tmpdir(), 'ok-sync-clone-')));
   const clonePath = join(cloneParent, 'content');
   await runGit(cloneParent, ['clone', originDir, clonePath]);
+  configureTestGitRepository(clonePath);
   const contentDir = realpathSync(clonePath);
   await runGit(contentDir, ['config', 'user.email', 'follower@example.com']);
   await runGit(contentDir, ['config', 'user.name', 'Follower']);

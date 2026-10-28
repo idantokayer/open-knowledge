@@ -1,0 +1,1046 @@
+import { chmodSync, mkdtempSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { afterEach, describe, expect, test } from 'vitest';
+import {
+  type CommandResult,
+  collectOsTerminationEvidence,
+  createRunCommand,
+  describeOsTerminationEvidence,
+  findJetsamKillSync,
+  LINUX_DISPLAY_FATAL_GREP,
+  LINUX_JOURNAL_GREP,
+  parseJetsamReport,
+  renderOsTerminationEvidence,
+  windowsEventLogArgs,
+  windowsEventLogExecutable,
+} from './os-termination-evidence.ts';
+
+const tmpDirs: string[] = [];
+afterEach(() => {
+  for (const d of tmpDirs) rmSync(d, { recursive: true, force: true });
+  tmpDirs.length = 0;
+});
+
+function makeTmpDir(): string {
+  const dir = mkdtempSync(resolve(tmpdir(), 'ok-os-termination-test-'));
+  tmpDirs.push(dir);
+  return dir;
+}
+
+const NOW = new Date('2026-10-05T12:00:00.000Z');
+
+function jetsamReport(processes: Record<string, unknown>[], largestProcess = 'fseventsd'): string {
+  const header = { bug_type: '298', timestamp: '2026-10-04 17:14:39.00 -0700' };
+  const body = { largestProcess, memoryStatus: { pageSize: 16384 }, processes };
+  return `${JSON.stringify(header)}\n${JSON.stringify(body, null, 2)}`;
+}
+
+function writeAged(dir: string, name: string, content: string, daysOld: number): void {
+  const path = join(dir, name);
+  writeFileSync(path, content);
+  const at = new Date(NOW.getTime() - daysOld * 24 * 60 * 60 * 1000);
+  utimesSync(path, at, at);
+}
+
+describe('parseJetsamReport', () => {
+  test('keeps only this app’s processes and carries the kill reason jetsam recorded', () => {
+    const event = parseJetsamReport(
+      'JetsamEvent-a.ips',
+      jetsamReport(
+        [
+          {
+            name: 'OpenKnowledge',
+            pid: 4406,
+            rpages: 900,
+            lifetimeMax: 1200,
+            reason: 'vm-pageshortage',
+          },
+          { name: 'OpenKnowledge Helper (Renderer)', pid: 4410, rpages: 50, lifetimeMax: 60 },
+          { name: 'Slack', pid: 77, rpages: 9000, reason: 'per-process-limit' },
+          { name: 'OpenKnowledgeImpostor', pid: 5 },
+        ],
+        'OpenKnowledge',
+      ),
+    );
+
+    expect(event).toEqual({
+      kind: 'jetsam',
+      at: '2026-10-05T00:14:39.000Z',
+      file: 'JetsamEvent-a.ips',
+      pageSize: 16384,
+      largestProcessOwned: true,
+      ownedProcesses: [
+        {
+          name: 'OpenKnowledge',
+          pid: 4406,
+          killReason: 'vm-pageshortage',
+          residentPages: 900,
+          lifetimeMaxPages: 1200,
+        },
+        {
+          name: 'OpenKnowledge Helper (Renderer)',
+          pid: 4410,
+          killReason: null,
+          residentPages: 50,
+          lifetimeMaxPages: 60,
+        },
+      ],
+    });
+  });
+
+  test('rejects a report that is not a header line followed by a JSON body', () => {
+    expect(parseJetsamReport('x.ips', '{"bug_type":"298"}')).toBeNull();
+    expect(parseJetsamReport('x.ips', '{"bug_type":"298"}\nnot json')).toBeNull();
+    expect(parseJetsamReport('x.ips', '{"bug_type":"298"}\n{"processes":3}')).toBeNull();
+  });
+});
+
+describe('macOS jetsam collection', () => {
+  test('collects in-window events naming this app and counts the rest', async () => {
+    const dir = makeTmpDir();
+    writeAged(dir, 'JetsamEvent-owned.ips', jetsamReport([{ name: 'OpenKnowledge', pid: 1 }]), 1);
+    writeAged(dir, 'JetsamEvent-foreign.ips', jetsamReport([{ name: 'Slack', pid: 2 }]), 1);
+    writeAged(dir, 'JetsamEvent-garbage.ips', 'garbage', 1);
+    writeAged(dir, 'JetsamEvent-old.ips', jetsamReport([{ name: 'OpenKnowledge', pid: 3 }]), 9);
+    writeAged(dir, 'OpenKnowledge-crash.ips', jetsamReport([{ name: 'OpenKnowledge', pid: 4 }]), 1);
+
+    const evidence = await collectOsTerminationEvidence({
+      platform: 'darwin',
+      now: () => NOW,
+      macosReportsDir: dir,
+    });
+
+    expect(evidence).toMatchObject({
+      outcome: 'collected',
+      source: 'macos-jetsam',
+      readFrom: [join(dir, 'JetsamEvent-*.ips')],
+      foreignIgnored: 1,
+      unparseable: 1,
+      droppedOverCap: 0,
+    });
+    expect(evidence.events.map((e) => (e.kind === 'jetsam' ? e.file : null))).toEqual([
+      'JetsamEvent-owned.ips',
+    ]);
+  });
+
+  test('counts the oldest in-window files it did not read', async () => {
+    const dir = makeTmpDir();
+    for (let i = 0; i < 52; i += 1) {
+      writeAged(
+        dir,
+        `JetsamEvent-${String(i).padStart(2, '0')}.ips`,
+        jetsamReport([{ name: 'OpenKnowledge', pid: i }]),
+        1 + i / 100,
+      );
+    }
+
+    const evidence = await collectOsTerminationEvidence({
+      platform: 'darwin',
+      now: () => NOW,
+      macosReportsDir: dir,
+    });
+
+    expect(evidence.events).toHaveLength(50);
+    expect(evidence.droppedOverCap).toBe(2);
+    expect(evidence.events.map((e) => (e.kind === 'jetsam' ? e.file : null))).not.toContain(
+      'JetsamEvent-51.ips',
+    );
+  });
+
+  test('reports an unreadable directory as unavailable rather than as an empty window', async () => {
+    const evidence = await collectOsTerminationEvidence({
+      platform: 'darwin',
+      now: () => NOW,
+      macosReportsDir: join(makeTmpDir(), 'missing'),
+    });
+
+    expect(evidence).toMatchObject({ outcome: 'unavailable', unavailableReason: 'ENOENT' });
+  });
+});
+
+describe('the jetsam kill of one process', () => {
+  const LAST_ALIVE_MS = Date.parse('2026-10-05T00:14:00.000Z');
+  const DETECTED_MS = Date.parse('2026-10-05T00:15:30.000Z');
+  const QUERY = { pid: 4406, fromMs: LAST_ALIVE_MS, toMs: DETECTED_MS };
+
+  function writeAt(dir: string, name: string, content: string, atMs: number): void {
+    const path = join(dir, name);
+    writeFileSync(path, content);
+    utimesSync(path, new Date(atMs), new Date(atMs));
+  }
+
+  const MAIN_KILLED = { name: 'OpenKnowledge', pid: 4406, rpages: 900, reason: 'vm-pageshortage' };
+  const NOTHING_MISSED = { unreadable: 0, unparseable: 0, skippedNewerOverCap: 0 };
+
+  test('names the reason jetsam killed the queried pid and who held the most memory', () => {
+    const dir = makeTmpDir();
+    writeAt(dir, 'JetsamEvent-a.ips', jetsamReport([MAIN_KILLED], 'Xcode'), LAST_ALIVE_MS + 40_000);
+
+    expect(findJetsamKillSync(QUERY, dir)).toEqual({
+      outcome: 'killed',
+      source: 'macos-jetsam',
+      at: '2026-10-05T00:14:39.000Z',
+      killReason: 'vm-pageshortage',
+      victimChosenByPriority: true,
+      largestProcessOwned: false,
+      residentBytes: 900 * 16384,
+      reportsRead: 1,
+    });
+  });
+
+  test.each([
+    [
+      'a compressor-space kill, which macOS aims at the largest compressed-memory holder',
+      'vm-compressor-space-shortage',
+    ],
+    ['a kill for the process’s own memory limit', 'per-process-limit'],
+  ])('does not call %s a priority-order kill', (_case, reason) => {
+    const dir = makeTmpDir();
+    writeAt(
+      dir,
+      'JetsamEvent-a.ips',
+      jetsamReport([{ ...MAIN_KILLED, reason }], 'Xcode'),
+      LAST_ALIVE_MS + 40_000,
+    );
+
+    expect(findJetsamKillSync(QUERY, dir)).toMatchObject({
+      outcome: 'killed',
+      killReason: reason,
+      victimChosenByPriority: false,
+    });
+  });
+
+  test('leaves the largest process unknown when the report names none', () => {
+    const dir = makeTmpDir();
+    const header = { bug_type: '298', timestamp: '2026-10-04 17:14:39.00 -0700' };
+    const body = { memoryStatus: { pageSize: 16384 }, processes: [MAIN_KILLED] };
+    writeAt(
+      dir,
+      'JetsamEvent-a.ips',
+      `${JSON.stringify(header)}\n${JSON.stringify(body)}`,
+      LAST_ALIVE_MS + 40_000,
+    );
+
+    expect(findJetsamKillSync(QUERY, dir)).toMatchObject({
+      outcome: 'killed',
+      largestProcessOwned: null,
+    });
+  });
+
+  test('does not attribute a report that names the pid alive, another pid, or predates the session’s last heartbeat', () => {
+    const dir = makeTmpDir();
+    writeAt(
+      dir,
+      'JetsamEvent-alive.ips',
+      jetsamReport([{ name: 'OpenKnowledge', pid: 4406, rpages: 900 }]),
+      LAST_ALIVE_MS + 40_000,
+    );
+    writeAt(
+      dir,
+      'JetsamEvent-other.ips',
+      jetsamReport([{ ...MAIN_KILLED, pid: 4410 }]),
+      LAST_ALIVE_MS + 41_000,
+    );
+    writeAt(dir, 'JetsamEvent-stale.ips', jetsamReport([MAIN_KILLED]), LAST_ALIVE_MS - 60_000);
+
+    expect(findJetsamKillSync(QUERY, dir)).toEqual({
+      outcome: 'not-killed',
+      reportsRead: 2,
+      ...NOTHING_MISSED,
+    });
+  });
+
+  test('dates a report by the kill it records, not by when the file was written', () => {
+    const dir = makeTmpDir();
+    writeAt(dir, 'JetsamEvent-a.ips', jetsamReport([MAIN_KILLED]), LAST_ALIVE_MS + 60_000);
+
+    const afterTheKill = { ...QUERY, fromMs: Date.parse('2026-10-05T00:14:45.000Z') };
+    expect(findJetsamKillSync(afterTheKill, dir)).toEqual({
+      outcome: 'not-killed',
+      reportsRead: 1,
+      ...NOTHING_MISSED,
+    });
+  });
+
+  test('is inconclusive, not a miss, when the kill sits past the boot cap', () => {
+    const dir = makeTmpDir();
+    for (let i = 0; i < 5; i += 1) {
+      writeAt(
+        dir,
+        `JetsamEvent-${i}.ips`,
+        jetsamReport([{ name: 'Slack', pid: 77 }]),
+        LAST_ALIVE_MS + i * 1_000,
+      );
+    }
+    writeAt(dir, 'JetsamEvent-5.ips', jetsamReport([MAIN_KILLED]), LAST_ALIVE_MS + 40_000);
+
+    expect(findJetsamKillSync(QUERY, dir)).toEqual({
+      outcome: 'inconclusive',
+      reportsRead: 5,
+      ...NOTHING_MISSED,
+      skippedNewerOverCap: 1,
+    });
+  });
+
+  test('is inconclusive when a report in the window would not parse', () => {
+    const dir = makeTmpDir();
+    writeAt(dir, 'JetsamEvent-garbage.ips', 'garbage', LAST_ALIVE_MS + 40_000);
+
+    expect(findJetsamKillSync(QUERY, dir)).toEqual({
+      outcome: 'inconclusive',
+      reportsRead: 1,
+      ...NOTHING_MISSED,
+      unparseable: 1,
+    });
+  });
+
+  test.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+    'is inconclusive beside an unreadable report, and unavailable when none could be read',
+    () => {
+      const dir = makeTmpDir();
+      writeAt(dir, 'JetsamEvent-locked.ips', jetsamReport([MAIN_KILLED]), LAST_ALIVE_MS + 40_000);
+      chmodSync(join(dir, 'JetsamEvent-locked.ips'), 0o000);
+      expect(findJetsamKillSync(QUERY, dir)).toEqual({
+        outcome: 'unavailable',
+        unavailableReason: 'EACCES',
+      });
+
+      writeAt(
+        dir,
+        'JetsamEvent-open.ips',
+        jetsamReport([{ name: 'Slack', pid: 77 }]),
+        LAST_ALIVE_MS + 41_000,
+      );
+      expect(findJetsamKillSync(QUERY, dir)).toEqual({
+        outcome: 'inconclusive',
+        reportsRead: 1,
+        ...NOTHING_MISSED,
+        unreadable: 1,
+      });
+    },
+  );
+
+  test.skipIf(process.platform === 'win32')(
+    'counts a report it could not stat as unreadable, and is unavailable only when nothing could be statted',
+    () => {
+      const dir = makeTmpDir();
+      symlinkSync(join(dir, 'gone.ips'), join(dir, 'JetsamEvent-dangling.ips'));
+      expect(findJetsamKillSync(QUERY, dir)).toEqual({
+        outcome: 'unavailable',
+        unavailableReason: 'ENOENT',
+      });
+
+      writeAt(dir, 'JetsamEvent-old.ips', jetsamReport([MAIN_KILLED]), LAST_ALIVE_MS - 60_000);
+      expect(findJetsamKillSync(QUERY, dir)).toEqual({
+        outcome: 'inconclusive',
+        reportsRead: 0,
+        ...NOTHING_MISSED,
+        unreadable: 1,
+      });
+
+      writeAt(
+        dir,
+        'JetsamEvent-open.ips',
+        jetsamReport([{ name: 'Slack', pid: 77 }]),
+        LAST_ALIVE_MS + 41_000,
+      );
+      expect(findJetsamKillSync(QUERY, dir)).toEqual({
+        outcome: 'inconclusive',
+        reportsRead: 1,
+        ...NOTHING_MISSED,
+        unreadable: 1,
+      });
+    },
+  );
+
+  test('reports an unreadable directory as unavailable rather than as no kill', () => {
+    expect(findJetsamKillSync(QUERY, join(makeTmpDir(), 'missing'))).toEqual({
+      outcome: 'unavailable',
+      unavailableReason: 'ENOENT',
+    });
+  });
+});
+
+function runner(results: Record<string, CommandResult>) {
+  const calls: { command: string; args: string[] }[] = [];
+  let inFlight = 0;
+  let maxInFlight = 0;
+  const run = async (command: string, args: string[]): Promise<CommandResult> => {
+    calls.push({ command, args });
+    inFlight += 1;
+    maxInFlight = Math.max(maxInFlight, inFlight);
+    await new Promise((r) => setTimeout(r, 5));
+    inFlight -= 1;
+    const key = command.endsWith('wevtutil.exe')
+      ? `wevtutil:${args[1]}`
+      : args[0] === '--user'
+        ? `${command} --user`
+        : command;
+    const result = results[key];
+    if (result === undefined) throw new Error(`unexpected command ${key}`);
+    return result;
+  };
+  return { run, calls, maxInFlight: () => maxInFlight };
+}
+
+describe('Linux journal collection', () => {
+  const KERNEL_INVOKED =
+    '2026-10-04T18:49:10.100000+00:00 host-a kernel: openknowledge invoked oom-killer: gfp_mask=0xcc0(GFP_KERNEL), order=0, oom_score_adj=200';
+  const KERNEL_TASK =
+    '2026-10-04T18:49:10.110000+00:00 host-a kernel: oom-kill:constraint=CONSTRAINT_MEMCG,nodemask=(null),cpuset=/,mems_allowed=0,oom_memcg=/user.slice/user-1000.slice/user@1000.service/app.slice/run-p1.service,task_memcg=/user.slice/user-1000.slice/user@1000.service/app.slice/run-p1.service,task=openknowledge,pid=1234,uid=1000';
+  const KERNEL_KILLED =
+    '2026-10-04T18:49:10.123456+00:00 host-a kernel: Memory cgroup out of memory: Killed process 1234 (openknowledge) total-vm:79404kB, anon-rss:65208kB, UID:1000';
+  const OOMD_PRESSURE =
+    '2026-10-04T18:40:00.000000+00:00 host-a systemd-oomd[812]: Killed /user.slice/user-1000.slice/user@1000.service/app.slice/app-gnome-openknowledge-1234.scope due to memory pressure for /user.slice/user-1000.slice being 71.20% > 50.00% for > 20s with reclaim activity';
+  const OOMD_SWAP =
+    '2026-10-04T18:41:00.000000+00:00 host-a systemd-oomd[812]: Killed /user.slice/user-1000.slice/user@1000.service/app.slice/app-gnome-openknowledge-5678.scope due to memory used (15.5G) / total (15.6G) and swap used (3.9G) / total (4.0G) being more than 90.00%';
+  const FOREIGN =
+    '2026-10-04T18:30:00.000000+00:00 host-a kernel: Out of memory: Killed process 99 (chrome) total-vm:1kB';
+
+  const NO_ENTRIES: CommandResult = { status: 1, stdout: '-- No entries --\n', stderr: '' };
+
+  test('queries kernel, systemd-oomd and this user’s own display-loss lines for the last week', async () => {
+    const { run, calls } = runner({ journalctl: NO_ENTRIES, 'journalctl --user': NO_ENTRIES });
+
+    await collectOsTerminationEvidence({ platform: 'linux', runCommand: run });
+
+    expect(calls).toEqual([
+      {
+        command: 'journalctl',
+        args: [
+          '--no-pager',
+          '--output=short-iso-precise',
+          '--since=-7d',
+          '--grep=Out of memory|oom-kill|Killed process|Killed /|memory pressure',
+          '_TRANSPORT=kernel',
+          '+',
+          '_SYSTEMD_UNIT=systemd-oomd.service',
+        ],
+      },
+      {
+        command: 'journalctl',
+        args: [
+          '--user',
+          '--no-pager',
+          '--output=short-iso-precise',
+          '--since=-7d',
+          '--grep=Fatal Wayland communication error|Wayland protocol error|X IO error|Missing X server',
+        ],
+      },
+    ]);
+  });
+
+  test('the journal filter selects every published kill wording', () => {
+    const filter = new RegExp(LINUX_JOURNAL_GREP);
+    for (const line of [KERNEL_INVOKED, KERNEL_TASK, KERNEL_KILLED, OOMD_PRESSURE, OOMD_SWAP]) {
+      expect(filter.test(line)).toBe(true);
+    }
+  });
+
+  test('keeps this app’s kills as structured fields with no host, cgroup path or uid', async () => {
+    const { run } = runner({
+      journalctl: {
+        status: 0,
+        stdout: `-- Boot 44962998fa1849c29d4807eefb892418 --\n${FOREIGN}\n${OOMD_PRESSURE}\n${OOMD_SWAP}\n${KERNEL_INVOKED}\n${KERNEL_TASK}\n${KERNEL_KILLED}\n`,
+        stderr: '',
+      },
+      'journalctl --user': NO_ENTRIES,
+    });
+
+    const evidence = await collectOsTerminationEvidence({ platform: 'linux', runCommand: run });
+
+    expect(evidence.outcome).toBe('collected');
+    expect(evidence.foreignIgnored).toBe(1);
+    expect(evidence.unparseable).toBe(0);
+    expect(evidence.events).toEqual([
+      {
+        kind: 'journal',
+        at: '2026-10-04T18:40:00.000000+00:00',
+        origin: 'systemd-oomd',
+        action: 'oomd-kill',
+        pid: null,
+        processName: null,
+        unit: 'app-gnome-openknowledge-1234.scope',
+        trigger: 'memory-pressure',
+      },
+      {
+        kind: 'journal',
+        at: '2026-10-04T18:41:00.000000+00:00',
+        origin: 'systemd-oomd',
+        action: 'oomd-kill',
+        pid: null,
+        processName: null,
+        unit: 'app-gnome-openknowledge-5678.scope',
+        trigger: 'swap',
+      },
+      {
+        kind: 'journal',
+        at: '2026-10-04T18:49:10.100000+00:00',
+        origin: 'kernel',
+        action: 'oom-invoked',
+        pid: null,
+        processName: 'openknowledge',
+        unit: null,
+        trigger: null,
+      },
+      {
+        kind: 'journal',
+        at: '2026-10-04T18:49:10.110000+00:00',
+        origin: 'kernel',
+        action: 'oom-kill',
+        pid: 1234,
+        processName: 'openknowledge',
+        unit: null,
+        trigger: null,
+      },
+      {
+        kind: 'journal',
+        at: '2026-10-04T18:49:10.123456+00:00',
+        origin: 'kernel',
+        action: 'oom-kill',
+        pid: 1234,
+        processName: 'openknowledge',
+        unit: null,
+        trigger: null,
+      },
+    ]);
+    const serialized = JSON.stringify(evidence.events);
+    expect(serialized).not.toContain('host-a');
+    expect(serialized).not.toContain('user.slice');
+    expect(serialized).not.toMatch(/uid/i);
+  });
+
+  test('flags a journal that hid system messages from this user', async () => {
+    const { run } = runner({
+      journalctl: {
+        status: 1,
+        stdout: '-- No entries --\n',
+        stderr:
+          "Hint: You are currently not seeing messages from other users and the system.\n      Users in groups 'adm', 'systemd-journal' can see all messages.\n",
+      },
+      'journalctl --user': NO_ENTRIES,
+    });
+
+    const evidence = await collectOsTerminationEvidence({ platform: 'linux', runCommand: run });
+
+    expect(evidence).toMatchObject({ outcome: 'none-in-window', restrictedToCurrentUser: true });
+  });
+
+  test('counts an exit-1 window as empty only when journalctl printed its no-entries marker', async () => {
+    const both = (result: CommandResult) =>
+      runner({ journalctl: result, 'journalctl --user': result }).run;
+    const empty = both({
+      status: 1,
+      stdout: '-- Boot 44962998fa1849c29d4807eefb892418 --\n-- No entries --\n',
+      stderr: '',
+    });
+    const rejected = both({
+      status: 1,
+      stdout: '',
+      stderr: "journalctl: unrecognized option '--grep=Out of memory'\n",
+    });
+    const missing = both({ status: null, stdout: '', stderr: '', errorCode: 'ENOENT' });
+    const corrupt = both({
+      status: 1,
+      stdout: '',
+      stderr:
+        'Journal file /var/log/journal/0123456789abcdef0123456789abcdef/system.journal is truncated, ignoring file.\n',
+    });
+
+    expect(
+      (await collectOsTerminationEvidence({ platform: 'linux', runCommand: empty })).outcome,
+    ).toBe('none-in-window');
+    expect(
+      await collectOsTerminationEvidence({ platform: 'linux', runCommand: rejected }),
+    ).toMatchObject({
+      outcome: 'unavailable',
+      unavailableReason:
+        "system journal: exit 1: journalctl: unrecognized option '--grep=Out of memory'; user journal: exit 1: journalctl: unrecognized option '--grep=Out of memory'",
+    });
+    expect(
+      await collectOsTerminationEvidence({ platform: 'linux', runCommand: missing }),
+    ).toMatchObject({
+      outcome: 'unavailable',
+      unavailableReason: 'system journal: ENOENT; user journal: ENOENT',
+    });
+    expect(
+      await collectOsTerminationEvidence({ platform: 'linux', runCommand: corrupt }),
+    ).toMatchObject({
+      unavailableReason:
+        'system journal: exit 1: Journal file <journal path> is truncated, ignoring file.; user journal: exit 1: Journal file <journal path> is truncated, ignoring file.',
+    });
+  });
+
+  test('keeps what one journal holds when the other cannot be read', async () => {
+    const { run } = runner({
+      journalctl: { status: 0, stdout: `${KERNEL_KILLED}\n`, stderr: '' },
+      'journalctl --user': { status: 1, stdout: '', stderr: 'No journal files were found.\n' },
+    });
+
+    const evidence = await collectOsTerminationEvidence({ platform: 'linux', runCommand: run });
+
+    expect(evidence).toMatchObject({
+      outcome: 'partial',
+      unavailableReason: 'user journal: exit 1: No journal files were found.',
+    });
+    expect(evidence.events).toHaveLength(1);
+  });
+
+  describe('display-server connection loss', () => {
+    const OWNED_PID = 2544264;
+    const OWNED_FATAL = `2026-10-04T23:46:38.123456+00:00 host-a Hyprland[1200]: [${OWNED_PID}:1004/234638.123456:ERROR:ui/events/platform/wayland/wayland_event_watcher.cc:78] Fatal Wayland communication error: Broken pipe.`;
+    const OWNED_PROTOCOL = `2026-10-04T23:46:38.120000+00:00 host-a openknowledge[${OWNED_PID}]: [${OWNED_PID}:${OWNED_PID}:1004/234638.120000:ERROR:wayland_event_watcher.cc(42)] Wayland protocol error: zwp_text_input_v3@44: error 0: text input already enabled`;
+    const OWNED_X11 = `2026-10-03T08:00:00.000000+00:00 host-a gnome-shell[900]: [${OWNED_PID}:1003/080000.000000:ERROR:x11_util.cc(85)] X IO error received (X server probably went away)`;
+    const FOREIGN_CHROMIUM =
+      '2026-10-04T22:00:00.000000+00:00 host-a Hyprland[1200]: [4242:1004/220000.000000:ERROR:wayland_event_watcher.cc(42)] Fatal Wayland communication error: Connection reset by peer.';
+    const FOREIGN_GTK =
+      '2026-10-04T22:00:01.000000+00:00 host-a firefox[50]: Gdk-Message: 22:00:01.000: Error 71 (Protocol error) dispatching to Wayland display.';
+    const RETIRED_PID =
+      '2026-09-25T10:00:00.000000+00:00 host-a Hyprland[1200]: [777:0925/100000.000000:ERROR:wayland_event_watcher.cc(42)] Fatal Wayland communication error: Broken pipe.';
+
+    function desktopLogs(): string {
+      const dir = makeTmpDir();
+      writeAged(
+        dir,
+        'desktop.2026-10-04.log',
+        [
+          `{"level":30,"pid":${OWNED_PID},"runtime":"desktop","event":"desktop.boot","msg":"desktop main process starting"}`,
+          `{"level":30,"pid":4242,"runtime":"desktop","subsystem":"updater","msg":"checking-for-update"}`,
+        ].join('\n'),
+        1,
+      );
+      writeAged(
+        dir,
+        'desktop.2026-09-25.log',
+        '{"level":30,"pid":777,"runtime":"desktop","event":"desktop.boot","msg":"desktop main process starting"}',
+        9,
+      );
+      writeAged(dir, 'server.2026-10-04.log', '{"level":30,"pid":4242,"event":"desktop.boot"}', 1);
+      return dir;
+    }
+
+    test('the user-journal filter selects every fatal display wording Chromium prints', () => {
+      const filter = new RegExp(LINUX_DISPLAY_FATAL_GREP);
+      for (const line of [OWNED_FATAL, OWNED_PROTOCOL, OWNED_X11, FOREIGN_CHROMIUM]) {
+        expect(filter.test(line)).toBe(true);
+      }
+      expect(filter.test(FOREIGN_GTK)).toBe(false);
+    });
+
+    test('keeps only lines a desktop main process of this app wrote, matched by its pid', async () => {
+      const { run } = runner({
+        journalctl: NO_ENTRIES,
+        'journalctl --user': {
+          status: 0,
+          stdout: `${RETIRED_PID}\n${OWNED_X11}\n${FOREIGN_CHROMIUM}\n${FOREIGN_GTK}\n${OWNED_PROTOCOL}\n${OWNED_FATAL}\n`,
+          stderr: '',
+        },
+      });
+
+      const evidence = await collectOsTerminationEvidence({
+        platform: 'linux',
+        now: () => NOW,
+        desktopLogsDir: desktopLogs(),
+        runCommand: run,
+      });
+
+      expect(evidence).toMatchObject({ outcome: 'collected', foreignIgnored: 3, unparseable: 0 });
+      expect(evidence.events).toEqual([
+        {
+          kind: 'journal',
+          at: '2026-10-03T08:00:00.000000+00:00',
+          origin: 'chromium',
+          action: 'display-connection-lost',
+          pid: OWNED_PID,
+          processName: null,
+          unit: null,
+          trigger: 'x11',
+          detail: 'X IO error received (X server probably went away)',
+        },
+        {
+          kind: 'journal',
+          at: '2026-10-04T23:46:38.120000+00:00',
+          origin: 'chromium',
+          action: 'display-connection-lost',
+          pid: OWNED_PID,
+          processName: null,
+          unit: null,
+          trigger: 'wayland',
+          detail:
+            'Wayland protocol error: zwp_text_input_v3@44: error 0: text input already enabled',
+        },
+        {
+          kind: 'journal',
+          at: '2026-10-04T23:46:38.123456+00:00',
+          origin: 'chromium',
+          action: 'display-connection-lost',
+          pid: OWNED_PID,
+          processName: null,
+          unit: null,
+          trigger: 'wayland',
+          detail: 'Fatal Wayland communication error: Broken pipe.',
+        },
+      ]);
+      expect(JSON.stringify(evidence.events)).not.toContain('host-a');
+    });
+
+    test('reports Chromium lines it could not attribute instead of calling them foreign', async () => {
+      const { run } = runner({
+        journalctl: NO_ENTRIES,
+        'journalctl --user': { status: 0, stdout: `${OWNED_FATAL}\n${FOREIGN_GTK}\n`, stderr: '' },
+      });
+      const noBootLine = makeTmpDir();
+      writeAged(noBootLine, 'desktop.2026-10-04.log', '{"pid":1,"msg":"x"}', 1);
+
+      const missing = await collectOsTerminationEvidence({
+        platform: 'linux',
+        now: () => NOW,
+        desktopLogsDir: join(makeTmpDir(), 'missing'),
+        runCommand: run,
+      });
+      const pruned = await collectOsTerminationEvidence({
+        platform: 'linux',
+        now: () => NOW,
+        desktopLogsDir: noBootLine,
+        runCommand: run,
+      });
+
+      expect(missing).toMatchObject({
+        outcome: 'partial',
+        unavailableReason:
+          'user journal: 1 Chromium display line(s) not attributed, desktop logs unreadable',
+        foreignIgnored: 1,
+        events: [],
+      });
+      expect(pruned).toMatchObject({
+        outcome: 'partial',
+        unavailableReason:
+          'user journal: 1 Chromium display line(s) not attributed, no desktop.boot pid in desktop logs',
+      });
+    });
+
+    test.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+      'keeps attributed lines but will not call the rest foreign when a desktop log was unreadable',
+      async () => {
+        const dir = desktopLogs();
+        const unreadable = join(dir, 'desktop.2026-10-03.log');
+        writeAged(dir, 'desktop.2026-10-03.log', '{"pid":4242,"event":"desktop.boot"}', 1);
+        chmodSync(unreadable, 0o000);
+        const { run } = runner({
+          journalctl: NO_ENTRIES,
+          'journalctl --user': {
+            status: 0,
+            stdout: `${OWNED_FATAL}\n${FOREIGN_CHROMIUM}\n`,
+            stderr: '',
+          },
+        });
+
+        const evidence = await collectOsTerminationEvidence({
+          platform: 'linux',
+          now: () => NOW,
+          desktopLogsDir: dir,
+          runCommand: run,
+        });
+        chmodSync(unreadable, 0o644);
+
+        expect(evidence).toMatchObject({
+          outcome: 'partial',
+          unavailableReason:
+            'user journal: 1 Chromium display line(s) not attributed, desktop logs unreadable',
+          foreignIgnored: 0,
+        });
+        expect(evidence.events.map((e) => (e.kind === 'journal' ? e.pid : null))).toEqual([
+          2544264,
+        ]);
+      },
+    );
+
+    test('caps Chromium’s message and counts overflow from both journals', async () => {
+      const long = `${OWNED_FATAL.replace('Broken pipe.', 'x'.repeat(400))}`;
+      const { run } = runner({
+        journalctl: {
+          status: 0,
+          stdout: `${Array.from({ length: 52 }, () => KERNEL_KILLED).join('\n')}\n`,
+          stderr: '',
+        },
+        'journalctl --user': {
+          status: 0,
+          stdout: `${Array.from({ length: 51 }, () => long).join('\n')}\n`,
+          stderr: '',
+        },
+      });
+
+      const evidence = await collectOsTerminationEvidence({
+        platform: 'linux',
+        now: () => NOW,
+        desktopLogsDir: desktopLogs(),
+        runCommand: run,
+      });
+
+      expect(evidence.events).toHaveLength(100);
+      expect(evidence.droppedOverCap).toBe(3);
+      const display = evidence.events.find((e) => e.kind === 'journal' && e.origin === 'chromium');
+      expect(display?.kind === 'journal' ? display.detail : null).toHaveLength(200);
+    });
+  });
+});
+
+function windowsEvent(provider: string, eventId: number, at: string, payload: string): string {
+  return `<Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System><Provider Name='${provider}' Guid='{x}'/><EventID Qualifiers='0'>${eventId}</EventID><TimeCreated SystemTime='${at}'/></System>${payload}</Event>`;
+}
+
+function eventData(values: string[]): string {
+  return `<EventData>${values.map((v) => `<Data>${v}</Data>`).join('')}</EventData>`;
+}
+
+function memoryExhaustion(processes: string[]): string {
+  const entries = processes
+    .map(
+      (name, i) =>
+        `<Process_${i}><Name>${name}</Name><ID>${4412 + i}</ID><CommitCharge>9000000000</CommitCharge></Process_${i}>`,
+    )
+    .join('');
+  return `<UserData><MemoryExhaustionInfo xmlns='http://www.microsoft.com/Windows/Resource/Exhaustion/Detector/Events'><SystemInfo><SystemCommitLimit>34359738368</SystemCommitLimit><SystemCommitCharge>34000000000</SystemCommitCharge></SystemInfo><ProcessInfo>${entries}</ProcessInfo></MemoryExhaustionInfo></UserData>`;
+}
+
+describe('Windows event log collection', () => {
+  test('runs wevtutil from System32 and narrows the application query to this app', () => {
+    expect(windowsEventLogExecutable('D:\\Win')).toBe('D:\\Win\\System32\\wevtutil.exe');
+    expect(windowsEventLogExecutable(undefined)).toBe('C:\\Windows\\System32\\wevtutil.exe');
+    expect(windowsEventLogArgs('System')).toEqual([
+      'qe',
+      'System',
+      '/q:*[System[(EventID=41 or EventID=1074 or EventID=2004 or EventID=6008) and TimeCreated[timediff(@SystemTime) <= 604800000]]]',
+      '/f:xml',
+      '/rd:true',
+      '/c:200',
+    ]);
+    expect(windowsEventLogArgs('Application')).toEqual([
+      'qe',
+      'Application',
+      "/q:*[System[(EventID=1000 or EventID=1001 or EventID=1002) and TimeCreated[timediff(@SystemTime) <= 604800000]] and EventData[Data='OpenKnowledge.exe' or Data='OpenKnowledge Beta.exe']]",
+      '/f:xml',
+      '/rd:true',
+      '/c:200',
+    ]);
+  });
+
+  test('keeps system events as times only, and this app’s application events without paths', async () => {
+    const system = [
+      windowsEvent(
+        'Microsoft-Windows-Resource-Exhaustion-Detector',
+        2004,
+        '2026-10-04T10:00:00Z',
+        memoryExhaustion(['OpenKnowledge.exe', 'chrome.exe']),
+      ),
+      windowsEvent(
+        'Microsoft-Windows-Resource-Exhaustion-Detector',
+        2004,
+        '2026-10-04T10:30:00Z',
+        memoryExhaustion(['chrome.exe']),
+      ),
+      windowsEvent('EventLog', 6008, '2026-10-04T11:00:00Z', eventData(['11:00:00', '10/4/2026'])),
+      windowsEvent('Some-Other-Provider', 41, '2026-10-04T12:00:00Z', eventData([])),
+    ].join('');
+    const application = [
+      windowsEvent(
+        'Application Hang',
+        1002,
+        '2026-10-04T09:00:00Z',
+        eventData([
+          'OpenKnowledge.exe',
+          '0.79.9.0',
+          '4412',
+          'C:\\Users\\someone\\AppData\\Local\\Programs\\OpenKnowledge\\OpenKnowledge.exe',
+          'Quit',
+        ]),
+      ),
+      windowsEvent('Application Error', 1000, '2026-10-04T08:00:00Z', eventData(['chrome.exe'])),
+    ].join('');
+    const { run, calls, maxInFlight } = runner({
+      'wevtutil:System': { status: 0, stdout: system, stderr: '' },
+      'wevtutil:Application': { status: 0, stdout: application, stderr: '' },
+    });
+
+    const evidence = await collectOsTerminationEvidence({
+      platform: 'win32',
+      runCommand: run,
+      systemRoot: 'C:\\Windows',
+    });
+
+    expect(calls.map((c) => c.command)).toEqual([
+      'C:\\Windows\\System32\\wevtutil.exe',
+      'C:\\Windows\\System32\\wevtutil.exe',
+    ]);
+    expect(maxInFlight()).toBe(2);
+    expect(evidence.outcome).toBe('collected');
+    expect(evidence.foreignIgnored).toBe(2);
+    expect(evidence.events).toEqual([
+      {
+        kind: 'windows-event',
+        at: '2026-10-04T10:00:00Z',
+        log: 'System',
+        provider: 'Microsoft-Windows-Resource-Exhaustion-Detector',
+        eventId: 2004,
+        mentionsOpenKnowledge: true,
+        data: [],
+      },
+      {
+        kind: 'windows-event',
+        at: '2026-10-04T10:30:00Z',
+        log: 'System',
+        provider: 'Microsoft-Windows-Resource-Exhaustion-Detector',
+        eventId: 2004,
+        mentionsOpenKnowledge: false,
+        data: [],
+      },
+      {
+        kind: 'windows-event',
+        at: '2026-10-04T11:00:00Z',
+        log: 'System',
+        provider: 'EventLog',
+        eventId: 6008,
+        mentionsOpenKnowledge: false,
+        data: [],
+      },
+      {
+        kind: 'windows-event',
+        at: '2026-10-04T09:00:00Z',
+        log: 'Application',
+        provider: 'Application Hang',
+        eventId: 1002,
+        mentionsOpenKnowledge: true,
+        data: ['OpenKnowledge.exe', '0.79.9.0', '4412', 'Quit'],
+      },
+    ]);
+  });
+
+  test('keeps each queried id only from the provider that documents it', async () => {
+    const documented: [log: 'System' | 'Application', id: number, provider: string][] = [
+      ['System', 41, 'Microsoft-Windows-Kernel-Power'],
+      ['System', 1074, 'User32'],
+      ['System', 2004, 'Microsoft-Windows-Resource-Exhaustion-Detector'],
+      ['System', 6008, 'EventLog'],
+      ['Application', 1000, 'Application Error'],
+      ['Application', 1001, 'Windows Error Reporting'],
+      ['Application', 1002, 'Application Hang'],
+    ];
+    const at = '2026-10-04T10:00:00Z';
+    const recordsFor = (log: string) =>
+      documented
+        .filter(([l]) => l === log)
+        .flatMap(([, id, provider]) => [
+          windowsEvent(provider, id, at, eventData(['OpenKnowledge.exe'])),
+          windowsEvent('Impostor', id, at, eventData(['OpenKnowledge.exe'])),
+        ])
+        .join('');
+    const { run } = runner({
+      'wevtutil:System': { status: 0, stdout: recordsFor('System'), stderr: '' },
+      'wevtutil:Application': { status: 0, stdout: recordsFor('Application'), stderr: '' },
+    });
+
+    const evidence = await collectOsTerminationEvidence({ platform: 'win32', runCommand: run });
+
+    expect(
+      evidence.events.map((e) =>
+        e.kind === 'windows-event' ? [e.log, e.eventId, e.provider] : null,
+      ),
+    ).toEqual(documented);
+    expect(evidence.foreignIgnored).toBe(documented.length);
+  });
+
+  test('a single failed log makes the sweep partial, and two make it unavailable', async () => {
+    const oneFailed = runner({
+      'wevtutil:System': { status: 5, stdout: '', stderr: 'Access is denied.' },
+      'wevtutil:Application': { status: 0, stdout: '', stderr: '' },
+    });
+    const bothFailed = runner({
+      'wevtutil:System': { status: null, stdout: '', stderr: '', errorCode: 'ENOENT' },
+      'wevtutil:Application': { status: null, stdout: '', stderr: '', signal: 'SIGKILL' },
+    });
+
+    expect(
+      await collectOsTerminationEvidence({ platform: 'win32', runCommand: oneFailed.run }),
+    ).toMatchObject({ outcome: 'partial', unavailableReason: 'System: exit 5: Access is denied.' });
+    expect(
+      await collectOsTerminationEvidence({ platform: 'win32', runCommand: bothFailed.run }),
+    ).toMatchObject({
+      outcome: 'unavailable',
+      unavailableReason: 'System: ENOENT; Application: signal SIGKILL',
+    });
+  });
+});
+
+describe('createRunCommand', () => {
+  const node = process.execPath;
+
+  test('reports an exit code, a missing program, an output overflow and a timeout distinctly', async () => {
+    const run = createRunCommand({ timeoutMs: 5_000, maxBuffer: 64 });
+
+    expect(await run(node, ['-e', 'process.stdout.write("hi"); process.exit(3)'])).toMatchObject({
+      status: 3,
+      stdout: 'hi',
+    });
+    expect(await run(join(makeTmpDir(), 'no-such-program'), [])).toMatchObject({
+      status: null,
+      errorCode: 'ENOENT',
+    });
+    expect(await run(node, ['-e', 'process.stdout.write("x".repeat(4096))'])).toMatchObject({
+      status: null,
+      errorCode: 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER',
+    });
+    expect(
+      await createRunCommand({ timeoutMs: 200 })(node, ['-e', 'setTimeout(() => {}, 10_000)']),
+    ).toMatchObject({ status: null, errorCode: 'ETIMEDOUT' });
+  });
+
+  test('resolves a spawn that throws synchronously instead of rejecting', async () => {
+    expect(await createRunCommand()(node, ['-e', 'nul\0byte'])).toMatchObject({
+      status: null,
+      errorCode: 'ERR_INVALID_ARG_VALUE',
+    });
+  });
+
+  test.skipIf(process.platform === 'win32')('names the signal that ended a child', async () => {
+    const run = createRunCommand();
+
+    expect(
+      await run(node, ['-e', 'process.kill(process.pid, "SIGTERM"); setTimeout(() => {}, 5000)']),
+    ).toMatchObject({ status: null, signal: 'SIGTERM' });
+  });
+});
+
+test('names a platform with no collector as unsupported', async () => {
+  expect(await collectOsTerminationEvidence({ platform: 'freebsd' })).toMatchObject({
+    source: null,
+    outcome: 'unsupported',
+  });
+});
+
+test('summarises the sweep in one line, naming what it could not keep', () => {
+  expect(
+    describeOsTerminationEvidence({
+      schemaVersion: 1,
+      platform: 'win32',
+      source: 'windows-event-log',
+      outcome: 'partial',
+      readFrom: [],
+      unavailableReason: 'System: exit 5',
+      windowDays: 7,
+      foreignIgnored: 3,
+      unparseable: 1,
+      droppedOverCap: 2,
+      events: [],
+    }),
+  ).toBe(
+    'partial from Windows event logs, System: exit 5 (7d; 0 kept; 3 other-process record(s) ignored; 1 unparseable; 2 older dropped over cap)',
+  );
+});
+
+test('renders an uncollected sweep explicitly rather than as an empty file', () => {
+  expect(JSON.parse(renderOsTerminationEvidence(undefined))).toEqual({
+    schemaVersion: 1,
+    outcome: 'not-collected',
+  });
+});

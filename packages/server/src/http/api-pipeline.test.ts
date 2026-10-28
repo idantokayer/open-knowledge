@@ -39,6 +39,7 @@ async function bootNativeRig(
     resolve(pathname) {
       if (
         pathname === '/api/native-ping' ||
+        pathname === '/api/agent-write-md' ||
         pathname === '/api/native-mutating' ||
         pathname === '/api/native-upload' ||
         pathname.startsWith('/api/local-op/')
@@ -49,6 +50,15 @@ async function bootNativeRig(
             dispatched.push(`${req.method} ${pathname}`);
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ pong: true }));
+          },
+        };
+      }
+      if (pathname === '/api/native-revalidated') {
+        return {
+          template: pathname,
+          dispatch: async (_req, res) => {
+            res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' });
+            res.end('{}');
           },
         };
       }
@@ -66,13 +76,15 @@ async function bootNativeRig(
       return null;
     },
     isMutating: (pathname) =>
-      pathname === '/api/native-mutating' || pathname.startsWith('/api/local-op/'),
+      pathname === '/api/native-mutating' || pathname === '/api/agent-write-md',
   };
   const nativeApi: NativeApiHandle = {
     paths: [
       '/api/native-ping',
+      '/api/agent-write-md',
       '/api/native-mutating',
       '/api/native-upload',
+      '/api/native-revalidated',
       '/api/native-throw',
       '/api/native-empty',
       '/api/native-declined',
@@ -185,6 +197,34 @@ describe('natively-mounted /api routes run the shared admission pipeline', () =>
     }
   });
 
+  test('API answers default to Cache-Control: no-store, refusals included', async () => {
+    const rig = await bootNativeRig();
+    try {
+      const served = await fetch(`${rig.baseUrl}/api/native-ping`);
+      expect(served.status).toBe(200);
+      expect(served.headers.get('cache-control')).toBe('no-store');
+
+      const refused = await fetch(`${rig.baseUrl}/api/native-ping`, {
+        headers: { Origin: 'https://evil.example' },
+      });
+      expect(refused.status).toBe(403);
+      expect(refused.headers.get('cache-control')).toBe('no-store');
+    } finally {
+      await rig.close();
+    }
+  });
+
+  test('a route that names its own Cache-Control keeps it over the default', async () => {
+    const rig = await bootNativeRig();
+    try {
+      const res = await fetch(`${rig.baseUrl}/api/native-revalidated`);
+      expect(res.status).toBe(200);
+      expect(res.headers.get('cache-control')).toBe('no-cache');
+    } finally {
+      await rig.close();
+    }
+  });
+
   test('a foreign Origin is refused before dispatch with the legacy problem shape', async () => {
     const rig = await bootNativeRig();
     try {
@@ -290,6 +330,24 @@ describe('natively-mounted /api routes run the shared admission pipeline', () =>
         headers: { Host: 'localhost' },
       });
       expect(allowed.status).toBe(200);
+    } finally {
+      await rig.close();
+    }
+  });
+
+  test('previews reject project mutations while retaining document edits and reads', async () => {
+    const rig = await bootNativeRig({ ephemeral: true });
+    try {
+      const blocked = await rawRequest(rig.port, '/api/native-mutating', { method: 'POST' });
+      expect(blocked.status).toBe(403);
+      expect(parseProblem(blocked.body).title).toBe(
+        'Single-file previews cannot manage project files.',
+      );
+      const edit = await rawRequest(rig.port, '/api/agent-write-md', { method: 'POST' });
+      expect(edit.status).toBe(200);
+      const read = await rawRequest(rig.port, '/api/native-ping');
+      expect(read.status).toBe(200);
+      expect(rig.dispatched).toEqual(['POST /api/agent-write-md', 'GET /api/native-ping']);
     } finally {
       await rig.close();
     }

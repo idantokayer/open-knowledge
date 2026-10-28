@@ -23,8 +23,6 @@ export function userDataDirFor(tmpHome: string): string {
 }
 
 export const SPEC_PLATFORM_GATES = {
-  '_nav-empty-840x600.e2e.ts': ['!PLATFORM_SUPPORTED'],
-  '_nav-size-screenshots.e2e.ts': ['!PLATFORM_SUPPORTED'],
   'agent-patch-divergence-probe.e2e.ts': ['!PLATFORM_SUPPORTED'],
   'background-throttle.e2e.ts': ['!PLATFORM_SUPPORTED'],
   'cold-single-file-launch.e2e.ts': ['!DARWIN'],
@@ -34,8 +32,8 @@ export const SPEC_PLATFORM_GATES = {
   'external-link.e2e.ts': ['!DARWIN'],
   'liveness-watchdog.e2e.ts': ['!PLATFORM_SUPPORTED'],
   'mcp-wiring.e2e.ts': ['!PLATFORM_SUPPORTED', 'WINDOWS', "WINDOWS || TARGET.mode === 'packaged'"],
-  'navigator-close-on-open.e2e.ts': ['!PLATFORM_SUPPORTED'],
-  'navigator-return.e2e.ts': ['!PLATFORM_SUPPORTED'],
+  'navigator-close-on-open.e2e.ts': ['!PLATFORM_SUPPORTED', 'WINDOWS'],
+  'navigator-return.e2e.ts': ['!PLATFORM_SUPPORTED', 'DARWIN'],
   'note-window.e2e.ts': ['!PLATFORM_SUPPORTED', '!DARWIN'],
   'okf-rule-toggle.e2e.ts': ['!DARWIN'],
   'qa-create-new-extended.e2e.ts': ['!PLATFORM_SUPPORTED'],
