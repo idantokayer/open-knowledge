@@ -29,4 +29,10 @@ describe('collabUrlFromRequestHeaders', () => {
   test('missing Host yields null (malformed-request floor)', () => {
     expect(collabUrlFromRequestHeaders({})).toBeNull();
   });
+
+  test('includes the configured public path prefix', () => {
+    expect(collabUrlFromRequestHeaders({ host: 'kb.example.com' }, '/plm')).toBe(
+      'ws://kb.example.com/plm/collab',
+    );
+  });
 });

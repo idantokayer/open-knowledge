@@ -64,6 +64,7 @@ import { successResponse } from './success-response.ts';
 export interface ConfigSystemRouteDeps {
   contentDir: string;
   projectDir: string | undefined;
+  basePath?: string;
   ephemeral: boolean;
   log: PinoLogger;
   ready: Promise<void> | undefined;
@@ -109,6 +110,7 @@ export function createConfigSystemRoutes(deps: ConfigSystemRouteDeps): ConfigSys
   const {
     contentDir,
     projectDir,
+    basePath,
     ephemeral,
     log,
     ready,
@@ -503,7 +505,7 @@ export function createConfigSystemRoutes(deps: ConfigSystemRouteDeps): ConfigSys
   async function handleApiConfig(req: IncomingMessage, res: ServerResponse): Promise<void> {
     if (req.method === 'GET' || req.method === 'HEAD') {
       try {
-        const collabUrl = collabUrlFromRequestHeaders(req.headers);
+        const collabUrl = collabUrlFromRequestHeaders(req.headers, basePath);
         const port = lockDir ? (readServerLock(lockDir)?.port ?? 0) : 0;
         const payload = {
           collabUrl,

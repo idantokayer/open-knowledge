@@ -78,6 +78,19 @@ const HTTP_URL_SCHEME_RE = /^https?:\/\//;
 
 export const DEFAULT_TUNNEL_PORT = 24550;
 
+function isValidServerBasePath(value: string): boolean {
+  if (value === '' || value === '/') return true;
+  if (!value.startsWith('/') || value.endsWith('/')) return false;
+  return value
+    .slice(1)
+    .split('/')
+    .every((segment) => {
+      return (
+        segment !== '' && segment !== '.' && segment !== '..' && /^[A-Za-z0-9._~-]+$/.test(segment)
+      );
+    });
+}
+
 export type EmbeddingsBaseUrlProblem = 'invalid-url' | 'insecure-scheme';
 
 export function isLoopbackEmbeddingsUrl(baseUrl: string): boolean {
@@ -1069,6 +1082,18 @@ export const ConfigSchema = z.looseObject({
     .default({ enabled: true }),
   server: z
     .looseObject({
+      basePath: z
+        .string()
+        .refine(isValidServerBasePath, 'Expected a canonical path prefix such as /plm or /')
+        .register(fieldRegistry, {
+          scope: 'project-local',
+          agentSettable: false,
+          reload: 'boot',
+          defaultScope: 'project-local',
+          description:
+            'Path prefix served by this instance, such as /plm. Requests and browser API/WebSocket URLs stay under this prefix; unset or / serves at the root. Per-machine (project-local) — set with OK_BASE_PATH or .ok/local/config.yml. Read at server start; changing it requires a restart.',
+        })
+        .default(''),
       port: z
         .number()
         .int()
@@ -1153,6 +1178,7 @@ export const ConfigSchema = z.looseObject({
         .default(false),
     })
     .default({
+      basePath: '',
       bind: [...DEFAULT_SERVER_BIND],
       allowExternal: false,
       readOnly: false,

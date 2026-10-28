@@ -4,10 +4,12 @@ import { installClientFetchWrapper } from './client-fetch';
 type GlobalLike = {
   window?: Window;
   fetch?: typeof fetch;
+  document?: Document;
 };
 const g = globalThis as unknown as GlobalLike;
 const originalWindow = g.window;
 const originalFetch = g.fetch;
+const originalDocument = g.document;
 
 const PROTOCOL = 'x-ok-client-protocol';
 const RUNTIME = 'x-ok-client-runtime';
@@ -23,7 +25,7 @@ function stubWindowFetch() {
   });
   g.window = {
     fetch: fetchStub,
-    location: { origin: 'http://localhost:5173' },
+    location: { origin: 'http://localhost:5173', pathname: '/' },
   } as unknown as Window;
   g.fetch = fetchStub as unknown as typeof fetch;
   return { calls, fetchStub };
@@ -42,11 +44,14 @@ describe('installClientFetchWrapper', () => {
     else g.window = originalWindow;
     if (originalFetch === undefined) delete g.fetch;
     else g.fetch = originalFetch;
+    if (originalDocument === undefined) delete g.document;
+    else g.document = originalDocument;
   });
 
   afterEach(() => {
     delete g.window;
     delete g.fetch;
+    delete g.document;
   });
 
   test('web mode injects version headers on relative /api/* without rewriting', async () => {
@@ -57,6 +62,26 @@ describe('installClientFetchWrapper', () => {
     expect(header(calls[0], PROTOCOL)).toBe('2');
     expect(header(calls[0], KIND)).toBe('web');
     expect(typeof header(calls[0], RUNTIME)).toBe('string');
+  });
+
+  test('web mode prefixes API paths using the configured base element', async () => {
+    const { calls } = stubWindowFetch();
+    g.document = {
+      querySelector: () => ({ getAttribute: () => '/plm/' }),
+    } as unknown as Document;
+    installClientFetchWrapper();
+    await window.fetch('/api/documents');
+    expect(calls[0]?.input).toBe('/plm/api/documents');
+  });
+
+  test('web mode does not double-prefix API paths already under the mount', async () => {
+    const { calls } = stubWindowFetch();
+    g.document = {
+      querySelector: () => ({ getAttribute: () => '/plm/' }),
+    } as unknown as Document;
+    installClientFetchWrapper();
+    await window.fetch('/plm/api/documents');
+    expect(calls[0]?.input).toBe('/plm/api/documents');
   });
 
   test('desktop mode rewrites relative /api/* to apiOrigin AND injects headers', async () => {

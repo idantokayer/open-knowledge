@@ -1252,6 +1252,7 @@ export async function renameTrackedPathInGit(
 }
 
 export interface ApiExtensionOptions {
+  basePath?: string;
   declaredGitHubHosts?: ReadonlySet<string>;
   ingressPolicy?: IngressPolicy;
   hocuspocus: Hocuspocus;
@@ -4838,6 +4839,7 @@ export function createApiExtension(options: ApiExtensionOptions): Extension & {
   const configSystemRoutes = createConfigSystemRoutes({
     contentDir,
     projectDir,
+    basePath: options.basePath,
     ephemeral,
     log,
     ready,
@@ -5100,7 +5102,10 @@ export function createApiExtension(options: ApiExtensionOptions): Extension & {
     checkLocalOpSecurity,
     localOpCliArgs,
     localOpGuard,
-    getSyncEngine,
+    getSyncEngine: () =>
+      canWrite(options.getWritePolicyPrincipal?.() ?? { role: 'writer' }).allow
+        ? (getSyncEngine?.() ?? null)
+        : null,
     authStreamHeartbeatMs,
     embeddingsSecretsFile,
     readSemanticProviderConfig,

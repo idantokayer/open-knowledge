@@ -152,7 +152,7 @@ async function startServerWithEnvDump(extraEnv = {}) {
   const stub = join(dir, 'entrypoint-stub.sh');
   writeFileSync(
     stub,
-    `#!/bin/sh\ntouch "${sentinel}"\nprintf 'GIT_REPO_URL=%s\\nGIT_BRANCH=%s\\nOK_EXTERNAL_URL=%s\\n' "$GIT_REPO_URL" "$GIT_BRANCH" "$OK_EXTERNAL_URL" > "${envdump}"\nsleep 10\n`,
+    `#!/bin/sh\ntouch "${sentinel}"\nprintf 'GIT_REPO_URL=%s\\nGIT_BRANCH=%s\\nOK_EXTERNAL_URL=%s\\nOK_BASE_PATH=%s\\n' "$GIT_REPO_URL" "$GIT_BRANCH" "$OK_EXTERNAL_URL" "$OK_BASE_PATH" > "${envdump}"\nsleep 10\n`,
   );
   chmodSync(stub, 0o755);
   for (let attempt = 0; attempt < 10; attempt += 1) {
@@ -818,6 +818,7 @@ test('runHookPayload wrapper: the real AWS envelope resolves all three inner val
       gitRepoUrl: 'https://github.com/acme/kb',
       gitBranch: 'dev',
       externalUrl: 'https://kb.example.com',
+      basePath: '/plm',
     };
     const body = { microvmId: 'm', runHookPayload: JSON.stringify(inner) };
     const r = await postTo(inst.port, RUN_PATH, body);
@@ -828,7 +829,22 @@ test('runHookPayload wrapper: the real AWS envelope resolves all three inner val
     assert.equal(env.GIT_REPO_URL, 'https://github.com/acme/kb');
     assert.equal(env.GIT_BRANCH, 'dev');
     assert.equal(env.OK_EXTERNAL_URL, 'https://kb.example.com');
+    assert.equal(env.OK_BASE_PATH, '/plm');
     assert.notEqual(env.OK_EXTERNAL_URL, DEFAULT_EXTERNAL_URL);
+  } finally {
+    teardown(inst);
+  }
+});
+
+test('run-hook payload rejects a non-canonical basePath', async () => {
+  let inst;
+  try {
+    inst = await startServerWithEnvDump();
+    const r = await postTo(inst.port, RUN_PATH, {
+      basePath: '/plm/../other',
+    });
+    assert.equal(r.status, 400);
+    assert.match(r.body, /canonical path prefix/);
   } finally {
     teardown(inst);
   }

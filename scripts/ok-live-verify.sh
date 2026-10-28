@@ -6,7 +6,7 @@ KEY_FILE="$HOME/.ssh/deploy_key"
 REPO='git@github.com:idantokayer/knowledge-base.git'
 BRANCH='main'
 IMAGE_ARN='arn:aws:lambda:us-east-1:603106382807:microvm-image:ok-space'
-ALL_INGRESS='arn:aws:lambda:us-east-1:aws:network-connector:aws-network-connector:ALL_INGRESS'
+ALL_INGRESS='arn:aws:lambda:us-east-1:aws:network-connector:aws-network-connector:SHELL_INGRESS'
 BASE_PATH="${OK_BASE_PATH:-}"
 if [ "$BASE_PATH" = "/" ]; then BASE_PATH=""; fi
 
@@ -29,6 +29,11 @@ R=$(aws lambda-microvms run-microvm \
   --ingress-network-connectors "$ALL_INGRESS" \
   --maximum-duration-in-seconds 3600 \
   --run-hook-payload "$PAYLOAD" \
+  --idle-policy '{
+    "autoResumeEnabled": true,
+    "maxIdleDurationSeconds": 900,
+    "suspendedDurationSeconds": 1800
+  }' \
   --client-token "kblive-$(date +%s)" \
   --region us-east-1 --output json)
 MV=$(echo "$R" | jq -r '.microvmId')

@@ -30,6 +30,7 @@ export class EnvVarError extends Error {
 
 export const RECOGNIZED_ENV_VARS: ReadonlyMap<string, readonly string[]> = new Map([
   ['PORT', ['server', 'port']],
+  ['OK_BASE_PATH', ['server', 'basePath']],
   ['OK_BIND', ['server', 'bind']],
   ['OK_EXTERNAL_URL', ['server', 'externalUrl']],
   ['OK_ALLOW_EXTERNAL', ['server', 'allowExternal']],

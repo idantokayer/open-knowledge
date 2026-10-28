@@ -2,6 +2,7 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "noEmit": true,
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
     // The app is a private, non-published frontend (consumed by the CLI as built
     // assets, never as .d.ts). It emits no declarations, so the base config's
     // declaration/declarationMap only trigger .d.ts portability checks (TS4058/

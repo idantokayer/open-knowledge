@@ -30,7 +30,9 @@ interface NativeRig {
   close: () => Promise<void>;
 }
 
-async function bootNativeRig(opts: { ephemeral?: boolean } = {}): Promise<NativeRig> {
+async function bootNativeRig(
+  opts: { ephemeral?: boolean; readOnly?: boolean } = {},
+): Promise<NativeRig> {
   const legacyCalls: string[] = [];
   const dispatched: string[] = [];
   const table: ApiRouteTable = {
@@ -38,7 +40,8 @@ async function bootNativeRig(opts: { ephemeral?: boolean } = {}): Promise<Native
       if (
         pathname === '/api/native-ping' ||
         pathname === '/api/native-mutating' ||
-        pathname === '/api/native-upload'
+        pathname === '/api/native-upload' ||
+        pathname.startsWith('/api/local-op/')
       ) {
         return {
           template: pathname,
@@ -62,7 +65,8 @@ async function bootNativeRig(opts: { ephemeral?: boolean } = {}): Promise<Native
       }
       return null;
     },
-    isMutating: (pathname) => pathname === '/api/native-mutating',
+    isMutating: (pathname) =>
+      pathname === '/api/native-mutating' || pathname.startsWith('/api/local-op/'),
   };
   const nativeApi: NativeApiHandle = {
     paths: [
@@ -72,11 +76,13 @@ async function bootNativeRig(opts: { ephemeral?: boolean } = {}): Promise<Native
       '/api/native-throw',
       '/api/native-empty',
       '/api/native-declined',
+      '/api/local-op/*',
     ],
     dispatch: createApiRequestPipeline({
       log: fakeLog,
       ephemeral: opts.ephemeral,
       table,
+      getWritePolicyPrincipal: () => ({ role: opts.readOnly ? 'reader' : 'writer' }),
     }),
   };
   const { requestListener } = createHttpApp({
@@ -447,6 +453,62 @@ describe('opaque origins and request body media types', () => {
         'DELETE /api/native-mutating',
         'GET /api/native-mutating',
       ]);
+    } finally {
+      await rig.close();
+    }
+  });
+});
+
+describe('GitHub credentials on read-only servers', () => {
+  test('allows sign-in, token entry, status and cancellation while refusing every other local operation', async () => {
+    const rig = await bootNativeRig({ readOnly: true });
+    try {
+      for (const operation of ['login', 'pat', 'gh-login', 'status', 'cancel']) {
+        const response = await rawRequest(rig.port, `/api/local-op/auth/${operation}`, {
+          method: 'POST',
+        });
+        expect(response.status, operation).toBe(200);
+      }
+      for (const path of [
+        '/api/native-mutating',
+        '/api/local-op/clone',
+        '/api/local-op/ok-init',
+        '/api/local-op/auth/signout',
+        '/api/local-op/auth/set-identity',
+        '/api/local-op/auth/repos',
+        '/api/local-op/embeddings/set-key',
+        '/api/local-op/auth/login/extra',
+      ]) {
+        const response = await rawRequest(rig.port, path, { method: 'POST' });
+        expect(response.status, path).toBe(403);
+        expect(parseProblem(response.body).type, path).toBe('urn:ok:error:read-only');
+      }
+      expect(rig.dispatched).toHaveLength(5);
+    } finally {
+      await rig.close();
+    }
+  });
+
+  test('credential setup still refuses untrusted hosts, cross-origin callers and other methods', async () => {
+    const rig = await bootNativeRig({ readOnly: true });
+    try {
+      const untrustedHost = await rawRequest(rig.port, '/api/local-op/auth/pat', {
+        method: 'POST',
+        headers: { Host: 'evil.example' },
+      });
+      expect(untrustedHost.status).toBe(403);
+      expect(parseProblem(untrustedHost.body).type).toBe('urn:ok:error:host-not-allowed');
+      const crossOrigin = await rawRequest(rig.port, '/api/local-op/auth/login', {
+        method: 'POST',
+        headers: { Origin: 'https://evil.example' },
+      });
+      expect(crossOrigin.status).toBe(403);
+      for (const method of ['GET', 'PUT', 'DELETE']) {
+        const response = await rawRequest(rig.port, '/api/local-op/auth/pat', { method });
+        expect(response.status, method).toBe(403);
+        expect(parseProblem(response.body).type, method).toBe('urn:ok:error:read-only');
+      }
+      expect(rig.dispatched).toEqual([]);
     } finally {
       await rig.close();
     }

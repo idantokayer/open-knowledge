@@ -288,6 +288,7 @@ import { trustSystemCertificates } from './trust-system-ca.ts';
 import { cleanupOrphanUploadTempfiles } from './upload-streaming.ts';
 
 export interface ServerOptions {
+  basePath?: string;
   acpRegistryFetchImpl?: typeof fetch;
   ingressPolicy?: IngressPolicy;
   port?: number;
@@ -2147,6 +2148,7 @@ export function createServer(options: ServerOptions): ServerInstance {
     }
 
     const apiExtension = createApiExtension({
+      basePath: options.basePath,
       declaredGitHubHosts,
       hocuspocus,
       durabilityState,

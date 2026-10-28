@@ -129,6 +129,14 @@ export interface ApiPipelineOptions {
 
 export type ApiRequestPipeline = (req: IncomingMessage, res: ServerResponse) => Promise<boolean>;
 
+const GITHUB_CREDENTIAL_ROUTES: ReadonlySet<string> = new Set([
+  '/api/local-op/auth/login',
+  '/api/local-op/auth/status',
+  '/api/local-op/auth/pat',
+  '/api/local-op/auth/gh-login',
+  '/api/local-op/auth/cancel',
+]);
+
 let _httpDurationHist: ReturnType<ReturnType<typeof getMeter>['createHistogram']> | null = null;
 onTelemetryShutdown(() => {
   _httpDurationHist = null;
@@ -250,16 +258,10 @@ export function createApiRequestPipeline(opts: ApiPipelineOptions): ApiRequestPi
     }
 
     if (table.isMutating(url)) {
-      // Whole-instance read-only lock. A reader principal may not drive any
-      // mutating HTTP route (GUI/editor write path, local-op routes, etc.).
-      // Checked BEFORE loopback/host gating so an admitted local peer is still
-      // refused when the instance is read-only — the policy is about WHO may
-      // write, not WHERE the request came from. This is the single HTTP choke
-      // point: every mutating route flows through here, so no per-route list
-      // needs maintaining (e.g. /api/agent-integrations/apply, already declared
-      // mutating, is covered automatically).
       const decision = canWrite(resolveWritePolicyPrincipal());
-      if (!decision.allow) {
+      const githubCredentialRequest =
+        request.method === 'POST' && GITHUB_CREDENTIAL_ROUTES.has(url);
+      if (!decision.allow && !githubCredentialRequest) {
         errorResponse(response, 403, 'urn:ok:error:read-only', 'Server is read-only.', {
           handler: 'api-read-only-gate',
           detail:

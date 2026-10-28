@@ -1,0 +1,79 @@
+{
+  "family": "toluna-ok",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": [
+    "FARGATE"
+  ],
+  "cpu": "1024",
+  "memory": "2048",
+  "runtimePlatform": {
+    "cpuArchitecture": "X86_64",
+    "operatingSystemFamily": "LINUX"
+  },
+  "executionRoleArn": "arn:aws:iam::<ACCOUNT_ID>:role/<ECS_EXECUTION_ROLE>",
+  "containerDefinitions": [
+    {
+      "name": "toluna-ok",
+      "image": "<ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/toluna-ok:<TAG>",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 3000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "GIT_REPO_URL",
+          "value": "https://github.com/example/toluna-ok.git"
+        },
+        {
+          "name": "GIT_BRANCH",
+          "value": "main"
+        },
+        {
+          "name": "OK_EXTERNAL_URL",
+          "value": "https://toluna-ok.example.com"
+        }
+      ],
+      "mountPoints": [
+        {
+          "sourceVolume": "content",
+          "containerPath": "/content",
+          "readOnly": false
+        }
+      ],
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "node -e \"fetch('http://127.0.0.1:3000/readyz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/toluna-ok",
+          "awslogs-region": "<REGION>",
+          "awslogs-stream-prefix": "server"
+        }
+      }
+    }
+  ],
+  "volumes": [
+    {
+      "name": "content",
+      "efsVolumeConfiguration": {
+        "fileSystemId": "<EFS_FILE_SYSTEM_ID>",
+        "transitEncryption": "ENABLED",
+        "authorizationConfig": {
+          "accessPointId": "<EFS_ACCESS_POINT_ID>",
+          "iam": "DISABLED"
+        }
+      }
+    }
+  ]
+}

@@ -58,6 +58,7 @@ function isNonEmptyString(v) {
 const DEFAULT_GIT_REPO_URL = process.env.OK_DEFAULT_GIT_REPO_URL ?? 'https://github.com/inkeep/open-knowledge';
 const DEFAULT_GIT_BRANCH = process.env.OK_DEFAULT_GIT_BRANCH ?? 'main';
 const DEFAULT_EXTERNAL_URL = process.env.OK_DEFAULT_EXTERNAL_URL ?? 'https://placeholder.local';
+const DEFAULT_BASE_PATH = process.env.OK_DEFAULT_BASE_PATH ?? process.env.OK_BASE_PATH ?? '';
 
 function resolveSpace(raw) {
   let parsed = null;
@@ -87,12 +88,31 @@ function resolveSpace(raw) {
   const gitRepoUrl = isNonEmptyString(overrides.gitRepoUrl) ? overrides.gitRepoUrl : DEFAULT_GIT_REPO_URL;
   const gitBranch = isNonEmptyString(overrides.gitBranch) ? overrides.gitBranch : DEFAULT_GIT_BRANCH;
   const externalUrl = isNonEmptyString(overrides.externalUrl) ? overrides.externalUrl : DEFAULT_EXTERNAL_URL;
+  const basePath = typeof overrides.basePath === 'string' ? overrides.basePath : DEFAULT_BASE_PATH;
   const gitSshKey = isNonEmptyString(overrides.gitSshKey) ? overrides.gitSshKey : undefined;
   const gitKnownHosts = isNonEmptyString(overrides.gitKnownHosts) ? overrides.gitKnownHosts : undefined;
-  return { gitRepoUrl, gitBranch, externalUrl, gitSshKey, gitKnownHosts };
+  return { gitRepoUrl, gitBranch, externalUrl, basePath, gitSshKey, gitKnownHosts };
 }
 
 function validateSpace(space) {
+  if (
+    space.basePath !== '' &&
+    space.basePath !== '/' &&
+    (!space.basePath.startsWith('/') ||
+      space.basePath.endsWith('/') ||
+      space.basePath
+        .slice(1)
+        .split('/')
+        .some(
+          (segment) =>
+            segment === '' ||
+            segment === '.' ||
+            segment === '..' ||
+            !/^[A-Za-z0-9._~-]+$/.test(segment),
+        ))
+  ) {
+    return 'basePath must be empty, /, or a canonical path prefix such as /plm';
+  }
   const hasKey = isNonEmptyString(space.gitSshKey);
   const hasHosts = isNonEmptyString(space.gitKnownHosts);
   if (hasKey !== hasHosts) {
@@ -163,6 +183,7 @@ function spawnApp(space, externalUrl, requestHost) {
         GIT_REPO_URL: space.gitRepoUrl,
         GIT_BRANCH: space.gitBranch,
         OK_EXTERNAL_URL: externalUrl,
+        OK_BASE_PATH: space.basePath,
         OK_BIND: bind,
         ...extraEnv,
       },
@@ -317,7 +338,8 @@ const server = createServer((req, res) => {
       const keyShape = isNonEmptyString(space.gitSshKey) ? `present len=${space.gitSshKey.length}` : 'absent';
       const hostsShape = isNonEmptyString(space.gitKnownHosts) ? `present len=${space.gitKnownHosts.length}` : 'absent';
       const extShape = isNonEmptyString(space.externalUrl) && space.externalUrl !== DEFAULT_EXTERNAL_URL ? 'present' : 'default';
-      process.stderr.write(`run-hook: run-body ${Buffer.byteLength(raw, 'utf8')} bytes content-type=${req.headers['content-type'] ?? 'none'} shape={gitRepoUrl:${space.gitRepoUrl}, gitBranch:${space.gitBranch}, externalUrl:${extShape}, gitSshKey:${keyShape}, gitKnownHosts:${hostsShape}}\n`);
+      const basePathShape = space.basePath === '' || space.basePath === '/' ? 'root' : 'prefix';
+      process.stderr.write(`run-hook: run-body ${Buffer.byteLength(raw, 'utf8')} bytes content-type=${req.headers['content-type'] ?? 'none'} shape={gitRepoUrl:${space.gitRepoUrl}, gitBranch:${space.gitBranch}, externalUrl:${extShape}, basePath:${basePathShape}, gitSshKey:${keyShape}, gitKnownHosts:${hostsShape}}\n`);
       const schemaError = validateSpace(space);
       if (schemaError !== null) {
         reject(res, 400, 'bad_schema', schemaError);

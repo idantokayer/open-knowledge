@@ -29,6 +29,7 @@ import {
 } from './acp/thread-manager.ts';
 import { collectServerHostSnapshot } from './agent-registry-probes.ts';
 import { createAssetServeMiddleware } from './asset-serve-middleware.ts';
+import { normalizeServerBasePath } from './base-path.ts';
 import { bootElapsedMs, recordBootPhase, startBootTimings } from './boot-timings.ts';
 import type { Config } from './config/schema.ts';
 import { installCrashCapture } from './crash-capture.ts';
@@ -54,6 +55,7 @@ import { createMcpHttpHandler } from './mcp-http.ts';
 import { mountMcpAndApi, type ReadinessState } from './mcp-mount.ts';
 import { MissingOkConfigError } from './missing-ok-config-error.ts';
 import { createProjectRuntime, type ProjectRuntime } from './project-runtime.ts';
+import { createReactShellMiddleware } from './react-shell-middleware.ts';
 import { createServer, type ServerInstance, type ServerOptions } from './server-factory.ts';
 import { installServerMemoryGauge, installServerRuntimeGauges } from './server-memory-telemetry.ts';
 import {
@@ -369,9 +371,11 @@ async function bootServerInner(opts: BootServerOptions): Promise<BootedServer> {
     );
   }
 
+  const basePath = normalizeServerBasePath(opts.config.server?.basePath);
   let collabClientCounter: CollabClientCounter | null = null;
 
   const serverInstance = createServer({
+    basePath,
     getCollabClientCount: () => collabClientCounter?.getCount() ?? 0,
     acpRegistryFetchImpl: opts.acpRegistryFetchImpl,
     contentDir: opts.contentDir,
@@ -455,12 +459,7 @@ async function bootServerInner(opts: BootServerOptions): Promise<BootedServer> {
       : undefined;
 
   const reactShellMiddleware = opts.reactShellDistDir
-    ? sirv(opts.reactShellDistDir, {
-        single: true,
-        gzip: true,
-        etag: true,
-        dev: true,
-      })
+    ? createReactShellMiddleware(opts.reactShellDistDir, basePath)
     : undefined;
 
   const acpThreadManager = opts.ephemeral
@@ -530,6 +529,7 @@ async function bootServerInner(opts: BootServerOptions): Promise<BootedServer> {
     keepaliveGraceMs: opts.keepaliveGraceMs,
     contentAssetMiddleware,
     reactShellMiddleware,
+    basePath,
     ephemeral: opts.ephemeral,
     acpThreadManager,
   });
